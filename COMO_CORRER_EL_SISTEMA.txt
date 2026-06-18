@@ -1,0 +1,156 @@
+===============================================================
+  GUÍA PARA CORRER EL SISTEMA CAMPOLARGO
+  Sistema de Gestión Veterinaria - Sucesión Joao Campolargo
+===============================================================
+
+ANTES DE EMPEZAR - LO QUE NECESITAS TENER INSTALADO
+-----------------------------------------------------
+- Node.js versión 24 o superior
+- PostgreSQL corriendo en tu computadora (puerto 5432)
+- Tu base de datos se llama "campolargo", usuario "postgres", contraseña "30015773"
+
+Si la base de datos "campolargo" no existe todavía, ábrela desde pgAdmin o
+ejecuta esto en una terminal:
+  psql -U postgres -c "CREATE DATABASE campolargo;"
+
+
+PASO 1 - INSTALAR LAS DEPENDENCIAS (solo la primera vez)
+---------------------------------------------------------
+Abre una terminal (PowerShell o CMD) y ejecuta estos comandos EN ORDEN:
+
+  cd C:\Users\MariaFernandaSuarezD\Documents\Tesis
+  npm install --legacy-peer-deps
+
+  cd backend
+  npx prisma generate
+
+Luego instala también las dependencias locales del frontend:
+  cd ..\frontend
+  npm install --legacy-peer-deps
+
+Espera a que todo termine. Puede tardar unos minutos.
+
+
+PASO 2 - CREAR LAS TABLAS EN LA BASE DE DATOS (solo la primera vez)
+--------------------------------------------------------------------
+En la terminal del BACKEND ejecuta:
+  npx prisma migrate dev --name inicio
+
+Esto lee el archivo schema.prisma y crea TODAS las tablas en tu base de datos
+automáticamente. Verás mensajes como "Applying migration..." - eso es normal.
+
+
+PASO 3 - CARGAR DATOS DE PRUEBA (solo la primera vez)
+------------------------------------------------------
+Todavía en la terminal del BACKEND ejecuta:
+  npm run db:seed
+
+Esto carga datos reales de la empresa:
+- Las 3 fincas (La Esperanza, San Antonio, El Palmar)
+- Razas de ganado (Brahman, Senepol, Cebú, etc.)
+- Animales de ejemplo
+- Un usuario administrador para entrar al sistema
+- Calendarios de vacunación
+- Reglas de alertas automáticas
+
+Al terminar verás algo como: "Datos cargados exitosamente"
+
+
+PASO 4 - INICIAR EL SISTEMA
+----------------------------
+Necesitas las DOS terminales corriendo al mismo tiempo.
+
+En la terminal del BACKEND:
+  npm run dev
+
+Verás: "Servidor iniciado en el puerto 3001" - eso significa que la API está lista.
+
+En la terminal del FRONTEND:
+  npm run dev
+
+Verás algo como: "Local: http://localhost:5173" - esa es la dirección del sistema.
+
+
+PASO 5 - ABRIR EL SISTEMA EN EL NAVEGADOR
+------------------------------------------
+Abre Google Chrome o cualquier navegador y ve a:
+  http://localhost:5173
+
+Verás la pantalla de inicio de sesión del sistema.
+
+
+CREDENCIALES PARA ENTRAR
+-------------------------
+  Administrador:
+    Correo:     admin@campolargo.com
+    Contraseña: Campolargo2026!
+
+  Veterinario:
+    Correo:     veterinario@campolargo.com
+    Contraseña: Campolargo2026!
+
+  Técnico:
+    Correo:     tecnico@campolargo.com
+    Contraseña: Campolargo2026!
+
+
+QUÉ HACER SI ALGO FALLA
+------------------------
+
+ERROR: "Cannot connect to database"
+  - Verifica que PostgreSQL esté corriendo (busca el servicio en el Administrador de tareas)
+  - Verifica que la base de datos "campolargo" exista en pgAdmin
+  - Revisa que el archivo backend\.env tenga los datos correctos de conexión
+
+ERROR: "Port 3001 already in use"
+  - Algún proceso ya está usando ese puerto
+  - Ejecuta: netstat -ano | findstr :3001
+  - Luego cierra ese proceso
+
+ERROR: "Module not found" o errores de TypeScript
+  - Vuelve a ejecutar npm install en la carpeta que da error
+
+ERROR: "Prisma Client not generated"
+  - Ejecuta en backend: npx prisma generate
+
+ERROR en el frontend: pantalla en blanco
+  - Abre las herramientas del desarrollador (F12) y mira la consola
+  - Asegúrate de que el backend esté corriendo primero
+
+
+ESTRUCTURA DEL SISTEMA
+-----------------------
+El sistema tiene estas secciones en el menú:
+
+  Dashboard     → Resumen general, indicadores clave, alertas y partos próximos
+  Fincas        → Las 3 fincas de la empresa con sus lotes y potreros
+  Animales      → Todo el hato bovino, búsqueda, filtros y ficha de cada animal
+  Historial Méd → Consultas veterinarias, diagnósticos y tratamientos
+  Vacunación    → Calendarios de vacunación y registro de aplicaciones
+  Reproducción  → Gestaciones, partos próximos y eventos reproductivos
+  Inseminación  → Laboratorio de inseminación artificial y sementales
+  Mapa GPS      → Dispositivos de rastreo y ubicación de animales
+  Alertas       → Notificaciones automáticas del sistema
+  Reportes      → Descarga de reportes en PDF y Excel
+  Seguridad     → Gestión de usuarios y contraseñas
+  Auditoría     → Historial completo de acciones en el sistema
+
+
+DIRECCIÓN DE LA API (para referencia técnica)
+----------------------------------------------
+  http://localhost:3001/api/v1
+  http://localhost:3001/health   ← para verificar que el backend está vivo
+
+
+ARCHIVOS IMPORTANTES
+--------------------
+  backend\.env        → Credenciales de la base de datos y claves JWT (NO compartir)
+  frontend\.env       → Dirección de la API para el frontend
+  backend\prisma\schema.prisma → Definición de toda la base de datos
+  backend\prisma\seed.ts       → Datos de prueba que se cargan al inicio
+
+===============================================================
+  Desarrollado por: María Fernanda Suárez Delfin
+  Universidad Católica Andrés Bello (UCAB) - Trabajo de Grado
+  Ingeniería en Informática - 2026
+===============================================================

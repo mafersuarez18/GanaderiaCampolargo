@@ -1,0 +1,35 @@
+{
+  "name": "sistema-campolargo",
+  "version": "1.0.0",
+  "description": "Sistema de información para la gestión veterinaria de la ganadería bovina - Sucesión Joao Campolargo",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "instalar": "npm install --workspaces",
+    "dev": "npm run dev --workspace=backend & npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "construir": "npm run construir --workspace=backend && npm run construir --workspace=frontend",
+    "docker:dev": "docker compose -f docker-compose.yml up --build",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up --build -d",
+    "docker:detener": "docker compose down",
+    "docker:limpiar": "docker compose down -v --remove-orphans",
+    "db:migrar": "npm run db:migrar --workspace=backend",
+    "db:seed": "npm run db:seed --workspace=backend",
+    "db:reset": "npm run db:reset --workspace=backend",
+    "lint": "npm run lint --workspaces"
+  },
+  "engines": {
+    "node": ">=24.14.0",
+    "npm": ">=10.0.0"
+  },
+  "author": "María Fernanda Suárez Delfin",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "caniuse-lite": "^1.0.30001799",
+    "es-abstract": "^1.24.2"
+  }
+}

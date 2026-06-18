@@ -1,0 +1,18 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Instalar herramientas necesarias para desarrollo
+RUN apk add --no-cache openssl
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+# Generar cliente Prisma
+RUN npx prisma generate
+
+EXPOSE 3001
+
+CMD ["npm", "run", "dev"]

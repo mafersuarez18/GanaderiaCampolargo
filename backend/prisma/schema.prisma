@@ -1,0 +1,798 @@
+// =============================================================
+// PRISMA SCHEMA — Sistema de Gestión Veterinaria Campolargo
+// Base de datos: PostgreSQL 18 + PostGIS 3.6.2
+// Todo en español según requerimiento del proyecto
+// =============================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, unaccent, pg_trgm]
+}
+
+// =============================================================
+// ENUMERACIONES
+// =============================================================
+
+enum Sexo {
+  MACHO
+  HEMBRA
+}
+
+enum EstadoAnimal {
+  ACTIVO       // Animal vivo y en producción
+  VENDIDO      // Animal vendido
+  MUERTO       // Animal fallecido
+  ROBADO       // Animal hurtado
+  TRANSFERIDO  // Transferido a otra finca
+}
+
+enum TipoPropositoAnimal {
+  CARNE
+  LECHE
+  CARNE_LECHE
+  REPRODUCCION
+  TAUROMAQUIA  // Ganado de casta para espectáculos taurinos
+}
+
+enum EstadoSanitario {
+  SANO
+  ENFERMO
+  EN_TRATAMIENTO
+  EN_OBSERVACION
+  CUARENTENA
+}
+
+enum RolUsuario {
+  ADMINISTRADOR
+  VETERINARIO
+  TECNICO
+}
+
+enum EstadoUsuario {
+  ACTIVO
+  INACTIVO
+  BLOQUEADO
+}
+
+enum TipoEventoReproductivo {
+  DETECCION_CELO
+  INSEMINACION_ARTIFICIAL
+  MONTA_NATURAL
+  DIAGNOSTICO_GESTACION
+  PARTO
+  ABORTO
+  DESTETE
+  DESCARTE_REPRODUCTIVO
+}
+
+enum ResultadoDiagnosticoGestacion {
+  POSITIVO
+  NEGATIVO
+  DUDOSO
+  PENDIENTE
+}
+
+enum EstadoGestacion {
+  EN_CURSO
+  FINALIZADA_PARTO
+  FINALIZADA_ABORTO
+  PERDIDA
+}
+
+enum TipoParto {
+  NORMAL
+  DISTOCICO        // Con complicaciones
+  CESAREA
+  PREMATURO
+}
+
+enum EstadoCria {
+  VIVO
+  MUERTO_AL_NACER
+  MUERTO_NEONATAL  // Fallecido en primeras 24 horas
+}
+
+enum TipoInseminacion {
+  SEMEN_FRESCO
+  SEMEN_REFRIGERADO
+  SEMEN_CONGELADO
+  OVULO_FERTILIZADO // Transferencia de embriones
+}
+
+enum EstadoTratamiento {
+  EN_CURSO
+  COMPLETADO
+  SUSPENDIDO
+  FALLIDO
+}
+
+enum TipoAlertaRegla {
+  VACUNA_VENCIDA
+  VACUNA_PROXIMA
+  PARTO_PROXIMO
+  DIAS_ABIERTOS_EXCEDIDOS
+  INTERVALO_REPRODUCTIVO_PROLONGADO
+  AUSENCIA_CONTROL_VETERINARIO
+  ENFERMEDAD_ACTIVA_SIN_RESOLUCION
+  INVENTARIO_SEMEN_BAJO
+  CONTROL_PESO_PENDIENTE
+  PERSONALIZADA
+}
+
+enum PrioridadAlerta {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum EstadoNotificacion {
+  PENDIENTE
+  ENVIADA
+  LEIDA
+  DESCARTADA
+}
+
+enum TipoAccionAuditoria {
+  CREAR
+  LEER
+  ACTUALIZAR
+  ELIMINAR
+  INICIAR_SESION
+  CERRAR_SESION
+  INTENTO_ACCESO_FALLIDO
+  EXPORTAR
+  CONFIGURAR
+}
+
+enum EstadoDispositivoGPS {
+  ACTIVO
+  INACTIVO
+  SIN_SEÑAL
+  BATERIA_BAJA
+}
+
+// =============================================================
+// MÓDULO: INFRAESTRUCTURA (Fincas, Lotes, Potreros)
+// =============================================================
+
+model Finca {
+  id           String   @id @default(cuid())
+  nombre       String   @unique
+  municipio    String
+  estado       String   @default("Yaracuy")
+  direccion    String?
+  hectareas    Float?
+  descripcion  String?
+  activa       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Coordenadas del centro geográfico de la finca (PostGIS)
+  latitudCentro  Float?
+  longitudCentro Float?
+
+  // Relaciones
+  lotes    Lote[]
+  animales Animal[]
+
+  @@map("fincas")
+}
+
+model Lote {
+  id          String   @id @default(cuid())
+  nombre      String
+  descripcion String?
+  capacidad   Int?     // Capacidad máxima de animales
+  activo      Boolean  @default(true)
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  fincaId String
+  finca   Finca  @relation(fields: [fincaId], references: [id], onDelete: Restrict)
+
+  // Relaciones
+  animales  Animal[]
+  potreros  Potrero[]
+
+  @@unique([nombre, fincaId])
+  @@map("lotes")
+}
+
+model Potrero {
+  id          String   @id @default(cuid())
+  nombre      String
+  hectareas   Float?
+  descripcion String?
+  activo      Boolean  @default(true)
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  loteId String
+  lote   Lote   @relation(fields: [loteId], references: [id], onDelete: Restrict)
+
+  @@map("potreros")
+}
+
+// =============================================================
+// MÓDULO: CATÁLOGOS BASE
+// =============================================================
+
+model Raza {
+  id          String              @id @default(cuid())
+  nombre      String              @unique
+  origen      String?
+  proposito   TipoPropositoAnimal
+  descripcion String?
+  activa      Boolean             @default(true)
+  creadoEn    DateTime            @default(now())
+
+  animales  Animal[]
+  sementales Semental[]
+
+  @@map("razas")
+}
+
+model Medicamento {
+  id              String   @id @default(cuid())
+  nombre          String
+  principioActivo String?
+  laboratorio     String?
+  presentacion    String?  // Inyectable, oral, tópico, etc.
+  concentracion   String?
+  unidadMedida    String?  // ml, mg, unidades
+  descripcion     String?
+  activo          Boolean  @default(true)
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
+
+  tratamientos         Tratamiento[]
+  registrosVacunacion  RegistroVacunacion[]
+  calendariosVacunacion CalendarioVacunacion[]
+
+  @@map("medicamentos")
+}
+
+// =============================================================
+// MÓDULO: ANIMALES
+// =============================================================
+
+model Animal {
+  id              String              @id @default(cuid())
+  numeroArete     String              @unique // Número de arete (identificación oficial)
+  nombre          String?
+  sexo            Sexo
+  fechaNacimiento DateTime?
+  pesoNacimiento  Float?
+  pesoActual      Float?
+  color           String?
+  marcas          String?             // Marcas distintivas
+  proposito       TipoPropositoAnimal
+  estado          EstadoAnimal        @default(ACTIVO)
+  estadoSanitario EstadoSanitario     @default(SANO)
+  observaciones   String?
+  fechaIngreso    DateTime            @default(now())
+  fechaEgreso     DateTime?
+  motivoEgreso    String?
+  creadoEn        DateTime            @default(now())
+  actualizadoEn   DateTime            @updatedAt
+
+  // Última posición GPS conocida (se actualiza con cada señal del dispositivo)
+  latitudActual  Float?
+  longitudActual Float?
+
+  // Claves foráneas
+  fincaId String
+  loteId  String?
+  razaId  String
+  padreId String? // Semental (padre biológico)
+  madreId String? // Vaca (madre biológica)
+
+  // Relaciones de infraestructura
+  finca Finca  @relation(fields: [fincaId], references: [id], onDelete: Restrict)
+  lote  Lote?  @relation(fields: [loteId], references: [id], onDelete: SetNull)
+  raza  Raza   @relation(fields: [razaId], references: [id], onDelete: Restrict)
+
+  // Árbol genealógico (auto-referencia)
+  padre       Animal?  @relation("Paternidad", fields: [padreId], references: [id])
+  madre       Animal?  @relation("Maternidad", fields: [madreId], references: [id])
+  hijosComoPadre Animal[] @relation("Paternidad")
+  hijosComoMadre Animal[] @relation("Maternidad")
+
+  // Relaciones con otros módulos
+  historialesMedicos     HistorialMedico[]
+  eventosReproductivos   EventoReproductivo[]
+  gestacionesComoMadre   Gestacion[]          @relation("GestacionMadre")
+  nacimientosComoCria    Nacimiento?          @relation("NacimientoCria")
+  registrosUbicacion     RegistroUbicacion[]
+  dispositivoGPS         DispositivoGPS?
+
+  @@index([fincaId])
+  @@index([loteId])
+  @@index([razaId])
+  @@index([estado])
+  @@index([estadoSanitario])
+  @@index([numeroArete])
+  @@map("animales")
+}
+
+// =============================================================
+// MÓDULO 2: HISTORIAL MÉDICO
+// =============================================================
+
+model HistorialMedico {
+  id              String   @id @default(cuid())
+  fechaConsulta   DateTime
+  motivoConsulta  String
+  sintomasObservados String?
+  diagnostico     String
+  pronostico      String?
+  observaciones   String?
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
+
+  animalId       String
+  veterinarioId  String
+
+  animal      Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  veterinario Usuario @relation("HistorialesCreados", fields: [veterinarioId], references: [id], onDelete: Restrict)
+
+  // Relaciones
+  enfermedades          EnfermedadDiagnosticada[]
+  tratamientos          Tratamiento[]
+  registrosVacunacion   RegistroVacunacion[]
+
+  @@index([animalId])
+  @@index([veterinarioId])
+  @@index([fechaConsulta])
+  @@map("historiales_medicos")
+}
+
+model EnfermedadDiagnosticada {
+  id              String   @id @default(cuid())
+  nombreEnfermedad String
+  fechaInicio     DateTime
+  fechaResolucion DateTime?
+  activa          Boolean  @default(true)
+  descripcionClinica String?
+  observaciones   String?
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
+
+  historialMedicoId String
+  historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+
+  @@index([historialMedicoId])
+  @@index([activa])
+  @@index([nombreEnfermedad])
+  @@map("enfermedades_diagnosticadas")
+}
+
+model Tratamiento {
+  id               String            @id @default(cuid())
+  fechaInicio      DateTime
+  fechaFin         DateTime?
+  dosis            String
+  viaAdministracion String            // Oral, intramuscular, intravenosa, subcutánea, tópica
+  frecuencia       String            // Cada 8 horas, diario, etc.
+  duracionDias     Int?
+  estado           EstadoTratamiento @default(EN_CURSO)
+  respuestaTratamiento String?       // Evolución del animal
+  observaciones    String?
+  creadoEn         DateTime          @default(now())
+  actualizadoEn    DateTime          @updatedAt
+
+  historialMedicoId String
+  medicamentoId     String
+
+  historialMedico HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+  medicamento     Medicamento     @relation(fields: [medicamentoId], references: [id], onDelete: Restrict)
+
+  @@index([historialMedicoId])
+  @@index([medicamentoId])
+  @@index([estado])
+  @@map("tratamientos")
+}
+
+// =============================================================
+// MÓDULO: VACUNACIÓN
+// =============================================================
+
+model CalendarioVacunacion {
+  id                String   @id @default(cuid())
+  nombreVacuna      String
+  descripcion       String?
+  fabricante        String?
+  intervaloDias     Int      // Cada cuántos días se debe repetir
+  edadMinimasDias   Int?     // Edad mínima en días para aplicar
+  aplicaASexo       Sexo?   // null = ambos sexos
+  activo            Boolean  @default(true)
+  creadoEn          DateTime @default(now())
+  actualizadoEn     DateTime @updatedAt
+
+  medicamentoId String?
+  medicamento   Medicamento? @relation(fields: [medicamentoId], references: [id])
+
+  registrosVacunacion RegistroVacunacion[]
+
+  @@map("calendarios_vacunacion")
+}
+
+// Relación entre HistorialMedico y CalendarioVacunacion fue eliminada
+// en favor del campo directo en RegistroVacunacion
+
+model RegistroVacunacion {
+  id               String   @id @default(cuid())
+  fechaAplicacion  DateTime
+  dosis            String?
+  viaAdministracion String?
+  lote             String?  // Lote del medicamento
+  proximaFecha     DateTime?
+  observaciones    String?
+  creadoEn         DateTime @default(now())
+
+  historialMedicoId      String?
+  calendarioVacunacionId String
+  medicamentoId          String?
+  aplicadoPorId          String
+
+  historialMedico      HistorialMedico?      @relation(fields: [historialMedicoId], references: [id], onDelete: SetNull)
+  calendarioVacunacion CalendarioVacunacion  @relation(fields: [calendarioVacunacionId], references: [id], onDelete: Restrict)
+  medicamento          Medicamento?          @relation(fields: [medicamentoId], references: [id], onDelete: SetNull)
+  aplicadoPor          Usuario              @relation("VacunasAplicadas", fields: [aplicadoPorId], references: [id], onDelete: Restrict)
+
+  @@index([historialMedicoId])
+  @@index([calendarioVacunacionId])
+  @@index([fechaAplicacion])
+  @@map("registros_vacunacion")
+}
+
+// =============================================================
+// MÓDULO 3: REPRODUCCIÓN
+// =============================================================
+
+model EventoReproductivo {
+  id          String                 @id @default(cuid())
+  tipo        TipoEventoReproductivo
+  fecha       DateTime
+  descripcion String?
+  observaciones String?
+  creadoEn    DateTime               @default(now())
+  actualizadoEn DateTime             @updatedAt
+
+  animalId      String
+  registradoPorId String
+
+  animal         Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  registradoPor  Usuario @relation("EventosReproductivosRegistrados", fields: [registradoPorId], references: [id], onDelete: Restrict)
+
+  // Datos específicos según tipo de evento
+  inseminacion          InseminacionArtificial?
+  diagnosticoGestacion  DiagnosticoGestacion?
+
+  @@index([animalId])
+  @@index([tipo])
+  @@index([fecha])
+  @@map("eventos_reproductivos")
+}
+
+model InseminacionArtificial {
+  id              String           @id @default(cuid())
+  tipo            TipoInseminacion @default(SEMEN_CONGELADO)
+  fechaInseminacion DateTime
+  numeroIntento   Int              @default(1) // 1er, 2do, 3er intento
+  observaciones   String?
+  creadoEn        DateTime         @default(now())
+
+  eventoReproductivoId String           @unique
+  inventarioSemenId    String?
+
+  eventoReproductivo EventoReproductivo @relation(fields: [eventoReproductivoId], references: [id], onDelete: Cascade)
+  inventarioSemen    InventarioSemen?   @relation(fields: [inventarioSemenId], references: [id], onDelete: SetNull)
+
+  @@map("inseminaciones_artificiales")
+}
+
+model DiagnosticoGestacion {
+  id              String                        @id @default(cuid())
+  fechaDiagnostico DateTime
+  resultado       ResultadoDiagnosticoGestacion
+  metodoDiagnostico String?                    // Ecografía, palpación rectal, etc.
+  semanaGestacion Int?
+  observaciones   String?
+  creadoEn        DateTime                      @default(now())
+
+  eventoReproductivoId String              @unique
+  gestacionId          String?
+
+  eventoReproductivo EventoReproductivo @relation(fields: [eventoReproductivoId], references: [id], onDelete: Cascade)
+  gestacion          Gestacion?         @relation(fields: [gestacionId], references: [id], onDelete: SetNull)
+
+  @@map("diagnosticos_gestacion")
+}
+
+model Gestacion {
+  id                  String          @id @default(cuid())
+  fechaInicio         DateTime        // Fecha estimada de concepción
+  fechaPartoEsperado  DateTime        // Fecha probable de parto (gestación ~283 días Brahman)
+  fechaPartoReal      DateTime?
+  estadoGestacion     EstadoGestacion @default(EN_CURSO)
+  observaciones       String?
+  creadoEn            DateTime        @default(now())
+  actualizadoEn       DateTime        @updatedAt
+
+  madreId String
+  madre   Animal @relation("GestacionMadre", fields: [madreId], references: [id], onDelete: Restrict)
+
+  // Relaciones
+  diagnosticos DiagnosticoGestacion[]
+  nacimientos  Nacimiento[]
+
+  @@index([madreId])
+  @@index([estadoGestacion])
+  @@index([fechaPartoEsperado])
+  @@map("gestaciones")
+}
+
+model Nacimiento {
+  id              String     @id @default(cuid())
+  fechaNacimiento DateTime
+  tipoParto       TipoParto  @default(NORMAL)
+  pesoAlNacer     Float?
+  estadoCria      EstadoCria @default(VIVO)
+  sexoCria        Sexo?
+  observaciones   String?
+  complicaciones  String?
+  creadoEn        DateTime   @default(now())
+
+  gestacionId String
+  criaId      String?  @unique // Animal registrado como producto del parto
+
+  gestacion Gestacion @relation(fields: [gestacionId], references: [id], onDelete: Restrict)
+  cria      Animal?   @relation("NacimientoCria", fields: [criaId], references: [id], onDelete: SetNull)
+
+  @@index([gestacionId])
+  @@map("nacimientos")
+}
+
+// =============================================================
+// MÓDULO: LABORATORIO DE INSEMINACIÓN ARTIFICIAL
+// =============================================================
+
+model Semental {
+  id           String   @id @default(cuid())
+  nombre       String
+  registro     String?  @unique // Número de registro oficial
+  origen       String?
+  activo       Boolean  @default(true)
+  observaciones String?
+  creadoEn     DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  razaId String
+  raza   Raza   @relation(fields: [razaId], references: [id], onDelete: Restrict)
+
+  inventariosSemen InventarioSemen[]
+
+  @@map("sementales")
+}
+
+model InventarioSemen {
+  id              String   @id @default(cuid())
+  codigoDosis     String   @unique // Código de identificación de la dosis
+  fechaColeccion  DateTime?
+  fechaVencimiento DateTime?
+  cantidadDosis   Int      @default(1)
+  cantidadUsada   Int      @default(0)
+  motivilidad     Float?   // Porcentaje de motilidad espermática
+  concentracion   Float?   // Millones de espermatozoides por ml
+  volumen         Float?   // Volumen en ml
+  coloracion      String?
+  observaciones   String?
+  activo          Boolean  @default(true)
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
+
+  sementalId String
+  semental   Semental @relation(fields: [sementalId], references: [id], onDelete: Restrict)
+
+  inseminaciones InseminacionArtificial[]
+
+  @@index([sementalId])
+  @@index([activo])
+  @@map("inventario_semen")
+}
+
+// =============================================================
+// MÓDULO 4: GEOLOCALIZACIÓN
+// =============================================================
+
+// Arquitectura preparada para GPS real (IoT/GSM)
+// Actualmente usa datos simulados; la estructura es production-ready
+
+model DispositivoGPS {
+  id                   String               @id @default(cuid())
+  codigoDispositivo    String               @unique // ID único del hardware GPS
+  modelo               String?
+  fabricante           String?
+  frecuenciaActualizacion Int               @default(3600) // Segundos entre actualizaciones
+  estado               EstadoDispositivoGPS @default(ACTIVO)
+  nivelBateria         Int?                 // Porcentaje de batería
+  ultimaConexion       DateTime?
+  apiKey               String               @unique // Clave para autenticar el dispositivo
+  activo               Boolean              @default(true)
+  creadoEn             DateTime             @default(now())
+  actualizadoEn        DateTime             @updatedAt
+
+  animalId String  @unique
+  animal   Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  registrosUbicacion RegistroUbicacion[]
+
+  @@map("dispositivos_gps")
+}
+
+model RegistroUbicacion {
+  id              String   @id @default(cuid())
+  latitud         Float    // Coordenada decimal (PostGIS POINT)
+  longitud        Float    // Coordenada decimal
+  altitud         Float?   // Metros sobre el nivel del mar
+  precision       Float?   // Precisión GPS en metros
+  velocidad       Float?   // km/h (si el GPS lo provee)
+  rumbo           Float?   // Dirección en grados
+  fechaRegistro   DateTime @default(now())
+  esDatoSimulado  Boolean  @default(false) // false cuando venga de GPS real
+
+  animalId         String
+  dispositivoGPSId String?
+
+  animal        Animal          @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  dispositivoGPS DispositivoGPS? @relation(fields: [dispositivoGPSId], references: [id], onDelete: SetNull)
+
+  @@index([animalId])
+  @@index([fechaRegistro])
+  @@index([animalId, fechaRegistro])
+  @@map("registros_ubicacion")
+}
+
+// =============================================================
+// MÓDULO 5: SEGURIDAD — USUARIOS Y ROLES
+// =============================================================
+
+model Usuario {
+  id             String        @id @default(cuid())
+  nombre         String
+  apellido       String
+  correo         String        @unique
+  contrasena     String        // Hash bcrypt
+  rol            RolUsuario
+  estado         EstadoUsuario @default(ACTIVO)
+  telefono       String?
+  cedulaIdentidad String?      @unique
+  cargo          String?
+  ultimoAcceso   DateTime?
+  intentosFallidos Int         @default(0)
+  bloqueadoHasta DateTime?
+  tokenRefresh   String?       // Hash del refresh token activo
+  creadoEn       DateTime      @default(now())
+  actualizadoEn  DateTime      @updatedAt
+
+  creadoPorId String?
+  creadoPor   Usuario?  @relation("UsuariosCreados", fields: [creadoPorId], references: [id])
+  usuariosCreados Usuario[] @relation("UsuariosCreados")
+
+  // Actividad del usuario en el sistema
+  historialesMedicosCreados    HistorialMedico[]         @relation("HistorialesCreados")
+  eventosReproductivosRegistrados EventoReproductivo[]   @relation("EventosReproductivosRegistrados")
+  vacunasAplicadas             RegistroVacunacion[]      @relation("VacunasAplicadas")
+  notificaciones               Notificacion[]
+  registrosAuditoria           RegistroAuditoria[]
+  reglasAlertaCreadas          ReglaAlerta[]
+
+  @@index([correo])
+  @@index([rol])
+  @@index([estado])
+  @@map("usuarios")
+}
+
+// =============================================================
+// MÓDULO 6: MOTOR DE ALERTAS
+// =============================================================
+
+model ReglaAlerta {
+  id              String           @id @default(cuid())
+  nombre          String
+  descripcion     String?
+  tipoAlerta      TipoAlertaRegla
+  activa          Boolean          @default(true)
+  prioridad       PrioridadAlerta  @default(MEDIA)
+
+  // Configuración del umbral
+  umbralValor     Float?           // Valor numérico del umbral (días, cantidad, etc.)
+  umbralUnidad    String?          // Unidad: "dias", "horas", "unidades"
+
+  // Configuración de destinatarios (quién recibe la alerta)
+  notificarAdministrador Boolean  @default(true)
+  notificarVeterinario   Boolean  @default(true)
+  notificarTecnico       Boolean  @default(false)
+  enviarCorreo           Boolean  @default(true)
+
+  // Configuración de periodicidad
+  evaluarCadaHoras Int            @default(24) // Cada cuántas horas se evalúa esta regla
+  ultimaEvaluacion DateTime?
+
+  // Mensaje personalizable
+  mensajeAlerta   String?         // Puede contener variables como {animal}, {fecha}
+
+  creadoEn        DateTime        @default(now())
+  actualizadoEn   DateTime        @updatedAt
+
+  creadoPorId String
+  creadoPor   Usuario @relation(fields: [creadoPorId], references: [id])
+
+  notificaciones Notificacion[]
+
+  @@map("reglas_alerta")
+}
+
+model Notificacion {
+  id            String             @id @default(cuid())
+  titulo        String
+  mensaje       String
+  prioridad     PrioridadAlerta
+  estado        EstadoNotificacion @default(PENDIENTE)
+  leida         Boolean            @default(false)
+  fechaLeida    DateTime?
+  correoEnviado Boolean            @default(false)
+  fechaCorreo   DateTime?
+  entidadTipo   String?            // "Animal", "Gestacion", etc.
+  entidadId     String?            // ID de la entidad relacionada
+  creadoEn      DateTime           @default(now())
+
+  usuarioId   String
+  reglaId     String?
+
+  usuario Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  regla   ReglaAlerta? @relation(fields: [reglaId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@index([estado])
+  @@index([leida])
+  @@index([creadoEn])
+  @@map("notificaciones")
+}
+
+// =============================================================
+// MÓDULO 5B: AUDITORÍA
+// =============================================================
+
+model RegistroAuditoria {
+  id            String              @id @default(cuid())
+  accion        TipoAccionAuditoria
+  modulo        String              // Nombre del módulo: "animales", "usuarios", etc.
+  descripcion   String
+  entidadTipo   String?             // Tipo de entidad afectada
+  entidadId     String?             // ID de la entidad afectada
+  datosAnteriores Json?             // Estado anterior (para actualizaciones y eliminaciones)
+  datosNuevos   Json?               // Estado nuevo (para creaciones y actualizaciones)
+  direccionIP   String?
+  agenteUsuario String?             // User-agent del navegador
+  exitosa       Boolean             @default(true)
+  errorMensaje  String?
+  creadoEn      DateTime            @default(now())
+
+  usuarioId String?
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@index([modulo])
+  @@index([creadoEn])
+  @@index([entidadTipo, entidadId])
+  @@map("registros_auditoria")
+}

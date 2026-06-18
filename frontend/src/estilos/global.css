@@ -1,0 +1,371 @@
+@import "tailwindcss";
+
+/* =============================================================
+   TOKENS DE DISEÑO — Sistema Campolargo
+   Paleta: Material Design 3 + Verde Ganadero
+   Fuente: Inter — Iconos: Material Symbols Outlined
+   ============================================================= */
+
+@theme {
+  /* ── MD3 Color System ─────────────────────────────────────── */
+  --color-primary:                   #0d631b;
+  --color-on-primary:                #ffffff;
+  --color-primary-container:         #2e7d32;
+  --color-on-primary-container:      #cbffc2;
+  --color-primary-fixed:             #a3f69c;
+  --color-primary-fixed-dim:         #88d982;
+  --color-inverse-primary:           #88d982;
+
+  --color-secondary:                 #79564b;
+  --color-on-secondary:              #ffffff;
+  --color-secondary-container:       #fed0c1;
+  --color-on-secondary-container:    #79574c;
+
+  --color-tertiary:                  #006419;
+  --color-on-tertiary:               #ffffff;
+  --color-tertiary-container:        #127f26;
+  --color-on-tertiary-container:     #caffc2;
+
+  --color-error:                     #ba1a1a;
+  --color-on-error:                  #ffffff;
+  --color-error-container:           #ffdad6;
+  --color-on-error-container:        #93000a;
+
+  --color-surface:                   #f9f9f8;
+  --color-on-surface:                #1a1c1c;
+  --color-surface-variant:           #e2e2e2;
+  --color-on-surface-variant:        #40493d;
+  --color-surface-container-lowest:  #ffffff;
+  --color-surface-container-low:     #f3f4f3;
+  --color-surface-container:         #eeeeed;
+  --color-surface-container-high:    #e8e8e7;
+  --color-surface-container-highest: #e2e2e2;
+  --color-surface-bright:            #f9f9f8;
+  --color-surface-dim:               #dadad9;
+  --color-surface-tint:              #1b6d24;
+  --color-inverse-surface:           #2f3130;
+  --color-inverse-on-surface:        #f1f1f0;
+
+  --color-outline:                   #707a6c;
+  --color-outline-variant:           #bfcaba;
+  --color-background:                #f9f9f8;
+  --color-on-background:             #1a1c1c;
+
+  /* ── Colores de soporte (verde / tierra / piedra) ─────────── */
+  --color-verde-50:   #f0fdf4;
+  --color-verde-100:  #dcfce7;
+  --color-verde-200:  #bbf7d0;
+  --color-verde-300:  #86efac;
+  --color-verde-400:  #4ade80;
+  --color-verde-500:  #22c55e;
+  --color-verde-600:  #16a34a;
+  --color-verde-700:  #15803d;
+  --color-verde-800:  #166534;
+  --color-verde-900:  #14532d;
+  --color-verde-950:  #052e16;
+
+  --color-tierra-50:  #fdf8f0;
+  --color-tierra-100: #faebd7;
+  --color-tierra-200: #f5d0a9;
+  --color-tierra-300: #e8a87c;
+  --color-tierra-400: #d4845a;
+  --color-tierra-500: #b5631e;
+  --color-tierra-600: #92400e;
+  --color-tierra-700: #78350f;
+  --color-tierra-800: #5c2d0e;
+  --color-tierra-900: #431d07;
+
+  --color-piedra-50:  #fafaf9;
+  --color-piedra-100: #f5f5f4;
+  --color-piedra-200: #e7e5e4;
+  --color-piedra-300: #d6d3d1;
+  --color-piedra-400: #a8a29e;
+  --color-piedra-500: #78716c;
+  --color-piedra-600: #57534e;
+  --color-piedra-700: #44403c;
+  --color-piedra-800: #292524;
+  --color-piedra-900: #1c1917;
+
+  /* ── Semánticos de estado ─────────────────────────────────── */
+  --color-exito:      #16a34a;
+  --color-advertencia:#d97706;
+  --color-info:       #2563eb;
+
+  /* ── Tipografía ───────────────────────────────────────────── */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Bordes redondeados ───────────────────────────────────── */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+  /* ── Sombras ──────────────────────────────────────────────── */
+  --shadow-xs:      0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm:      0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md:      0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg:      0 8px 32px rgba(0,0,0,0.10);
+  --shadow-xl:      0 16px 48px rgba(0,0,0,0.12);
+  --shadow-glass:   0 10px 30px rgba(13,99,27,0.04);
+  --shadow-primary: 0 8px 24px rgba(13,99,27,0.25);
+
+  /* ── Animaciones ──────────────────────────────────────────── */
+  --duracion-rapida: 150ms;
+  --duracion-normal: 250ms;
+  --duracion-lenta:  400ms;
+  --ease-out:        cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-in-out:     cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* =============================================================
+   RESET Y BASE
+   ============================================================= */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  line-height: 1.6;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+#raiz {
+  height: 100%;
+  isolation: isolate;
+}
+
+/* ── Material Symbols ─────────────────────────────────────── */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+  user-select: none;
+}
+
+/* ── Scrollbar personalizada ──────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-outline); }
+
+/* ── Selección de texto ───────────────────────────────────── */
+::selection {
+  background: var(--color-primary-fixed);
+  color: var(--color-on-primary-container);
+}
+
+/* =============================================================
+   UTILIDADES CLAVE
+   ============================================================= */
+
+/* Tarjeta de vidrio (glass morphism) — diseño Stitch */
+.tarjeta-vidrio {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #E5E5E5;
+  box-shadow: var(--shadow-glass);
+  transition: transform var(--duracion-normal) var(--ease-out),
+              box-shadow var(--duracion-normal) var(--ease-out);
+}
+
+.tarjeta-vidrio:hover {
+  transform: translateY(-2px);
+}
+
+/* Tarjeta sólida clásica */
+.tarjeta {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-outline-variant);
+  transition: box-shadow var(--duracion-normal) var(--ease-out),
+              transform var(--duracion-normal) var(--ease-out);
+}
+
+.tarjeta:hover { box-shadow: var(--shadow-md); }
+
+.tarjeta-interactiva:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* ── Animación skeleton ───────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.esqueleto {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-container) 25%,
+    var(--color-surface-container-low) 50%,
+    var(--color-surface-container) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Glassmorphism legado ─────────────────────────────────── */
+.vidrio {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* ── Focus visible accesible ──────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Transiciones globales ────────────────────────────────── */
+a, button { transition: all var(--duracion-rapida) var(--ease-out); }
+
+/* ── Tabla responsiva ─────────────────────────────────────── */
+.tabla-contenedor {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-outline-variant);
+}
+
+/* ── Badges ───────────────────────────────────────────────── */
+.badge { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+.badge-verde    { background: var(--color-verde-100);   color: var(--color-verde-700); }
+.badge-tierra   { background: var(--color-tierra-100);  color: var(--color-tierra-700); }
+.badge-rojo     { background: var(--color-error-container); color: var(--color-on-error-container); }
+.badge-amarillo { background: #fef9c3; color: #854d0e; }
+.badge-gris     { background: var(--color-surface-container-high); color: var(--color-on-surface-variant); }
+
+/* ── Campos de entrada ────────────────────────────────────── */
+/* En @layer components para que las utilidades Tailwind (pl-*, pr-*) puedan sobreescribir el padding */
+@layer components {
+  .campo-entrada {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--color-outline-variant);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--color-on-surface);
+    background: var(--color-surface-container-lowest);
+    font-family: var(--font-sans);
+    transition: border-color var(--duracion-rapida) var(--ease-out),
+                box-shadow var(--duracion-rapida) var(--ease-out);
+  }
+
+  .campo-entrada:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(13, 99, 27, 0.12);
+  }
+
+  .campo-entrada::placeholder { color: var(--color-outline); }
+  .campo-entrada:disabled { background: var(--color-surface-container); cursor: not-allowed; opacity: 0.7; }
+}
+
+/* ── Botones ──────────────────────────────────────────────── */
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: var(--font-sans);
+  transition: all var(--duracion-rapida) var(--ease-out);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.boton:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+.boton-primario {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: var(--shadow-primary);
+}
+
+.boton-primario:hover {
+  background: var(--color-primary-container);
+  box-shadow: 0 6px 20px rgba(13, 99, 27, 0.35);
+  transform: translateY(-1px);
+}
+
+.boton-primario:active { transform: translateY(0); }
+
+.boton-secundario {
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  border: 1.5px solid var(--color-outline-variant);
+}
+
+.boton-secundario:hover {
+  background: var(--color-surface-container-low);
+  border-color: var(--color-outline);
+}
+
+.boton-peligro {
+  background: var(--color-error);
+  color: var(--color-on-error);
+}
+
+.boton-peligro:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.boton-icono {
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-on-surface-variant);
+  cursor: pointer;
+  border: none;
+}
+
+.boton-icono:hover { background: var(--color-surface-container); color: var(--color-on-surface); }
+
+/* ── Animación pulso para alertas ─────────────────────────── */
+@keyframes pulso-alerta {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.8; transform: scale(0.95); }
+}
+
+.pulso-alerta { animation: pulso-alerta 2s ease-in-out infinite; }
+
+/* ── Gradiente de texto ───────────────────────────────────── */
+.texto-gradiente {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-tertiary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

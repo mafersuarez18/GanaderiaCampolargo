@@ -1,0 +1,62 @@
+{
+  "name": "campolargo-frontend",
+  "version": "1.0.0",
+  "description": "Interfaz de usuario PWA del Sistema de Gestión Veterinaria Campolargo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "construir": "tsc && vite build",
+    "previsualizar": "vite preview",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "engines": {
+    "node": ">=24.14.0"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
+    "@radix-ui/react-avatar": "^1.1.2",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-dropdown-menu": "^2.1.4",
+    "@radix-ui/react-popover": "^1.1.4",
+    "@radix-ui/react-progress": "^1.1.1",
+    "@radix-ui/react-select": "^2.1.4",
+    "@radix-ui/react-separator": "^1.1.1",
+    "@radix-ui/react-switch": "^1.1.2",
+    "@radix-ui/react-tabs": "^1.1.2",
+    "@radix-ui/react-tooltip": "^1.1.6",
+    "@tanstack/react-query": "^5.62.0",
+    "@tanstack/react-query-devtools": "^5.101.0",
+    "axios": "^1.7.9",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^12.0.0",
+    "idb": "^8.0.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hook-form": "^7.54.2",
+    "react-hot-toast": "^2.4.1",
+    "react-intersection-observer": "^9.13.1",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.0.0",
+    "recharts": "^2.14.1",
+    "tailwind-merge": "^2.6.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.1",
+    "@types/leaflet": "^1.9.14",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^7.0.0",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}
