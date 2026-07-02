@@ -158,6 +158,45 @@ enum EstadoDispositivoGPS {
   BATERIA_BAJA
 }
 
+enum EstadoReproductivo {
+  ENTERO
+  CASTRADO
+  LACTANTE
+  GESTANTE
+}
+
+enum TipoAyudaDiagnostica {
+  HEMOGRAMA
+  BIOQUIMICA_SANGUINEA
+  RASPADO_PIEL
+  ANALISIS_COPROLOGICO
+  TEST_CALIFORNIA_MASTITIS
+  ECOGRAFIA
+  OTRO
+}
+
+enum TipoDesparasitante {
+  ECTOPARASITO
+  ENDOPARASITO
+  AMBOS
+}
+
+enum ClasificacionIA {
+  CELO_DETECTADO
+  TIEMPO_FIJO
+}
+
+enum TecnicaDeposicionSemen {
+  INTRAUTERINA_RECTOVAGINAL
+  INTRAUTERINA_PROFUNDA
+}
+
+enum NivelEstres {
+  ALTO
+  MEDIO
+  BAJO
+}
+
 // =============================================================
 // MÓDULO: INFRAESTRUCTURA (Fincas, Lotes, Potreros)
 // =============================================================
@@ -277,6 +316,8 @@ model Animal {
   estado          EstadoAnimal        @default(ACTIVO)
   estadoSanitario EstadoSanitario     @default(SANO)
   observaciones   String?
+  tipoCruce       String?             // Tipo de cruce genético (F1, F2, sangre pura, etc.)
+  procedencia     String?             // Origen si fue adquirido externamente
   fechaIngreso    DateTime            @default(now())
   fechaEgreso     DateTime?
   motivoEgreso    String?
@@ -334,6 +375,32 @@ model HistorialMedico {
   diagnostico     String
   pronostico      String?
   observaciones   String?
+
+  // Anamnesis
+  tiempoEvolucion                    String?
+  tratamientosPrevios                String?
+  cirugias                           String?
+
+  // Exploración física
+  temperatura                        Float?
+  frecuenciaCardiaca                 Int?
+  frecuenciaRespiratoria             Int?
+  tiempoLlenadoCapilar               Float?
+  movimientosRuminales               Int?
+  condicionCorporal                  Float?
+
+  // Estado del animal
+  estadoReproductivo                 EstadoReproductivo?
+  litrosLechesDiarios                Float?
+  gananciaPeso                       Float?
+
+  // Diagnóstico y plan
+  diagnosticoDefinitivo              String?
+  planDiagnostico                    String?
+
+  // Pruebas obligatorias
+  observacionesDiagnosticosOficiales String?
+
   creadoEn        DateTime @default(now())
   actualizadoEn   DateTime @updatedAt
 
@@ -344,9 +411,12 @@ model HistorialMedico {
   veterinario Usuario @relation("HistorialesCreados", fields: [veterinarioId], references: [id], onDelete: Restrict)
 
   // Relaciones
-  enfermedades          EnfermedadDiagnosticada[]
-  tratamientos          Tratamiento[]
-  registrosVacunacion   RegistroVacunacion[]
+  enfermedades              EnfermedadDiagnosticada[]
+  tratamientos              Tratamiento[]
+  registrosVacunacion       RegistroVacunacion[]
+  informacionEpidemiologica InformacionEpidemiologica?
+  ayudasDiagnosticas        AyudaDiagnostica[]
+  desparasitaciones         ProgramaDesparasitacion[]
 
   @@index([animalId])
   @@index([veterinarioId])
@@ -398,6 +468,54 @@ model Tratamiento {
   @@index([medicamentoId])
   @@index([estado])
   @@map("tratamientos")
+}
+
+model InformacionEpidemiologica {
+  id            String  @id @default(cuid())
+  garrapatas    Boolean @default(false)
+  mosquitos     Boolean @default(false)
+  murcielagos   Boolean @default(false)
+  moscas        Boolean @default(false)
+  otrosVectores String?
+  descripcion   String?
+
+  historialMedicoId String          @unique
+  historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+
+  @@map("informacion_epidemiologica")
+}
+
+model AyudaDiagnostica {
+  id          String               @id @default(cuid())
+  tipo        TipoAyudaDiagnostica
+  descripcion String?
+  resultado   String?
+  fecha       DateTime
+  creadoEn    DateTime             @default(now())
+
+  historialMedicoId String
+  historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+
+  @@index([historialMedicoId])
+  @@map("ayudas_diagnosticas")
+}
+
+model ProgramaDesparasitacion {
+  id              String             @id @default(cuid())
+  producto        String
+  principioActivo String?
+  tipo            TipoDesparasitante
+  fecha           DateTime
+  dosis           String?
+  via             String?
+  observaciones   String?
+  creadoEn        DateTime           @default(now())
+
+  historialMedicoId String
+  historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+
+  @@index([historialMedicoId])
+  @@map("programas_desparasitacion")
 }
 
 // =============================================================
@@ -488,6 +606,13 @@ model InseminacionArtificial {
   fechaInseminacion DateTime
   numeroIntento   Int              @default(1) // 1er, 2do, 3er intento
   observaciones   String?
+  clasificacionIA        ClasificacionIA?
+  tecnicaDeposicion      TecnicaDeposicionSemen?
+  patologiasVaca         String?
+  tasaMetabolicaBasal    Int?
+  balanceEnergetico      String?
+  temperaturaUterina     Float?
+  manejoHato             NivelEstres?
   creadoEn        DateTime         @default(now())
 
   eventoReproductivoId String           @unique
@@ -594,6 +719,7 @@ model InventarioSemen {
   concentracion   Float?   // Millones de espermatozoides por ml
   volumen         Float?   // Volumen en ml
   coloracion      String?
+  temperatura     Float?   // Temperatura de almacenamiento/transporte en °C
   observaciones   String?
   activo          Boolean  @default(true)
   creadoEn        DateTime @default(now())

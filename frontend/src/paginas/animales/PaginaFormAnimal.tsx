@@ -14,14 +14,15 @@ const esquemaAnimal = z.object({
   nombre:           z.string().max(100).optional().or(z.literal('')),
   sexo:             z.enum(['MACHO', 'HEMBRA'], { required_error: 'Seleccione el sexo' }),
   estado:           z.enum(['ACTIVO', 'VENDIDO', 'MUERTO', 'ROBADO', 'TRANSFERIDO']).default('ACTIVO'),
-  estadoSanitario:  z.enum(['SANO', 'ENFERMO', 'EN_CUARENTENA', 'FALLECIDO']).default('SANO'),
+  estadoSanitario:  z.enum(['SANO', 'ENFERMO', 'EN_TRATAMIENTO', 'EN_OBSERVACION', 'CUARENTENA']).default('SANO'),
   proposito:        z.enum(['CARNE', 'LECHE', 'CARNE_LECHE', 'REPRODUCCION', 'TAUROMAQUIA']).optional().or(z.literal('')),
   fechaNacimiento:  z.string().optional().or(z.literal('')),
-  peso:             z.coerce.number().positive().optional().or(z.literal('')),
+  pesoActual:       z.coerce.number().positive().optional().or(z.literal('')),
   color:            z.string().max(100).optional().or(z.literal('')),
-  descripcion:      z.string().max(1000).optional().or(z.literal('')),
-  microchip:        z.string().max(100).optional().or(z.literal('')),
-  procedencia:      z.string().max(200).optional().or(z.literal('')),
+  observaciones:    z.string().max(1000).optional().or(z.literal('')),
+  marcas:           z.string().max(300).optional().or(z.literal('')),
+  tipoCruce:        z.string().max(100).optional().or(z.literal('')),
+  procedencia:      z.string().max(300).optional().or(z.literal('')),
   fincaId:          z.string().min(1, 'Seleccione una finca válida'),
   loteId:           z.string().min(1).optional().or(z.literal('')),
   razaId:           z.string().min(1).optional().or(z.literal('')),
@@ -105,16 +106,17 @@ export default function PaginaFormAnimal() {
         estadoSanitario: animalExistente.estadoSanitario,
         proposito:       animalExistente.proposito ?? '',
         fechaNacimiento: animalExistente.fechaNacimiento?.split('T')[0] ?? '',
-        peso:            animalExistente.peso ?? '',
+        pesoActual:      animalExistente.pesoActual ?? '',
         color:           animalExistente.color ?? '',
-        descripcion:     animalExistente.descripcion ?? '',
-        microchip:       animalExistente.microchip ?? '',
-        procedencia:     animalExistente.procedencia ?? '',
+        observaciones:   animalExistente.observaciones ?? '',
+        marcas:          animalExistente.marcas ?? '',
         fincaId:         animalExistente.finca?.id ?? '',
         loteId:          animalExistente.lote?.id ?? '',
         razaId:          animalExistente.raza?.id ?? '',
         padreId:         animalExistente.padre?.id ?? '',
         madreId:         animalExistente.madre?.id ?? '',
+        tipoCruce:       animalExistente.tipoCruce ?? '',
+        procedencia:     animalExistente.procedencia ?? '',
       });
     }
   }, [animalExistente, reset]);
@@ -210,8 +212,22 @@ export default function PaginaFormAnimal() {
             <CampoForm etiqueta="Color / Pelaje">
               <input {...register('color')} placeholder="Ej: Pardo oscuro" className="campo-entrada" />
             </CampoForm>
-            <CampoForm etiqueta="Microchip">
-              <input {...register('microchip')} placeholder="Código del microchip" className="campo-entrada" />
+            <CampoForm etiqueta="Marcas distintivas">
+              <input {...register('marcas')} placeholder="Ej: Mancha blanca en frente" className="campo-entrada" />
+            </CampoForm>
+            <CampoForm etiqueta="Tipo de cruce" error={errors.tipoCruce?.message}>
+              <input
+                {...register('tipoCruce')}
+                placeholder="Ej: F1, F2, Sangre pura, Brahman x Holstein"
+                className="campo-entrada"
+              />
+            </CampoForm>
+            <CampoForm etiqueta="Procedencia" error={errors.procedencia?.message}>
+              <input
+                {...register('procedencia')}
+                placeholder="Ej: Finca El Roble, Barquisimeto"
+                className="campo-entrada"
+              />
             </CampoForm>
           </div>
         </SeccionFormulario>
@@ -232,8 +248,9 @@ export default function PaginaFormAnimal() {
               <select {...register('estadoSanitario')} className="campo-entrada">
                 <option value="SANO">Sano</option>
                 <option value="ENFERMO">Enfermo</option>
-                <option value="EN_CUARENTENA">En cuarentena</option>
-                <option value="FALLECIDO">Fallecido</option>
+                <option value="EN_TRATAMIENTO">En tratamiento</option>
+                <option value="EN_OBSERVACION">En observación</option>
+                <option value="CUARENTENA">En cuarentena</option>
               </select>
             </CampoForm>
             <CampoForm etiqueta="Propósito">
@@ -259,13 +276,10 @@ export default function PaginaFormAnimal() {
               <input
                 type="number"
                 step="0.1"
-                {...register('peso')}
+                {...register('pesoActual')}
                 placeholder="Ej: 350.5"
                 className="campo-entrada"
               />
-            </CampoForm>
-            <CampoForm etiqueta="Procedencia">
-              <input {...register('procedencia')} placeholder="Ej: Finca La Esperanza" className="campo-entrada" />
             </CampoForm>
           </div>
         </SeccionFormulario>
@@ -330,7 +344,7 @@ export default function PaginaFormAnimal() {
         <SeccionFormulario titulo="Observaciones">
           <CampoForm etiqueta="Notas adicionales">
             <textarea
-              {...register('descripcion')}
+              {...register('observaciones')}
               rows={3}
               placeholder="Observaciones, características especiales..."
               className="campo-entrada resize-none"

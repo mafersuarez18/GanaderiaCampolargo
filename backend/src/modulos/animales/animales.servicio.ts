@@ -8,6 +8,7 @@ import {
   eliminarAnimal,
   existeAreteRegistrado,
   listarRazas,
+  contarVacunacionesPorAnimal,
   FiltrosAnimal,
 } from './animales.repositorio';
 import {
@@ -23,7 +24,11 @@ export async function servicioListarAnimales(filtros: FiltrosAnimal) {
 export async function servicioObtenerAnimal(id: string) {
   const animal = await obtenerAnimalPorId(id);
   if (!animal) throw new ErrorNoEncontrado(`Animal con id '${id}' no encontrado`);
-  return animal;
+  const registrosVacunacion = await contarVacunacionesPorAnimal(id);
+  return {
+    ...animal,
+    _count: { ...animal._count, registrosVacunacion },
+  };
 }
 
 export async function servicioObtenerAnimalPorArete(numeroArete: string) {
@@ -44,6 +49,8 @@ export interface DatosCrearAnimal {
   color?:         string;
   marcas?:        string;
   observaciones?: string;
+  tipoCruce?:     string;
+  procedencia?:   string;
   fincaId:        string;
   loteId?:        string;
   razaId:         string;

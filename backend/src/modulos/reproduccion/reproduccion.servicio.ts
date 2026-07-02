@@ -1,4 +1,4 @@
-import { Prisma, TipoEventoReproductivo, EstadoGestacion, EstadoAnimal, Sexo } from '@prisma/client';
+import { Prisma, TipoEventoReproductivo, EstadoGestacion, EstadoAnimal, Sexo, ClasificacionIA, TecnicaDeposicionSemen, NivelEstres } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado, ErrorValidacionDatos } from '../../compartido/tipos/respuesta';
 
@@ -113,6 +113,14 @@ export interface DatosCrearEvento {
   descripcion?:   string;
   observaciones?: string;
   registradoPorId: string;
+  // Campos específicos de Inseminación Artificial
+  clasificacionIA?:     ClasificacionIA;
+  tecnicaDeposicion?:   TecnicaDeposicionSemen;
+  patologiasVaca?:      string;
+  tasaMetabolicaBasal?: number;
+  balanceEnergetico?:   string;
+  temperaturaUterina?:  number;
+  manejoHato?:          NivelEstres;
 }
 
 export async function crearEventoReproductivo(datos: DatosCrearEvento) {
@@ -133,12 +141,37 @@ export async function crearEventoReproductivo(datos: DatosCrearEvento) {
     );
   }
 
-  const { registradoPorId, ...resto } = datos;
+  const {
+    registradoPorId, animalId,
+    clasificacionIA, tecnicaDeposicion, patologiasVaca,
+    tasaMetabolicaBasal, balanceEnergetico, temperaturaUterina, manejoHato,
+    ...resto
+  } = datos;
+  // Solo campos válidos de EventoReproductivo van en resto: tipo, fecha, descripcion, observaciones
+  const { tipo, fecha, descripcion, observaciones } = resto;
+
+  const esInseminacion = datos.tipo === TipoEventoReproductivo.INSEMINACION_ARTIFICIAL;
+
   return prisma.eventoReproductivo.create({
     data: {
-      ...resto,
-      animal:        { connect: { id: datos.animalId } },
+      tipo, fecha, descripcion, observaciones,
+      animal:        { connect: { id: animalId } },
       registradoPor: { connect: { id: registradoPorId } },
+      ...(esInseminacion && {
+        inseminacion: {
+          create: {
+            fechaInseminacion: datos.fecha,
+            numeroIntento:     1,
+            clasificacionIA,
+            tecnicaDeposicion,
+            patologiasVaca,
+            tasaMetabolicaBasal,
+            balanceEnergetico,
+            temperaturaUterina,
+            manejoHato,
+          },
+        },
+      }),
     },
   });
 }

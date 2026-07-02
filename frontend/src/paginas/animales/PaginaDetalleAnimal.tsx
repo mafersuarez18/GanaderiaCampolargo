@@ -139,15 +139,14 @@ export default function PaginaDetalleAnimal() {
             </CampoDetalle>
             <CampoDetalle etiqueta="Estado sanitario">
               <Badge variante={animal.estadoSanitario === 'SANO' ? 'verde' : 'rojo'} punto>
-                {animal.estadoSanitario?.replace('_', ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase())}
+                {animal.estadoSanitario?.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase())}
               </Badge>
             </CampoDetalle>
             <CampoDetalle etiqueta="Propósito">
               {animal.proposito?.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase()) ?? '—'}
             </CampoDetalle>
             {animal.color && <CampoDetalle etiqueta="Color">{animal.color}</CampoDetalle>}
-            {animal.microchip && <CampoDetalle etiqueta="Microchip">{animal.microchip}</CampoDetalle>}
-            {animal.procedencia && <CampoDetalle etiqueta="Procedencia">{animal.procedencia}</CampoDetalle>}
+            {animal.marcas && <CampoDetalle etiqueta="Marcas">{animal.marcas}</CampoDetalle>}
           </dl>
         </div>
 
@@ -189,7 +188,7 @@ export default function PaginaDetalleAnimal() {
               {animal.fechaNacimiento ? calcularEdad(animal.fechaNacimiento) : '—'}
             </CampoDetalle>
             <CampoDetalle etiqueta="Peso registrado">
-              {animal.peso ? `${animal.peso} kg` : '—'}
+              {animal.pesoActual ? `${animal.pesoActual} kg` : '—'}
             </CampoDetalle>
           </dl>
         </div>
@@ -257,10 +256,10 @@ export default function PaginaDetalleAnimal() {
       </div>
 
       {/* Descripción */}
-      {animal.descripcion && (
+      {animal.observaciones && (
         <div className="tarjeta-vidrio rounded-2xl p-5">
           <h2 className="font-semibold text-sm text-on-surface mb-2">Observaciones</h2>
-          <p className="text-sm text-on-surface-variant leading-relaxed">{animal.descripcion}</p>
+          <p className="text-sm text-on-surface-variant leading-relaxed">{animal.observaciones}</p>
         </div>
       )}
 

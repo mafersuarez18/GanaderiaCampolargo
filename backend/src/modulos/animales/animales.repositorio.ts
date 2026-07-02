@@ -49,6 +49,12 @@ const seleccionDetalle = {
   actualizadoEn: true,
 } satisfies Prisma.AnimalSelect;
 
+export async function contarVacunacionesPorAnimal(animalId: string): Promise<number> {
+  return prisma.registroVacunacion.count({
+    where: { historialMedico: { animalId } },
+  });
+}
+
 export async function listarAnimales(filtros: FiltrosAnimal = {}) {
   const {
     busqueda,

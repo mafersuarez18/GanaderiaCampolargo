@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Fuentes locales (sin depender de Google Fonts) */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
+@import "material-symbols/outlined.css";
+
 /* =============================================================
    TOKENS DE DISEÑO — Sistema Campolargo
    Paleta: Material Design 3 + Verde Ganadero

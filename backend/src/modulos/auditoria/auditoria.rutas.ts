@@ -14,7 +14,7 @@ enrutador.use(verificarToken, soloAdministrador);
 enrutador.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = z.object({
-      usuarioId:  z.string().uuid().optional(),
+      usuarioId:  z.string().min(1).optional(),
       accion:     z.nativeEnum(TipoAccionAuditoria).optional(),
       modulo:     z.string().optional(),
       desde:      z.coerce.date().optional(),

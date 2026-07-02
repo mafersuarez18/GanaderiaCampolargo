@@ -32,6 +32,7 @@ interface LoteSemen {
   cantidadUsada: number;
   motivilidad: number | null;
   concentracion: number | null;
+  temperatura: number | null;
   fechaVencimiento: string | null;
   activo: boolean;
   creadoEn: string;
@@ -48,7 +49,14 @@ interface Inseminacion {
   inseminacion: {
     fechaInseminacion: string;
     numeroIntento: number;
-    inventarioSemen: { codigoDosis: string; semental: { nombre: string } } | null;
+    clasificacionIA: string | null;
+    tecnicaDeposicion: string | null;
+    patologiasVaca: string | null;
+    tasaMetabolicaBasal: number | null;
+    balanceEnergetico: string | null;
+    temperaturaUterina: number | null;
+    manejoHato: string | null;
+    inventarioSemen: { codigoDosis: string; temperatura: number | null; semental: { nombre: string } } | null;
   } | null;
 }
 
@@ -64,11 +72,22 @@ const api = {
 
 // ── Esquema form inseminación ─────────────────────────────────────────────────
 const esquemaInseminacion = z.object({
-  receptoraId:       z.string().min(1, 'Seleccione la receptora'),
-  inventarioSemenId: z.string().min(1, 'Seleccione el lote de semen'),
-  fecha:             z.string().min(1, 'Indique la fecha'),
-  numeroIntento:     z.coerce.number().int().min(1).max(5).default(1),
-  observaciones:     z.string().max(500).optional().or(z.literal('')),
+  receptoraId:         z.string().min(1, 'Seleccione la receptora'),
+  inventarioSemenId:   z.string().min(1, 'Seleccione el lote de semen'),
+  fecha:               z.string().min(1, 'Indique la fecha'),
+  numeroIntento:       z.coerce.number().int().min(1).max(5).default(1),
+  observaciones:       z.string().max(500).optional().or(z.literal('')),
+  // Clasificación
+  clasificacionIA:     z.enum(['CELO_DETECTADO', 'TIEMPO_FIJO', '']).optional(),
+  tecnicaDeposicion:   z.enum(['INTRAUTERINA_RECTOVAGINAL', 'INTRAUTERINA_PROFUNDA', '']).optional(),
+  // Factores biológicos
+  patologiasVaca:      z.string().max(1000).optional().or(z.literal('')),
+  tasaMetabolicaBasal: z.coerce.number().int().min(1).max(5).optional().or(z.literal('')),
+  balanceEnergetico:   z.string().max(200).optional().or(z.literal('')),
+  // Estrés térmico
+  temperaturaUterina:  z.coerce.number().optional().or(z.literal('')),
+  // Manejo del hato
+  manejoHato:          z.enum(['ALTO', 'MEDIO', 'BAJO', '']).optional(),
 });
 type FormInseminacion = z.infer<typeof esquemaInseminacion>;
 
@@ -100,7 +119,23 @@ export default function PaginaInseminacion() {
 
   // Mutation registrar inseminación
   const mutRegistrar = useMutation({
-    mutationFn: (datos: FormInseminacion) => clienteHttp.post('/inseminacion', datos),
+    mutationFn: (datos: FormInseminacion) => {
+      const payload: Record<string, any> = {
+        receptoraId:       datos.receptoraId,
+        inventarioSemenId: datos.inventarioSemenId,
+        fecha:             datos.fecha,
+        numeroIntento:     datos.numeroIntento,
+      };
+      if (datos.observaciones)       payload.observaciones       = datos.observaciones;
+      if (datos.clasificacionIA)     payload.clasificacionIA     = datos.clasificacionIA;
+      if (datos.tecnicaDeposicion)   payload.tecnicaDeposicion   = datos.tecnicaDeposicion;
+      if (datos.patologiasVaca)      payload.patologiasVaca      = datos.patologiasVaca;
+      if (datos.tasaMetabolicaBasal) payload.tasaMetabolicaBasal = Number(datos.tasaMetabolicaBasal);
+      if (datos.balanceEnergetico)   payload.balanceEnergetico   = datos.balanceEnergetico;
+      if (datos.temperaturaUterina)  payload.temperaturaUterina  = Number(datos.temperaturaUterina);
+      if (datos.manejoHato)          payload.manejoHato          = datos.manejoHato;
+      return clienteHttp.post('/inseminacion', payload);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inseminaciones'] });
       qc.invalidateQueries({ queryKey: ['inv-semen'] });
@@ -192,9 +227,10 @@ export default function PaginaInseminacion() {
                 return (
                   <div
                     key={ins.id}
-                    className={`flex items-center gap-4 px-5 py-4 hover:bg-surface-container-low transition-colors
+                    className={`px-5 py-4 hover:bg-surface-container-low transition-colors
                       ${idx < inseminaciones.length - 1 ? 'border-b border-outline-variant/15' : ''}`}
                   >
+                    <div className="flex items-start gap-4">
                     <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0">
                       <Icono nombre="biotech" relleno clase="text-[20px] text-primary" />
                     </div>
@@ -207,6 +243,11 @@ export default function PaginaInseminacion() {
                         <Badge variante={intento === 1 ? 'verde' : intento === 2 ? 'amarillo' : 'rojo'} tamano="xs">
                           {intento}° intento
                         </Badge>
+                        {ins.inseminacion?.clasificacionIA && (
+                          <Badge variante="azul" tamano="xs">
+                            {ins.inseminacion.clasificacionIA === 'CELO_DETECTADO' ? 'Celo detectado' : 'IATF'}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-on-surface-variant flex-wrap">
                         {dosis && (
@@ -221,11 +262,42 @@ export default function PaginaInseminacion() {
                             </span>
                           </>
                         )}
+                        {ins.inseminacion?.tecnicaDeposicion && (
+                          <span className="flex items-center gap-1">
+                            <Icono nombre="vaccines" clase="text-[11px] text-outline" />
+                            {ins.inseminacion.tecnicaDeposicion === 'INTRAUTERINA_RECTOVAGINAL' ? 'Rectovaginal' : 'Intrauterina profunda'}
+                          </span>
+                        )}
+                        {ins.inseminacion?.manejoHato && (
+                          <span className="flex items-center gap-1">
+                            <Icono nombre="monitor_heart" clase="text-[11px] text-outline" />
+                            Estrés {ins.inseminacion.manejoHato.toLowerCase()}
+                          </span>
+                        )}
                         <span className="flex items-center gap-1">
                           <Icono nombre="person" clase="text-[11px] text-outline" />
                           {ins.registradoPor.nombre} {ins.registradoPor.apellido}
                         </span>
                       </div>
+                      {(ins.inseminacion?.tasaMetabolicaBasal != null || ins.inseminacion?.temperaturaUterina != null || ins.inseminacion?.balanceEnergetico) && (
+                        <div className="flex flex-wrap gap-2 mt-1.5">
+                          {ins.inseminacion.tasaMetabolicaBasal != null && (
+                            <span className="text-[10px] px-2 py-0.5 bg-surface-container rounded-full text-on-surface-variant">
+                              TMB: {ins.inseminacion.tasaMetabolicaBasal}/5
+                            </span>
+                          )}
+                          {ins.inseminacion.temperaturaUterina != null && (
+                            <span className="text-[10px] px-2 py-0.5 bg-surface-container rounded-full text-on-surface-variant">
+                              T° uterina: {ins.inseminacion.temperaturaUterina}°C
+                            </span>
+                          )}
+                          {ins.inseminacion.balanceEnergetico && (
+                            <span className="text-[10px] px-2 py-0.5 bg-surface-container rounded-full text-on-surface-variant">
+                              BE: {ins.inseminacion.balanceEnergetico}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-sm font-medium text-on-surface">
@@ -235,6 +307,7 @@ export default function PaginaInseminacion() {
                         <p className="text-xs text-outline truncate max-w-[140px]">{ins.observaciones}</p>
                       )}
                     </div>
+                    </div>{/* flex items-start */}
                   </div>
                 );
               })}
@@ -519,7 +592,18 @@ interface PropsFormInseminacion {
   pendiente: boolean;
 }
 
-function FormularioInseminacion({ hembras, lotes, onSubmit, pendiente }: PropsFormInseminacion) {
+function GrupoIA({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-outline-variant/30 overflow-hidden">
+      <div className="px-3 py-2 bg-surface-container-low">
+        <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">{titulo}</p>
+      </div>
+      <div className="p-3 grid grid-cols-2 gap-3">{children}</div>
+    </div>
+  );
+}
+
+function FormularioInseminacion({ hembras, lotes, onSubmit }: PropsFormInseminacion) {
   const { register, handleSubmit, formState: { errors } } = useForm<FormInseminacion>({
     resolver: zodResolver(esquemaInseminacion),
     defaultValues: { numeroIntento: 1, fecha: new Date().toISOString().split('T')[0] },
@@ -528,6 +612,7 @@ function FormularioInseminacion({ hembras, lotes, onSubmit, pendiente }: PropsFo
   return (
     <form id="form-inseminacion" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
+      {/* Animal receptora */}
       <CampoForm etiqueta="Receptora (hembra) *" error={errors.receptoraId?.message}>
         <select {...register('receptoraId')} className="campo-entrada">
           <option value="">Seleccionar hembra...</option>
@@ -539,6 +624,7 @@ function FormularioInseminacion({ hembras, lotes, onSubmit, pendiente }: PropsFo
         </select>
       </CampoForm>
 
+      {/* Lote de semen */}
       <CampoForm etiqueta="Lote de semen *" error={errors.inventarioSemenId?.message}>
         <select {...register('inventarioSemenId')} className="campo-entrada">
           <option value="">Seleccionar lote...</option>
@@ -546,8 +632,9 @@ function FormularioInseminacion({ hembras, lotes, onSubmit, pendiente }: PropsFo
             const disp = l.cantidadDosis - l.cantidadUsada;
             return (
               <option key={l.id} value={l.id}>
-                {l.semental.nombre} — {l.codigoDosis} ({disp} dosis disp.
-                {l.motivilidad ? ` · motil. ${l.motivilidad}%` : ''})
+                {l.semental.nombre} — {l.codigoDosis} ({disp} dosis
+                {l.motivilidad ? ` · motil. ${l.motivilidad}%` : ''}
+                {l.temperatura != null ? ` · temp. ${l.temperatura}°C` : ''})
               </option>
             );
           })}
@@ -560,28 +647,76 @@ function FormularioInseminacion({ hembras, lotes, onSubmit, pendiente }: PropsFo
         )}
       </CampoForm>
 
+      {/* Fecha e intento */}
       <div className="grid grid-cols-2 gap-4">
         <CampoForm etiqueta="Fecha del procedimiento *" error={errors.fecha?.message}>
           <input type="date" {...register('fecha')} className="campo-entrada" />
         </CampoForm>
         <CampoForm etiqueta="N° de intento" error={errors.numeroIntento?.message}>
           <select {...register('numeroIntento')} className="campo-entrada">
-            <option value={1}>1° intento</option>
-            <option value={2}>2° intento</option>
-            <option value={3}>3° intento</option>
-            <option value={4}>4° intento</option>
-            <option value={5}>5° intento</option>
+            {[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}° intento</option>)}
           </select>
         </CampoForm>
       </div>
 
+      {/* Clasificación */}
+      <GrupoIA titulo="Clasificación de la inseminación">
+        <CampoForm etiqueta="Clasificación IA">
+          <select {...register('clasificacionIA')} className="campo-entrada text-sm">
+            <option value="">No especificado</option>
+            <option value="CELO_DETECTADO">A celo detectado</option>
+            <option value="TIEMPO_FIJO">A tiempo fijo (IATF)</option>
+          </select>
+        </CampoForm>
+        <CampoForm etiqueta="Técnica de deposición">
+          <select {...register('tecnicaDeposicion')} className="campo-entrada text-sm">
+            <option value="">No especificado</option>
+            <option value="INTRAUTERINA_RECTOVAGINAL">Intrauterina rectovaginal</option>
+            <option value="INTRAUTERINA_PROFUNDA">Intrauterina profunda</option>
+          </select>
+        </CampoForm>
+      </GrupoIA>
+
+      {/* Factores biológicos */}
+      <GrupoIA titulo="Factores biológicos de la vaca">
+        <div className="col-span-2">
+          <CampoForm etiqueta="Patologías de la vaca">
+            <input type="text" {...register('patologiasVaca')}
+              placeholder="Ej: infección uterina, diarrea viral..."
+              className="campo-entrada text-sm" />
+          </CampoForm>
+        </div>
+        <CampoForm etiqueta="Tasa metabólica basal (1–5)">
+          <input type="number" min={1} max={5} step={1} {...register('tasaMetabolicaBasal')}
+            placeholder="1=bajo · 5=alto" className="campo-entrada text-sm" />
+        </CampoForm>
+        <CampoForm etiqueta="Balance energético">
+          <input type="text" {...register('balanceEnergetico')}
+            placeholder="Positivo, negativo..." className="campo-entrada text-sm" />
+        </CampoForm>
+      </GrupoIA>
+
+      {/* Estrés térmico y manejo */}
+      <GrupoIA titulo="Estrés térmico y manejo del hato">
+        <CampoForm etiqueta="Temperatura uterina (°C)">
+          <input type="number" step={0.1} {...register('temperaturaUterina')}
+            placeholder="Ej: 38.8" className="campo-entrada text-sm" />
+        </CampoForm>
+        <CampoForm etiqueta="Nivel de estrés del hato">
+          <select {...register('manejoHato')} className="campo-entrada text-sm">
+            <option value="">No especificado</option>
+            <option value="BAJO">Bajo</option>
+            <option value="MEDIO">Medio</option>
+            <option value="ALTO">Alto</option>
+          </select>
+        </CampoForm>
+      </GrupoIA>
+
+      {/* Observaciones */}
       <CampoForm etiqueta="Observaciones">
-        <textarea
-          {...register('observaciones')}
-          rows={3}
-          placeholder="Condición del animal, técnica empleada, notas del procedimiento..."
-          className="campo-entrada resize-none"
-        />
+        <textarea {...register('observaciones')} rows={2}
+          placeholder="Notas adicionales del procedimiento..."
+          className="campo-entrada resize-none" />
       </CampoForm>
     </form>
   );
@@ -615,6 +750,7 @@ function ModalLoteSemen({
     concentracion: '',
     volumen: '',
     coloracion: '',
+    temperatura: '',
     fechaColeccion: '',
     fechaVencimiento: '',
     observaciones: '',
@@ -627,13 +763,14 @@ function ModalLoteSemen({
         sementalId:    form.sementalId,
         codigoDosis:   form.codigoDosis.trim(),
         cantidadDosis: Number(form.cantidadDosis),
-        ...(form.motivilidad    && { motivilidad:    Number(form.motivilidad) }),
-        ...(form.concentracion  && { concentracion:  Number(form.concentracion) }),
-        ...(form.volumen        && { volumen:        Number(form.volumen) }),
-        ...(form.coloracion     && { coloracion:     form.coloracion }),
+        ...(form.motivilidad     && { motivilidad:     Number(form.motivilidad) }),
+        ...(form.concentracion   && { concentracion:   Number(form.concentracion) }),
+        ...(form.volumen         && { volumen:         Number(form.volumen) }),
+        ...(form.coloracion      && { coloracion:      form.coloracion }),
+        ...(form.temperatura     && { temperatura:     Number(form.temperatura) }),
         ...(form.fechaColeccion  && { fechaColeccion:  new Date(form.fechaColeccion).toISOString() }),
         ...(form.fechaVencimiento && { fechaVencimiento: new Date(form.fechaVencimiento).toISOString() }),
-        ...(form.observaciones  && { observaciones:  form.observaciones }),
+        ...(form.observaciones   && { observaciones:   form.observaciones }),
       }),
     onSuccess: () => { toast.success('Lote registrado correctamente'); onExito(); },
     onError: (e: any) => setError(e?.response?.data?.mensaje ?? 'Error al registrar el lote'),
@@ -725,7 +862,7 @@ function ModalLoteSemen({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Motilidad (%)</label>
                 <input type="number" min={0} max={100} step={0.1}
@@ -750,6 +887,15 @@ function ModalLoteSemen({
                   value={form.volumen}
                   onChange={(e) => setForm((f) => ({ ...f, volumen: e.target.value }))}
                   placeholder="Ej: 0.5"
+                  className="campo-entrada"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Temperatura (°C)</label>
+                <input type="number" step={0.1}
+                  value={form.temperatura}
+                  onChange={(e) => setForm((f) => ({ ...f, temperatura: e.target.value }))}
+                  placeholder="Ej: -196"
                   className="campo-entrada"
                 />
               </div>

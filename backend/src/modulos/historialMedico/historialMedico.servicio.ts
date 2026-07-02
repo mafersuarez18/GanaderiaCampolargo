@@ -1,4 +1,4 @@
-import { Prisma, EstadoSanitario } from '@prisma/client';
+import { Prisma, EstadoSanitario, EstadoReproductivo, TipoAyudaDiagnostica, TipoDesparasitante } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
 
@@ -19,14 +19,44 @@ const seleccionHistorial = {
   diagnostico: true,
   pronostico: true,
   observaciones: true,
+  // Anamnesis
+  tiempoEvolucion: true,
+  tratamientosPrevios: true,
+  cirugias: true,
+  // Exploración física
+  temperatura: true,
+  frecuenciaCardiaca: true,
+  frecuenciaRespiratoria: true,
+  tiempoLlenadoCapilar: true,
+  movimientosRuminales: true,
+  condicionCorporal: true,
+  // Estado del animal
+  estadoReproductivo: true,
+  litrosLechesDiarios: true,
+  gananciaPeso: true,
+  // Diagnóstico y plan
+  diagnosticoDefinitivo: true,
+  planDiagnostico: true,
+  observacionesDiagnosticosOficiales: true,
   animal: {
     select: { id: true, numeroArete: true, nombre: true, finca: { select: { nombre: true } } },
   },
   veterinario: { select: { id: true, nombre: true, apellido: true } },
   enfermedades: true,
   tratamientos: {
-    include: { medicamento: { select: { nombre: true } } },
+    select: {
+      id: true,
+      dosis: true,
+      viaAdministracion: true,
+      frecuencia: true,
+      duracionDias: true,
+      estado: true,
+      medicamento: { select: { nombre: true } },
+    },
   },
+  informacionEpidemiologica: true,
+  ayudasDiagnosticas: true,
+  desparasitaciones: true,
   creadoEn: true,
 } satisfies Prisma.HistorialMedicoSelect;
 
@@ -77,6 +107,49 @@ export interface DatosCrearHistorial {
   observaciones?:        string;
   veterinarioId:         string;
   actualizarEstadoSanitario?: EstadoSanitario;
+  // Anamnesis
+  tiempoEvolucion?:      string;
+  tratamientosPrevios?:  string;
+  cirugias?:             string;
+  // Exploración física
+  temperatura?:              number;
+  frecuenciaCardiaca?:       number;
+  frecuenciaRespiratoria?:   number;
+  tiempoLlenadoCapilar?:     number;
+  movimientosRuminales?:     number;
+  condicionCorporal?:        number;
+  // Estado del animal
+  estadoReproductivo?:       EstadoReproductivo;
+  litrosLechesDiarios?:      number;
+  gananciaPeso?:             number;
+  // Diagnóstico y plan
+  diagnosticoDefinitivo?:    string;
+  planDiagnostico?:          string;
+  observacionesDiagnosticosOficiales?: string;
+  // Relaciones hijas
+  informacionEpidemiologica?: {
+    garrapatas?:    boolean;
+    mosquitos?:     boolean;
+    murcielagos?:   boolean;
+    moscas?:        boolean;
+    otrosVectores?: string;
+    descripcion?:   string;
+  };
+  ayudasDiagnosticas?: Array<{
+    tipo:        TipoAyudaDiagnostica;
+    descripcion?: string;
+    resultado?:   string;
+    fecha:        Date;
+  }>;
+  desparasitaciones?: Array<{
+    producto:        string;
+    principioActivo?: string;
+    tipo:             TipoDesparasitante;
+    fecha:            Date;
+    dosis?:           string;
+    via?:             string;
+    observaciones?:   string;
+  }>;
   enfermedades?: Array<{
     nombreEnfermedad:    string;
     fechaInicio:         Date;
@@ -101,7 +174,11 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
   });
   if (!animal) throw new ErrorNoEncontrado(`Animal con id '${datos.animalId}' no encontrado`);
 
-  const { enfermedades, tratamientos, veterinarioId, animalId, actualizarEstadoSanitario, ...restoHistorial } = datos;
+  const {
+    enfermedades, tratamientos, veterinarioId, animalId, actualizarEstadoSanitario,
+    informacionEpidemiologica, ayudasDiagnosticas, desparasitaciones,
+    ...restoHistorial
+  } = datos;
 
   // Actualizar estado sanitario del animal si se especificó
   if (actualizarEstadoSanitario) {
@@ -138,6 +215,15 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
               medicamento: { connect: { id: t.medicamentoId } },
             })),
           }
+        : undefined,
+      informacionEpidemiologica: informacionEpidemiologica
+        ? { create: informacionEpidemiologica }
+        : undefined,
+      ayudasDiagnosticas: ayudasDiagnosticas?.length
+        ? { create: ayudasDiagnosticas }
+        : undefined,
+      desparasitaciones: desparasitaciones?.length
+        ? { create: desparasitaciones }
         : undefined,
     },
     select: seleccionHistorial,

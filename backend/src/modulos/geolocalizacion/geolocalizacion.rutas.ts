@@ -11,7 +11,7 @@ const enrutador = Router();
 // GET /api/v1/geolocalizacion/animales — posiciones actuales de todos los animales activos
 enrutador.get('/animales', verificarToken, cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { fincaId } = z.object({ fincaId: z.string().uuid().optional() }).parse(req.query);
+    const { fincaId } = z.object({ fincaId: z.string().min(1).optional() }).parse(req.query);
 
     const animales = await prisma.animal.findMany({
       where: {

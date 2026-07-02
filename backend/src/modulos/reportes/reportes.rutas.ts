@@ -19,7 +19,7 @@ enrutador.use(verificarToken, administradorOVeterinario);
 const esquemaFiltros = z.object({
   formato:  z.enum(['pdf', 'excel']).default('pdf'),
   anio:     z.coerce.number().int().min(2000).max(2100).default(() => new Date().getFullYear()),
-  fincaId:  z.string().uuid().optional(),
+  fincaId:  z.string().min(1).optional(),
   estado:   z.nativeEnum(EstadoAnimal).optional(),
 });
 
@@ -62,7 +62,7 @@ enrutador.get('/reproductivo', async (req: Request, res: Response, next: NextFun
 // GET /api/v1/reportes/inventario-animales
 enrutador.get('/inventario-animales', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { fincaId } = z.object({ fincaId: z.string().uuid().optional() }).parse(req.query);
+    const { fincaId } = z.object({ fincaId: z.string().min(1).optional() }).parse(req.query);
 
     const [porEstado, porRaza, porFinca, porSexo] = await Promise.all([
       prisma.animal.groupBy({

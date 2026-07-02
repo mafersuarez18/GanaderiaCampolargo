@@ -6,6 +6,7 @@ import { clienteHttp } from '../../servicios/clienteAxios';
 import Badge from '../../componentes/ui/Badge';
 import Paginacion from '../../componentes/ui/Paginacion';
 import Icono from '../../componentes/ui/Icono';
+import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -555,21 +556,74 @@ const TIPOS_FORM = [
   { valor: 'DESCARTE_REPRODUCTIVO',   etiqueta: 'Descarte Reproductivo' },
 ];
 
+const DIAS_GESTACION_BOVINA = 283;
+const TIPOS_INICIAN_GESTACION = new Set(['INSEMINACION_ARTIFICIAL', 'MONTA_NATURAL']);
+
+function sumarDias(fechaStr: string, dias: number): string {
+  if (!fechaStr) return '';
+  const d = new Date(fechaStr + 'T12:00:00');
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().split('T')[0];
+}
+
 function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito: () => void }) {
+  const hoy = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
     animalId: '',
     tipo: 'DETECCION_CELO',
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: hoy,
     observaciones: '',
-    fechaInicio: new Date().toISOString().split('T')[0],
+    fechaInicio: hoy,
     fechaPartoEsperado: '',
+    crearGestacion: true,
+    // Campos IA
+    clasificacionIA: '',
+    tecnicaDeposicion: '',
+    patologiasVaca: '',
+    tasaMetabolicaBasal: '',
+    balanceEnergetico: '',
+    temperaturaUterina: '',
+    manejoHato: '',
   });
   const [error, setError] = useState('');
 
+  const esGestacion      = form.tipo === 'GESTACION';
+  const esIA             = form.tipo === 'INSEMINACION_ARTIFICIAL';
+  const iniciaGestacion  = TIPOS_INICIAN_GESTACION.has(form.tipo);
+
+  function handleTipo(nuevoTipo: string) {
+    setForm((f) => {
+      const fechaBase = nuevoTipo === 'GESTACION' ? f.fechaInicio : f.fecha;
+      const autoCalc  = nuevoTipo === 'GESTACION' || TIPOS_INICIAN_GESTACION.has(nuevoTipo);
+      return {
+        ...f,
+        tipo: nuevoTipo,
+        fechaPartoEsperado: autoCalc ? sumarDias(fechaBase, DIAS_GESTACION_BOVINA) : '',
+      };
+    });
+  }
+
+  function handleFecha(nuevaFecha: string) {
+    setForm((f) => ({
+      ...f,
+      fecha: nuevaFecha,
+      ...(TIPOS_INICIAN_GESTACION.has(f.tipo) && {
+        fechaPartoEsperado: sumarDias(nuevaFecha, DIAS_GESTACION_BOVINA),
+      }),
+    }));
+  }
+
+  function handleFechaInicio(nuevaFechaInicio: string) {
+    setForm((f) => ({
+      ...f,
+      fechaInicio: nuevaFechaInicio,
+      fechaPartoEsperado: sumarDias(nuevaFechaInicio, DIAS_GESTACION_BOVINA),
+    }));
+  }
+
   const mutacion = useMutation({
-    mutationFn: (datos: typeof form) => {
+    mutationFn: async (datos: typeof form) => {
       if (datos.tipo === 'GESTACION') {
-        // Gestaciones usan su propio endpoint
         return clienteHttp.post('/reproduccion/gestaciones', {
           madreId:            datos.animalId,
           fechaInicio:        new Date(datos.fechaInicio).toISOString(),
@@ -577,13 +631,32 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
           observaciones:      datos.observaciones || undefined,
         });
       }
-      // Eventos reproductivos generales
-      return clienteHttp.post('/reproduccion', {
+      // Registrar el evento reproductivo
+      const payloadEvento: Record<string, any> = {
         animalId:      datos.animalId,
         tipo:          datos.tipo,
         fecha:         new Date(datos.fecha).toISOString(),
         observaciones: datos.observaciones || undefined,
-      });
+      };
+      if (datos.tipo === 'INSEMINACION_ARTIFICIAL') {
+        if (datos.clasificacionIA)    payloadEvento.clasificacionIA    = datos.clasificacionIA;
+        if (datos.tecnicaDeposicion)  payloadEvento.tecnicaDeposicion  = datos.tecnicaDeposicion;
+        if (datos.patologiasVaca)     payloadEvento.patologiasVaca     = datos.patologiasVaca;
+        if (datos.tasaMetabolicaBasal) payloadEvento.tasaMetabolicaBasal = parseInt(datos.tasaMetabolicaBasal);
+        if (datos.balanceEnergetico)  payloadEvento.balanceEnergetico  = datos.balanceEnergetico;
+        if (datos.temperaturaUterina) payloadEvento.temperaturaUterina = parseFloat(datos.temperaturaUterina);
+        if (datos.manejoHato)         payloadEvento.manejoHato         = datos.manejoHato;
+      }
+      await clienteHttp.post('/reproduccion', payloadEvento);
+      // Si es IA o Monta y se optó por registrar gestación, crearla también
+      if (TIPOS_INICIAN_GESTACION.has(datos.tipo) && datos.crearGestacion && datos.fechaPartoEsperado) {
+        await clienteHttp.post('/reproduccion/gestaciones', {
+          madreId:            datos.animalId,
+          fechaInicio:        new Date(datos.fecha).toISOString(),
+          fechaPartoEsperado: new Date(datos.fechaPartoEsperado).toISOString(),
+          observaciones:      datos.observaciones || undefined,
+        });
+      }
     },
     onSuccess: () => onExito(),
     onError: (err: any) => setError(err?.response?.data?.mensaje ?? 'Error al registrar el evento'),
@@ -602,7 +675,7 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
             <h2 className="font-bold text-on-surface flex items-center gap-2">
               <Icono nombre="child_care" clase="text-[20px] text-primary" />
@@ -616,9 +689,9 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!form.animalId.trim()) { setError('Ingrese el ID del animal'); return; }
-              if (form.tipo === 'GESTACION' && !form.fechaPartoEsperado) {
-                setError('La fecha de parto esperado es requerida para gestaciones');
+              if (!form.animalId) { setError('Debe seleccionar un animal'); return; }
+              if ((esGestacion || (iniciaGestacion && form.crearGestacion)) && !form.fechaPartoEsperado) {
+                setError('La fecha de parto esperado es requerida');
                 return;
               }
               setError('');
@@ -634,15 +707,12 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-                ID del Animal <span className="text-error">*</span>
-              </label>
-              <input
-                type="text"
-                value={form.animalId}
-                onChange={(e) => setForm((f) => ({ ...f, animalId: e.target.value }))}
-                placeholder="ID único del animal (UUID)"
-                className="campo-entrada"
+              <BuscadorAnimal
+                etiqueta="Animal"
+                requerido
+                valor={form.animalId}
+                alSeleccionar={(id) => setForm((f) => ({ ...f, animalId: id }))}
+                placeholder="Buscar por arete o nombre..."
               />
             </div>
 
@@ -653,7 +723,7 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
                 </label>
                 <select
                   value={form.tipo}
-                  onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}
+                  onChange={(e) => handleTipo(e.target.value)}
                   className="campo-entrada"
                 >
                   {TIPOS_FORM.map((t) => (
@@ -668,13 +738,14 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
                 <input
                   type="date"
                   value={form.fecha}
-                  onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))}
+                  onChange={(e) => handleFecha(e.target.value)}
                   className="campo-entrada"
                 />
               </div>
             </div>
 
-            {form.tipo === 'GESTACION' && (
+            {/* Campos adicionales para Gestación */}
+            {esGestacion && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -683,8 +754,9 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
                 <div>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Inicio Gestación</label>
                   <input
-                    type="date" value={form.fechaInicio}
-                    onChange={(e) => setForm((f) => ({ ...f, fechaInicio: e.target.value }))}
+                    type="date"
+                    value={form.fechaInicio}
+                    onChange={(e) => handleFechaInicio(e.target.value)}
                     className="campo-entrada"
                   />
                 </div>
@@ -693,10 +765,127 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
                     Parto Esperado <span className="text-error">*</span>
                   </label>
                   <input
-                    type="date" value={form.fechaPartoEsperado}
+                    type="date"
+                    value={form.fechaPartoEsperado}
                     onChange={(e) => setForm((f) => ({ ...f, fechaPartoEsperado: e.target.value }))}
                     className="campo-entrada"
                   />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Parto esperado para IA / Monta Natural */}
+            {iniciaGestacion && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="overflow-hidden space-y-3"
+              >
+                <div className="flex items-start gap-3 px-3.5 py-3 bg-primary/5 border border-primary/20 rounded-xl">
+                  <Icono nombre="pregnant_woman" relleno clase="text-[18px] text-primary flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    La fecha de parto se estima a <strong className="text-on-surface">{DIAS_GESTACION_BOVINA} días</strong> de la fecha del evento.
+                    Puede ajustarla manualmente.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                    Parto Esperado <span className="text-error">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={form.fechaPartoEsperado}
+                    onChange={(e) => setForm((f) => ({ ...f, fechaPartoEsperado: e.target.value }))}
+                    className="campo-entrada"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.crearGestacion}
+                    onChange={(e) => setForm((f) => ({ ...f, crearGestacion: e.target.checked }))}
+                    className="w-4 h-4 rounded accent-primary"
+                  />
+                  <span className="text-xs text-on-surface">
+                    Registrar gestación activa (aparecerá en Partos Próximos)
+                  </span>
+                </label>
+              </motion.div>
+            )}
+
+            {/* ── Campos específicos de IA ── */}
+            {esIA && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="overflow-hidden space-y-3 p-4 bg-surface-container rounded-xl border border-outline-variant/30"
+              >
+                <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
+                  Datos de Inseminación Artificial
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Clasificación</label>
+                    <select value={form.clasificacionIA}
+                      onChange={(e) => setForm((f) => ({ ...f, clasificacionIA: e.target.value }))}
+                      className="campo-entrada text-sm">
+                      <option value="">No especificado</option>
+                      <option value="CELO_DETECTADO">Celo detectado</option>
+                      <option value="TIEMPO_FIJO">Tiempo fijo (IATF)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Técnica de deposición</label>
+                    <select value={form.tecnicaDeposicion}
+                      onChange={(e) => setForm((f) => ({ ...f, tecnicaDeposicion: e.target.value }))}
+                      className="campo-entrada text-sm">
+                      <option value="">No especificado</option>
+                      <option value="INTRAUTERINA_RECTOVAGINAL">Intrauterina rectovaginal</option>
+                      <option value="INTRAUTERINA_PROFUNDA">Intrauterina profunda</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Tasa metabólica basal (1–5)</label>
+                    <input type="number" min="1" max="5" step="1"
+                      value={form.tasaMetabolicaBasal}
+                      onChange={(e) => setForm((f) => ({ ...f, tasaMetabolicaBasal: e.target.value }))}
+                      placeholder="1=bajo, 5=alto" className="campo-entrada text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Temperatura uterina (°C)</label>
+                    <input type="number" step="0.1"
+                      value={form.temperaturaUterina}
+                      onChange={(e) => setForm((f) => ({ ...f, temperaturaUterina: e.target.value }))}
+                      placeholder="Ej: 38.8" className="campo-entrada text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Balance energético</label>
+                    <input type="text"
+                      value={form.balanceEnergetico}
+                      onChange={(e) => setForm((f) => ({ ...f, balanceEnergetico: e.target.value }))}
+                      placeholder="Positivo, negativo..." className="campo-entrada text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Manejo del hato (estrés)</label>
+                    <select value={form.manejoHato}
+                      onChange={(e) => setForm((f) => ({ ...f, manejoHato: e.target.value }))}
+                      className="campo-entrada text-sm">
+                      <option value="">No especificado</option>
+                      <option value="BAJO">Bajo</option>
+                      <option value="MEDIO">Medio</option>
+                      <option value="ALTO">Alto</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Patologías de la vaca</label>
+                  <textarea rows={2}
+                    value={form.patologiasVaca}
+                    onChange={(e) => setForm((f) => ({ ...f, patologiasVaca: e.target.value }))}
+                    placeholder="Describa patologías relevantes que puedan afectar la IA..."
+                    className="campo-entrada resize-none text-sm" />
                 </div>
               </motion.div>
             )}

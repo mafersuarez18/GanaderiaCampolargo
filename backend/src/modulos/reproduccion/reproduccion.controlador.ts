@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { TipoEventoReproductivo } from '@prisma/client';
+import { TipoEventoReproductivo, ClasificacionIA, TecnicaDeposicionSemen, NivelEstres } from '@prisma/client';
 import {
   listarPartosProximos,
   listarEventosReproductivos,
@@ -19,8 +19,8 @@ import {
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 
 const esquemaFiltros = z.object({
-  animalId:   z.string().uuid().optional(),
-  fincaId:    z.string().uuid().optional(),
+  animalId:   z.string().min(1).optional(),
+  fincaId:    z.string().min(1).optional(),
   tipoEvento: z.nativeEnum(TipoEventoReproductivo).optional(),
   desde:      z.coerce.date().optional(),
   hasta:      z.coerce.date().optional(),
@@ -29,16 +29,23 @@ const esquemaFiltros = z.object({
 });
 
 const esquemaEvento = z.object({
-  animalId:     z.string().uuid(),
+  animalId:     z.string().min(1),
   tipo:         z.nativeEnum(TipoEventoReproductivo),
   fecha:        z.coerce.date(),
   descripcion:  z.string().max(500).optional(),
-  exitoso:      z.boolean().optional(),
   observaciones: z.string().max(1000).optional(),
+  // Campos específicos de Inseminación Artificial
+  clasificacionIA:     z.nativeEnum(ClasificacionIA).optional(),
+  tecnicaDeposicion:   z.nativeEnum(TecnicaDeposicionSemen).optional(),
+  patologiasVaca:      z.string().max(1000).optional(),
+  tasaMetabolicaBasal: z.number().int().min(1).max(5).optional(),
+  balanceEnergetico:   z.string().max(200).optional(),
+  temperaturaUterina:  z.number().optional(),
+  manejoHato:          z.nativeEnum(NivelEstres).optional(),
 });
 
 const esquemaGestacion = z.object({
-  madreId:             z.string().uuid(),
+  madreId:             z.string().min(1),
   fechaInicio:         z.coerce.date(),
   fechaPartoEsperado:  z.coerce.date(),
   observaciones:       z.string().max(500).optional(),
@@ -94,7 +101,7 @@ export async function controladorGestacionesActivas(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const { fincaId } = z.object({ fincaId: z.string().uuid().optional() }).parse(req.query);
+    const { fincaId } = z.object({ fincaId: z.string().min(1).optional() }).parse(req.query);
     const gestaciones = await listarGestacionesActivas(fincaId);
     return respuestaExito(res, gestaciones);
   } catch (error) { return next(error); }
@@ -116,7 +123,7 @@ export async function controladorIndicadores(
   try {
     const { anio, fincaId } = z.object({
       anio:    z.coerce.number().int().min(2000).max(2100).default(() => new Date().getFullYear()),
-      fincaId: z.string().uuid().optional(),
+      fincaId: z.string().min(1).optional(),
     }).parse(req.query);
     const indicadores = await obtenerIndicadoresReproductivos(anio, fincaId);
     return respuestaExito(res, indicadores);

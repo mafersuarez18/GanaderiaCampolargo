@@ -8,6 +8,7 @@ import Badge from '../../componentes/ui/Badge';
 import { ModalConfirmacion } from '../../componentes/ui/Modal';
 import useDebounce from '../../hooks/useDebounce';
 import Icono from '../../componentes/ui/Icono';
+import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
 
 interface HistorialMedico {
   id: string;
@@ -17,6 +18,21 @@ interface HistorialMedico {
   diagnostico: string;
   pronostico?: string;
   observaciones?: string;
+  tiempoEvolucion?: string;
+  tratamientosPrevios?: string;
+  cirugias?: string;
+  temperatura?: number;
+  frecuenciaCardiaca?: number;
+  frecuenciaRespiratoria?: number;
+  tiempoLlenadoCapilar?: number;
+  movimientosRuminales?: number;
+  condicionCorporal?: number;
+  estadoReproductivo?: string;
+  litrosLechesDiarios?: number;
+  gananciaPeso?: number;
+  diagnosticoDefinitivo?: string;
+  planDiagnostico?: string;
+  observacionesDiagnosticosOficiales?: string;
   animal: {
     id: string;
     numeroArete: string;
@@ -40,6 +56,30 @@ interface HistorialMedico {
     estado: string;
     medicamento: { nombre: string };
   }>;
+  informacionEpidemiologica?: {
+    garrapatas: boolean;
+    mosquitos: boolean;
+    murcielagos: boolean;
+    moscas: boolean;
+    otrosVectores?: string;
+    descripcion?: string;
+  };
+  ayudasDiagnosticas: Array<{
+    id: string;
+    tipo: string;
+    descripcion?: string;
+    resultado?: string;
+    fecha: string;
+  }>;
+  desparasitaciones: Array<{
+    id: string;
+    producto: string;
+    principioActivo?: string;
+    tipo: string;
+    fecha: string;
+    dosis?: string;
+    via?: string;
+  }>;
   creadoEn: string;
 }
 
@@ -48,14 +88,53 @@ interface RespuestaHistorial {
   meta: { total: number; pagina: number; porPagina: number; totalPaginas: number };
 }
 
+interface AyudaDiagnosticaForm {
+  tipo: string;
+  descripcion: string;
+  resultado: string;
+  fecha: string;
+}
+
+interface DesparasitacionForm {
+  producto: string;
+  principioActivo: string;
+  tipo: string;
+  fecha: string;
+  dosis: string;
+  via: string;
+}
+
 interface FormHistorial {
   animalId: string;
   fechaConsulta: string;
   motivoConsulta: string;
-  sintomasObservados?: string;
+  sintomasObservados: string;
   diagnostico: string;
-  pronostico?: string;
-  observaciones?: string;
+  pronostico: string;
+  observaciones: string;
+  tiempoEvolucion: string;
+  tratamientosPrevios: string;
+  cirugias: string;
+  temperatura: string;
+  frecuenciaCardiaca: string;
+  frecuenciaRespiratoria: string;
+  tiempoLlenadoCapilar: string;
+  movimientosRuminales: string;
+  condicionCorporal: string;
+  estadoReproductivo: string;
+  litrosLechesDiarios: string;
+  gananciaPeso: string;
+  diagnosticoDefinitivo: string;
+  planDiagnostico: string;
+  observacionesDiagnosticosOficiales: string;
+  epidGarrapatas: boolean;
+  epidMosquitos: boolean;
+  epidMurcielagos: boolean;
+  epidMoscas: boolean;
+  epidOtros: string;
+  epidDescripcion: string;
+  ayudasDiagnosticas: AyudaDiagnosticaForm[];
+  desparasitaciones: DesparasitacionForm[];
 }
 
 export default function PaginaHistorialMedico() {
@@ -566,55 +645,156 @@ export default function PaginaHistorialMedico() {
 
 // ── Formulario nueva consulta ─────────────────────────────────────────────────
 
+const FORM_VACIO: FormHistorial = {
+  animalId: '', fechaConsulta: new Date().toISOString().split('T')[0],
+  motivoConsulta: '', sintomasObservados: '', diagnostico: '', pronostico: '', observaciones: '',
+  tiempoEvolucion: '', tratamientosPrevios: '', cirugias: '',
+  temperatura: '', frecuenciaCardiaca: '', frecuenciaRespiratoria: '',
+  tiempoLlenadoCapilar: '', movimientosRuminales: '', condicionCorporal: '',
+  estadoReproductivo: '', litrosLechesDiarios: '', gananciaPeso: '',
+  diagnosticoDefinitivo: '', planDiagnostico: '', observacionesDiagnosticosOficiales: '',
+  epidGarrapatas: false, epidMosquitos: false, epidMurcielagos: false, epidMoscas: false,
+  epidOtros: '', epidDescripcion: '',
+  ayudasDiagnosticas: [], desparasitaciones: [],
+};
+
+const ETIQUETAS_AYUDA: Record<string, string> = {
+  HEMOGRAMA: 'Hemograma', BIOQUIMICA_SANGUINEA: 'Bioquímica sanguínea',
+  RASPADO_PIEL: 'Raspado de piel', ANALISIS_COPROLOGICO: 'Análisis coprológico',
+  TEST_CALIFORNIA_MASTITIS: 'Test California (mastitis)', ECOGRAFIA: 'Ecografía', OTRO: 'Otro',
+};
+
 interface PropiedadesFormulario {
   onCerrar: () => void;
   onExito: () => void;
   animalIdPredeterminado?: string;
 }
 
+function SeccionClinica({ titulo, icono, children }: { titulo: string; icono: string; children: React.ReactNode }) {
+  return (
+    <div className="border border-outline-variant/30 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-surface-container-low">
+        <Icono nombre={icono} clase="text-[16px] text-on-surface-variant" />
+        <span className="text-xs font-semibold text-on-surface uppercase tracking-wide">{titulo}</span>
+      </div>
+      <div className="p-4 space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function CampoLabel({ etiqueta, req, children }: { etiqueta: string; req?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+        {etiqueta}{req && <span className="text-error ml-0.5">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
 function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: PropiedadesFormulario) {
   const [form, setForm] = useState<FormHistorial>({
+    ...FORM_VACIO,
     animalId: animalIdPredeterminado ?? '',
-    fechaConsulta: new Date().toISOString().split('T')[0],
-    motivoConsulta: '',
-    diagnostico: '',
-    sintomasObservados: '',
-    pronostico: '',
-    observaciones: '',
   });
   const [error, setError] = useState('');
 
+  const set = (campo: keyof FormHistorial, valor: any) =>
+    setForm((f) => ({ ...f, [campo]: valor }));
+
   const mutacion = useMutation({
-    mutationFn: (datos: FormHistorial) => clienteHttp.post('/historial-medico', datos),
+    mutationFn: (datos: FormHistorial) => {
+      const payload: any = {
+        animalId:      datos.animalId,
+        fechaConsulta: new Date(datos.fechaConsulta).toISOString(),
+        motivoConsulta: datos.motivoConsulta,
+        diagnostico:   datos.diagnostico,
+      };
+      if (datos.sintomasObservados)  payload.sintomasObservados  = datos.sintomasObservados;
+      if (datos.pronostico)          payload.pronostico           = datos.pronostico;
+      if (datos.observaciones)       payload.observaciones        = datos.observaciones;
+      if (datos.tiempoEvolucion)     payload.tiempoEvolucion      = datos.tiempoEvolucion;
+      if (datos.tratamientosPrevios) payload.tratamientosPrevios  = datos.tratamientosPrevios;
+      if (datos.cirugias)            payload.cirugias             = datos.cirugias;
+      if (datos.temperatura)         payload.temperatura          = parseFloat(datos.temperatura);
+      if (datos.frecuenciaCardiaca)  payload.frecuenciaCardiaca   = parseInt(datos.frecuenciaCardiaca);
+      if (datos.frecuenciaRespiratoria) payload.frecuenciaRespiratoria = parseInt(datos.frecuenciaRespiratoria);
+      if (datos.tiempoLlenadoCapilar)   payload.tiempoLlenadoCapilar   = parseFloat(datos.tiempoLlenadoCapilar);
+      if (datos.movimientosRuminales)   payload.movimientosRuminales   = parseInt(datos.movimientosRuminales);
+      if (datos.condicionCorporal)      payload.condicionCorporal      = parseFloat(datos.condicionCorporal);
+      if (datos.estadoReproductivo)     payload.estadoReproductivo     = datos.estadoReproductivo;
+      if (datos.litrosLechesDiarios)    payload.litrosLechesDiarios    = parseFloat(datos.litrosLechesDiarios);
+      if (datos.gananciaPeso)           payload.gananciaPeso           = parseFloat(datos.gananciaPeso);
+      if (datos.diagnosticoDefinitivo)  payload.diagnosticoDefinitivo  = datos.diagnosticoDefinitivo;
+      if (datos.planDiagnostico)        payload.planDiagnostico        = datos.planDiagnostico;
+      if (datos.observacionesDiagnosticosOficiales) payload.observacionesDiagnosticosOficiales = datos.observacionesDiagnosticosOficiales;
+      const tieneEpid = datos.epidGarrapatas || datos.epidMosquitos || datos.epidMurcielagos || datos.epidMoscas || datos.epidOtros || datos.epidDescripcion;
+      if (tieneEpid) {
+        payload.informacionEpidemiologica = {
+          garrapatas: datos.epidGarrapatas, mosquitos: datos.epidMosquitos,
+          murcielagos: datos.epidMurcielagos, moscas: datos.epidMoscas,
+          otrosVectores: datos.epidOtros || undefined,
+          descripcion: datos.epidDescripcion || undefined,
+        };
+      }
+      if (datos.ayudasDiagnosticas.length) {
+        payload.ayudasDiagnosticas = datos.ayudasDiagnosticas.map((a) => ({
+          tipo: a.tipo,
+          descripcion: a.descripcion || undefined,
+          resultado: a.resultado || undefined,
+          fecha: new Date(a.fecha).toISOString(),
+        }));
+      }
+      if (datos.desparasitaciones.length) {
+        payload.desparasitaciones = datos.desparasitaciones.map((d) => ({
+          producto: d.producto, tipo: d.tipo,
+          principioActivo: d.principioActivo || undefined,
+          fecha: new Date(d.fecha).toISOString(),
+          dosis: d.dosis || undefined,
+          via: d.via || undefined,
+        }));
+      }
+      return clienteHttp.post('/historial-medico', payload);
+    },
     onSuccess: () => onExito(),
     onError: (err: any) => setError(err?.response?.data?.mensaje ?? 'Error al guardar la consulta'),
   });
 
+  const agregarAyuda = () =>
+    setForm((f) => ({
+      ...f,
+      ayudasDiagnosticas: [...f.ayudasDiagnosticas, { tipo: 'HEMOGRAMA', descripcion: '', resultado: '', fecha: new Date().toISOString().split('T')[0] }],
+    }));
+
+  const agregarDesparasitacion = () =>
+    setForm((f) => ({
+      ...f,
+      desparasitaciones: [...f.desparasitaciones, { producto: '', principioActivo: '', tipo: 'AMBOS', fecha: new Date().toISOString().split('T')[0], dosis: '', via: '' }],
+    }));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.animalId)       { setError('Debe ingresar el ID del animal'); return; }
+    if (!form.animalId)       { setError('Debe seleccionar un animal'); return; }
     if (!form.motivoConsulta) { setError('El motivo de consulta es requerido'); return; }
-    if (!form.diagnostico)    { setError('El diagnóstico es requerido'); return; }
+    if (!form.diagnostico)    { setError('El diagnóstico presuntivo es requerido'); return; }
     setError('');
-    mutacion.mutate({ ...form, fechaConsulta: new Date(form.fechaConsulta).toISOString() });
+    mutacion.mutate(form);
   };
 
   return (
     <>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-inverse-surface/40 z-40" onClick={onCerrar} />
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-inverse-surface/40 z-40"
-        onClick={onCerrar}
-      />
-      <motion.div
-        initial={{ scale: 0.96, opacity: 0, y: 16 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
+        initial={{ scale: 0.96, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.96, opacity: 0, y: 16 }}
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+        <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col">
+          {/* Header fijo */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20 flex-shrink-0">
             <h2 className="font-bold text-on-surface flex items-center gap-2">
               <Icono nombre="medical_services" clase="text-[20px] text-primary" />
               Nueva Consulta Médica
@@ -624,7 +804,8 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Cuerpo scrollable */}
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
             {error && (
               <div className="flex items-center gap-2 px-4 py-3 bg-error-container border border-error/20 rounded-xl text-sm text-on-error-container">
                 <Icono nombre="error" clase="text-[18px] flex-shrink-0 text-error" />
@@ -632,67 +813,263 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-                  ID del Animal <span className="text-error">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.animalId}
-                  onChange={(e) => setForm((f) => ({ ...f, animalId: e.target.value }))}
-                  placeholder="ID único del animal"
-                  className="campo-entrada"
-                />
+            {/* ── 1. Identificación ── */}
+            <SeccionClinica titulo="Identificación" icono="badge">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <BuscadorAnimal etiqueta="Animal" requerido valor={form.animalId}
+                    alSeleccionar={(id) => set('animalId', id)} placeholder="Buscar por arete o nombre..."
+                    error={!form.animalId && error === 'Debe seleccionar un animal' ? error : undefined} />
+                </div>
+                <CampoLabel etiqueta="Fecha de consulta" req>
+                  <input type="date" value={form.fechaConsulta}
+                    onChange={(e) => set('fechaConsulta', e.target.value)} className="campo-entrada" />
+                </CampoLabel>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-                  Fecha <span className="text-error">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={form.fechaConsulta}
-                  onChange={(e) => setForm((f) => ({ ...f, fechaConsulta: e.target.value }))}
-                  className="campo-entrada"
-                />
-              </div>
-            </div>
+            </SeccionClinica>
 
-            {[
-              { campo: 'motivoConsulta', etiqueta: 'Motivo de Consulta', req: true, tipo: 'input', ph: 'Ej: Fiebre, cojera, control...' },
-              { campo: 'sintomasObservados', etiqueta: 'Síntomas Observados', req: false, tipo: 'textarea', ph: 'Describa los síntomas...' },
-              { campo: 'diagnostico', etiqueta: 'Diagnóstico', req: true, tipo: 'textarea', ph: 'Diagnóstico clínico...' },
-              { campo: 'pronostico', etiqueta: 'Pronóstico', req: false, tipo: 'input', ph: 'Ej: Favorable, reservado...' },
-              { campo: 'observaciones', etiqueta: 'Observaciones', req: false, tipo: 'textarea', ph: 'Notas adicionales...' },
-            ].map(({ campo, etiqueta, req, tipo, ph }) => (
-              <div key={campo}>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-                  {etiqueta} {req && <span className="text-error">*</span>}
-                </label>
-                {tipo === 'input' ? (
-                  <input
-                    type="text"
-                    value={(form as any)[campo] ?? ''}
-                    onChange={(e) => setForm((f) => ({ ...f, [campo]: e.target.value }))}
-                    placeholder={ph}
-                    className="campo-entrada"
-                  />
-                ) : (
-                  <textarea
-                    rows={2}
-                    value={(form as any)[campo] ?? ''}
-                    onChange={(e) => setForm((f) => ({ ...f, [campo]: e.target.value }))}
-                    placeholder={ph}
-                    className="campo-entrada resize-none"
-                  />
-                )}
+            {/* ── 2. Anamnesis ── */}
+            <SeccionClinica titulo="Anamnesis" icono="history_edu">
+              <CampoLabel etiqueta="Motivo de consulta" req>
+                <input type="text" value={form.motivoConsulta}
+                  onChange={(e) => set('motivoConsulta', e.target.value)}
+                  placeholder="Ej: Fiebre, cojera, control rutinario..." className="campo-entrada" />
+              </CampoLabel>
+              <CampoLabel etiqueta="Tiempo de evolución">
+                <input type="text" value={form.tiempoEvolucion}
+                  onChange={(e) => set('tiempoEvolucion', e.target.value)}
+                  placeholder="Ej: 3 días, 2 semanas" className="campo-entrada" />
+              </CampoLabel>
+              <CampoLabel etiqueta="Síntomas observados">
+                <textarea rows={2} value={form.sintomasObservados}
+                  onChange={(e) => set('sintomasObservados', e.target.value)}
+                  placeholder="Describa los síntomas clínicos observados..." className="campo-entrada resize-none" />
+              </CampoLabel>
+              <div className="grid grid-cols-2 gap-3">
+                <CampoLabel etiqueta="Tratamientos previos">
+                  <textarea rows={2} value={form.tratamientosPrevios}
+                    onChange={(e) => set('tratamientosPrevios', e.target.value)}
+                    placeholder="Medicamentos o tratamientos aplicados antes..." className="campo-entrada resize-none" />
+                </CampoLabel>
+                <CampoLabel etiqueta="Cirugías previas">
+                  <textarea rows={2} value={form.cirugias}
+                    onChange={(e) => set('cirugias', e.target.value)}
+                    placeholder="Historial quirúrgico relevante..." className="campo-entrada resize-none" />
+                </CampoLabel>
               </div>
-            ))}
+            </SeccionClinica>
 
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onCerrar} className="flex-1 boton boton-secundario">
-                Cancelar
+            {/* ── 3. Exploración física ── */}
+            <SeccionClinica titulo="Exploración Física" icono="stethoscope">
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { campo: 'temperatura', et: 'Temperatura (°C)', ph: '38.5', step: '0.1' },
+                  { campo: 'frecuenciaCardiaca', et: 'Frec. Cardíaca (lpm)', ph: '60', step: '1' },
+                  { campo: 'frecuenciaRespiratoria', et: 'Frec. Respiratoria (rpm)', ph: '20', step: '1' },
+                  { campo: 'tiempoLlenadoCapilar', et: 'T. Llenado Capilar (seg)', ph: '1.5', step: '0.5' },
+                  { campo: 'movimientosRuminales', et: 'Mov. Ruminales (2 min)', ph: '2', step: '1' },
+                  { campo: 'condicionCorporal', et: 'Condición Corporal (1–5)', ph: '3', step: '0.5' },
+                ].map(({ campo, et, ph, step }) => (
+                  <CampoLabel key={campo} etiqueta={et}>
+                    <input type="number" step={step} value={(form as any)[campo]}
+                      onChange={(e) => set(campo as keyof FormHistorial, e.target.value)}
+                      placeholder={ph} className="campo-entrada" />
+                  </CampoLabel>
+                ))}
+              </div>
+            </SeccionClinica>
+
+            {/* ── 4. Estado del animal ── */}
+            <SeccionClinica titulo="Estado del Animal" icono="monitor_heart">
+              <div className="grid grid-cols-3 gap-3">
+                <CampoLabel etiqueta="Estado reproductivo">
+                  <select value={form.estadoReproductivo} onChange={(e) => set('estadoReproductivo', e.target.value)} className="campo-entrada">
+                    <option value="">No especificado</option>
+                    <option value="ENTERO">Entero/Íntegro</option>
+                    <option value="CASTRADO">Castrado</option>
+                    <option value="LACTANTE">Lactante</option>
+                    <option value="GESTANTE">Gestante</option>
+                  </select>
+                </CampoLabel>
+                <CampoLabel etiqueta="Litros de leche/día">
+                  <input type="number" step="0.1" value={form.litrosLechesDiarios}
+                    onChange={(e) => set('litrosLechesDiarios', e.target.value)}
+                    placeholder="Ej: 8.5" className="campo-entrada" />
+                </CampoLabel>
+                <CampoLabel etiqueta="Ganancia de peso (kg)">
+                  <input type="number" step="0.1" value={form.gananciaPeso}
+                    onChange={(e) => set('gananciaPeso', e.target.value)}
+                    placeholder="Ej: 12" className="campo-entrada" />
+                </CampoLabel>
+              </div>
+            </SeccionClinica>
+
+            {/* ── 5. Información epidemiológica ── */}
+            <SeccionClinica titulo="Información Epidemiológica" icono="pest_control">
+              <p className="text-xs text-on-surface-variant mb-2">Vectores presentes en el entorno:</p>
+              <div className="flex flex-wrap gap-3 mb-3">
+                {[
+                  { campo: 'epidGarrapatas', et: 'Garrapatas', ico: 'bug_report' },
+                  { campo: 'epidMosquitos',  et: 'Mosquitos',  ico: 'mosquito' },
+                  { campo: 'epidMurcielagos',et: 'Murciélagos',ico: 'cruelty_free' },
+                  { campo: 'epidMoscas',     et: 'Moscas',     ico: 'pest_control' },
+                ].map(({ campo, et, ico }) => (
+                  <label key={campo} className="flex items-center gap-2 cursor-pointer select-none px-3 py-2 rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors">
+                    <input type="checkbox" checked={(form as any)[campo]}
+                      onChange={(e) => set(campo as keyof FormHistorial, e.target.checked)}
+                      className="accent-primary w-4 h-4" />
+                    <Icono nombre={ico} clase="text-[14px] text-on-surface-variant" />
+                    <span className="text-xs font-medium text-on-surface">{et}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <CampoLabel etiqueta="Otros vectores">
+                  <input type="text" value={form.epidOtros}
+                    onChange={(e) => set('epidOtros', e.target.value)}
+                    placeholder="Ej: Tábanos, nuches..." className="campo-entrada" />
+                </CampoLabel>
+                <CampoLabel etiqueta="Descripción del entorno">
+                  <input type="text" value={form.epidDescripcion}
+                    onChange={(e) => set('epidDescripcion', e.target.value)}
+                    placeholder="Zona húmeda, potrero inundado..." className="campo-entrada" />
+                </CampoLabel>
+              </div>
+            </SeccionClinica>
+
+            {/* ── 6. Diagnóstico y plan ── */}
+            <SeccionClinica titulo="Diagnóstico y Plan" icono="lab_panel">
+              <CampoLabel etiqueta="Diagnóstico presuntivo" req>
+                <textarea rows={2} value={form.diagnostico}
+                  onChange={(e) => set('diagnostico', e.target.value)}
+                  placeholder="Diagnóstico clínico inicial..." className="campo-entrada resize-none" />
+              </CampoLabel>
+              <div className="grid grid-cols-2 gap-3">
+                <CampoLabel etiqueta="Pronóstico">
+                  <input type="text" value={form.pronostico}
+                    onChange={(e) => set('pronostico', e.target.value)}
+                    placeholder="Favorable, reservado, grave..." className="campo-entrada" />
+                </CampoLabel>
+                <CampoLabel etiqueta="Diagnóstico definitivo">
+                  <input type="text" value={form.diagnosticoDefinitivo}
+                    onChange={(e) => set('diagnosticoDefinitivo', e.target.value)}
+                    placeholder="Confirmado post ayudas diagnósticas..." className="campo-entrada" />
+                </CampoLabel>
+              </div>
+              <CampoLabel etiqueta="Plan diagnóstico">
+                <textarea rows={2} value={form.planDiagnostico}
+                  onChange={(e) => set('planDiagnostico', e.target.value)}
+                  placeholder="Pruebas a solicitar: hemograma, ecografía..." className="campo-entrada resize-none" />
+              </CampoLabel>
+              <CampoLabel etiqueta="Tuberculosis / Brucelosis (pruebas oficiales)">
+                <textarea rows={2} value={form.observacionesDiagnosticosOficiales}
+                  onChange={(e) => set('observacionesDiagnosticosOficiales', e.target.value)}
+                  placeholder="Resultados de pruebas obligatorias, fechas, estado..." className="campo-entrada resize-none" />
+              </CampoLabel>
+              <CampoLabel etiqueta="Observaciones generales">
+                <textarea rows={2} value={form.observaciones}
+                  onChange={(e) => set('observaciones', e.target.value)}
+                  placeholder="Notas adicionales de la consulta..." className="campo-entrada resize-none" />
+              </CampoLabel>
+            </SeccionClinica>
+
+            {/* ── 7. Ayudas diagnósticas ── */}
+            <SeccionClinica titulo="Ayudas Diagnósticas" icono="biotech">
+              {form.ayudasDiagnosticas.map((ayuda, idx) => (
+                <div key={idx} className="p-3 bg-surface-container rounded-xl space-y-2 relative">
+                  <button type="button"
+                    onClick={() => setForm((f) => ({ ...f, ayudasDiagnosticas: f.ayudasDiagnosticas.filter((_, i) => i !== idx) }))}
+                    className="absolute top-2 right-2 p-1 text-outline hover:text-error rounded-lg transition-colors">
+                    <Icono nombre="close" clase="text-[14px]" />
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <CampoLabel etiqueta="Tipo">
+                      <select value={ayuda.tipo}
+                        onChange={(e) => setForm((f) => { const arr = [...f.ayudasDiagnosticas]; arr[idx].tipo = e.target.value; return { ...f, ayudasDiagnosticas: arr }; })}
+                        className="campo-entrada text-sm">
+                        {Object.entries(ETIQUETAS_AYUDA).map(([val, et]) => <option key={val} value={val}>{et}</option>)}
+                      </select>
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Fecha">
+                      <input type="date" value={ayuda.fecha}
+                        onChange={(e) => setForm((f) => { const arr = [...f.ayudasDiagnosticas]; arr[idx].fecha = e.target.value; return { ...f, ayudasDiagnosticas: arr }; })}
+                        className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Descripción">
+                      <input type="text" value={ayuda.descripcion}
+                        onChange={(e) => setForm((f) => { const arr = [...f.ayudasDiagnosticas]; arr[idx].descripcion = e.target.value; return { ...f, ayudasDiagnosticas: arr }; })}
+                        placeholder="Qué se solicitó..." className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Resultado">
+                      <input type="text" value={ayuda.resultado}
+                        onChange={(e) => setForm((f) => { const arr = [...f.ayudasDiagnosticas]; arr[idx].resultado = e.target.value; return { ...f, ayudasDiagnosticas: arr }; })}
+                        placeholder="Resultado obtenido..." className="campo-entrada text-sm" />
+                    </CampoLabel>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={agregarAyuda}
+                className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-primary/40 rounded-xl text-sm text-primary hover:bg-primary/5 transition-colors">
+                <Icono nombre="add" clase="text-[16px]" /> Agregar ayuda diagnóstica
               </button>
+            </SeccionClinica>
+
+            {/* ── 8. Programa de desparasitación ── */}
+            <SeccionClinica titulo="Programa de Desparasitación" icono="vaccines">
+              {form.desparasitaciones.map((desp, idx) => (
+                <div key={idx} className="p-3 bg-surface-container rounded-xl space-y-2 relative">
+                  <button type="button"
+                    onClick={() => setForm((f) => ({ ...f, desparasitaciones: f.desparasitaciones.filter((_, i) => i !== idx) }))}
+                    className="absolute top-2 right-2 p-1 text-outline hover:text-error rounded-lg transition-colors">
+                    <Icono nombre="close" clase="text-[14px]" />
+                  </button>
+                  <div className="grid grid-cols-3 gap-2">
+                    <CampoLabel etiqueta="Producto *">
+                      <input type="text" value={desp.producto}
+                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].producto = e.target.value; return { ...f, desparasitaciones: arr }; })}
+                        placeholder="Ej: Ivomec" className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Principio activo">
+                      <input type="text" value={desp.principioActivo}
+                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].principioActivo = e.target.value; return { ...f, desparasitaciones: arr }; })}
+                        placeholder="Ej: Ivermectina" className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Tipo">
+                      <select value={desp.tipo}
+                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].tipo = e.target.value; return { ...f, desparasitaciones: arr }; })}
+                        className="campo-entrada text-sm">
+                        <option value="ECTOPARASITO">Ectoparásito</option>
+                        <option value="ENDOPARASITO">Endoparásito</option>
+                        <option value="AMBOS">Ambos</option>
+                      </select>
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Fecha">
+                      <input type="date" value={desp.fecha}
+                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].fecha = e.target.value; return { ...f, desparasitaciones: arr }; })}
+                        className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Dosis">
+                      <input type="text" value={desp.dosis}
+                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].dosis = e.target.value; return { ...f, desparasitaciones: arr }; })}
+                        placeholder="Ej: 1 ml/50 kg" className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Vía">
+                      <input type="text" value={desp.via}
+                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].via = e.target.value; return { ...f, desparasitaciones: arr }; })}
+                        placeholder="Subcutánea, oral, pour-on" className="campo-entrada text-sm" />
+                    </CampoLabel>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={agregarDesparasitacion}
+                className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-primary/40 rounded-xl text-sm text-primary hover:bg-primary/5 transition-colors">
+                <Icono nombre="add" clase="text-[16px]" /> Agregar desparasitación
+              </button>
+            </SeccionClinica>
+
+            {/* Botones fijos */}
+            <div className="flex gap-3 pt-2 pb-1">
+              <button type="button" onClick={onCerrar} className="flex-1 boton boton-secundario">Cancelar</button>
               <button type="submit" disabled={mutacion.isPending} className="flex-1 boton boton-primario">
                 {mutacion.isPending ? 'Guardando...' : 'Guardar consulta'}
               </button>

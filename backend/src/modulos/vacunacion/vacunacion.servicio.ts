@@ -169,7 +169,7 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
     datos.fechaAplicacion.getTime() + calendario.intervaloDias * 24 * 60 * 60 * 1000,
   );
 
-  const { aplicadoPorId, historialMedicoId, medicamentoId, ...resto } = datos;
+  const { aplicadoPorId, historialMedicoId, medicamentoId, calendarioVacunacionId, ...resto } = datos;
 
   return prisma.registroVacunacion.create({
     data: {

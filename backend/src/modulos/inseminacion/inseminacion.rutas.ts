@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { ClasificacionIA, TecnicaDeposicionSemen, NivelEstres } from '@prisma/client';
 import { verificarToken, administradorOVeterinario, cualquierRol } from '../../compartido/middlewares/autenticacion';
 import { registrarAuditoria } from '../../compartido/middlewares/auditoria';
 import { prisma } from '../../compartido/prisma/clientePrisma';
@@ -83,6 +84,7 @@ enrutador.post('/inventario', administradorOVeterinario, registrarAuditoria('Reg
       concentracion:    z.number().positive().optional(),
       volumen:          z.number().positive().optional(),
       coloracion:       z.string().max(100).optional(),
+      temperatura:      z.number().optional(),
       fechaColeccion:   z.coerce.date().optional(),
       fechaVencimiento: z.coerce.date().optional(),
       observaciones:    z.string().max(500).optional(),
@@ -122,12 +124,31 @@ enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextF
     const [registros, total] = await prisma.$transaction([
       prisma.eventoReproductivo.findMany({
         where: donde,
-        include: {
+        select: {
+          id: true, tipo: true, fecha: true, observaciones: true,
           animal: { select: { id: true, numeroArete: true, nombre: true } },
           registradoPor: { select: { nombre: true, apellido: true } },
           inseminacion: {
-            include: {
-              inventarioSemen: { include: { semental: { select: { nombre: true } } } },
+            select: {
+              id: true,
+              fechaInseminacion: true,
+              numeroIntento: true,
+              clasificacionIA: true,
+              tecnicaDeposicion: true,
+              patologiasVaca: true,
+              tasaMetabolicaBasal: true,
+              balanceEnergetico: true,
+              temperaturaUterina: true,
+              manejoHato: true,
+              observaciones: true,
+              inventarioSemen: {
+                select: {
+                  id: true,
+                  codigoDosis: true,
+                  temperatura: true,
+                  semental: { select: { nombre: true } },
+                },
+              },
             },
           },
         },
@@ -147,11 +168,22 @@ enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextF
 enrutador.post('/', administradorOVeterinario, registrarAuditoria('Registrar inseminación', 'InseminacionArtificial'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({
-      receptoraId:       z.string().min(1),
-      inventarioSemenId: z.string().min(1),
-      fecha:             z.coerce.date(),
-      numeroIntento:     z.number().int().positive().default(1),
-      observaciones:     z.string().max(500).optional(),
+      receptoraId:         z.string().min(1),
+      inventarioSemenId:   z.string().min(1),
+      fecha:               z.coerce.date(),
+      numeroIntento:       z.number().int().positive().default(1),
+      observaciones:       z.string().max(500).optional(),
+      // Clasificación
+      clasificacionIA:     z.nativeEnum(ClasificacionIA).optional(),
+      tecnicaDeposicion:   z.nativeEnum(TecnicaDeposicionSemen).optional(),
+      // Factores biológicos
+      patologiasVaca:      z.string().max(1000).optional(),
+      tasaMetabolicaBasal: z.number().int().min(1).max(5).optional(),
+      balanceEnergetico:   z.string().max(200).optional(),
+      // Estrés térmico
+      temperaturaUterina:  z.number().optional(),
+      // Manejo del hato
+      manejoHato:          z.nativeEnum(NivelEstres).optional(),
     }).parse(req.body);
 
     // Validar inventario disponible
@@ -164,26 +196,39 @@ enrutador.post('/', administradorOVeterinario, registrarAuditoria('Registrar ins
       throw new ErrorConflicto(`No hay dosis disponibles del lote ${inventario.codigoDosis}`);
     }
 
+    const {
+      receptoraId, inventarioSemenId, fecha, numeroIntento, observaciones,
+      clasificacionIA, tecnicaDeposicion, patologiasVaca,
+      tasaMetabolicaBasal, balanceEnergetico, temperaturaUterina, manejoHato,
+    } = datos;
+
     const [evento] = await prisma.$transaction([
       prisma.eventoReproductivo.create({
         data: {
           tipo:          'INSEMINACION_ARTIFICIAL',
-          fecha:         datos.fecha,
-          observaciones: datos.observaciones,
-          animal:        { connect: { id: datos.receptoraId } },
+          fecha,
+          observaciones,
+          animal:        { connect: { id: receptoraId } },
           registradoPor: { connect: { id: req.usuarioActual!.id } },
           inseminacion: {
             create: {
-              fechaInseminacion:  datos.fecha,
-              numeroIntento:      datos.numeroIntento,
-              observaciones:      datos.observaciones,
-              inventarioSemen:    { connect: { id: datos.inventarioSemenId } },
+              fechaInseminacion:  fecha,
+              numeroIntento,
+              observaciones,
+              inventarioSemen:    { connect: { id: inventarioSemenId } },
+              clasificacionIA,
+              tecnicaDeposicion,
+              patologiasVaca,
+              tasaMetabolicaBasal,
+              balanceEnergetico,
+              temperaturaUterina,
+              manejoHato,
             },
           },
         },
       }),
       prisma.inventarioSemen.update({
-        where: { id: datos.inventarioSemenId },
+        where: { id: inventarioSemenId },
         data: { cantidadUsada: { increment: 1 } },
       }),
     ]);
