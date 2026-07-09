@@ -79,7 +79,7 @@ export async function controladorObtenerEvento(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const evento = await obtenerEventoReproductivo(req.params.id);
+    const evento = await obtenerEventoReproductivo(req.params['id'] as string);
     return respuestaExito(res, evento);
   } catch (error) { return next(error); }
 }
@@ -138,7 +138,7 @@ export async function controladorCerrarGestacion(
       resultado:     z.enum(['PARTO', 'ABORTO', 'PERDIDA']),
       fechaPartoReal: z.coerce.date().optional(),
     }).parse(req.body);
-    const gestacion = await cerrarGestacion(req.params.id, resultado, fechaPartoReal);
+    const gestacion = await cerrarGestacion(req.params['id'] as string, resultado, fechaPartoReal);
     return respuestaExito(res, gestacion);
   } catch (error) { return next(error); }
 }

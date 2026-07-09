@@ -7,11 +7,80 @@ ANTES DE EMPEZAR - LO QUE NECESITAS TENER INSTALADO
 -----------------------------------------------------
 - Node.js versión 24 o superior
 - PostgreSQL corriendo en tu computadora (puerto 5432)
-- Tu base de datos se llama "campolargo", usuario "postgres", contraseña "30015773"
 
 Si la base de datos "campolargo" no existe todavía, ábrela desde pgAdmin o
 ejecuta esto en una terminal:
   psql -U postgres -c "CREATE DATABASE campolargo;"
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  PASO 0 — CREAR LOS ARCHIVOS .env (SOLO LA PRIMERA VEZ)     ║
+╚══════════════════════════════════════════════════════════════╝
+
+El sistema necesita DOS archivos .env para funcionar.
+Estos archivos guardan las contraseñas y claves del sistema.
+NUNCA deben subirse a GitHub ni compartirse.
+
+──────────────────────────────────────────────────────────────
+  ARCHIVO 1: backend\.env
+──────────────────────────────────────────────────────────────
+Crea el archivo C:\Users\MariaFernandaSuarezD\Documents\Tesis\backend\.env
+con este contenido (ya ajustado para tu computadora):
+
+  DATABASE_URL="postgresql://postgres:30015773@localhost:5432/campolargo"
+  BACKEND_PUERTO=3001
+  JWT_SECRETO=clave_secreta_aleatoria_minimo_32_caracteres_cambiar
+  JWT_SECRETO_REFRESH=otra_clave_diferente_minimo_32_caracteres_cambiar
+  JWT_EXPIRACION=15m
+  JWT_EXPIRACION_REFRESH=7d
+  NODE_ENV=development
+
+  ¿Cómo generar claves JWT seguras? Ejecuta esto en PowerShell:
+  node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+  Copia la salida y pégala como valor de JWT_SECRETO.
+  Repite el comando y pega el nuevo valor en JWT_SECRETO_REFRESH.
+  (Deben ser valores DISTINTOS entre sí.)
+
+  VARIABLES OPCIONALES (para envío de correos):
+  EMAIL_SERVIDOR=smtp.gmail.com
+  EMAIL_PUERTO=587
+  EMAIL_USUARIO=tu_correo@gmail.com
+  EMAIL_CLAVE=clave_de_aplicacion_gmail
+  EMAIL_REMITENTE=noreply@campolargo.com
+
+──────────────────────────────────────────────────────────────
+  ARCHIVO 2: frontend\.env
+──────────────────────────────────────────────────────────────
+Crea el archivo C:\Users\MariaFernandaSuarezD\Documents\Tesis\frontend\.env
+con este contenido:
+
+  VITE_API_URL=http://localhost:3001/api
+
+  IMPORTANTE: Las variables del frontend DEBEN empezar con VITE_
+  para que el navegador pueda acceder a ellas. No cambies el prefijo.
+
+──────────────────────────────────────────────────────────────
+  ¿Qué hace cada variable?
+──────────────────────────────────────────────────────────────
+  DATABASE_URL          → Cadena de conexión a PostgreSQL.
+                          Formato: postgresql://usuario:contraseña@host:puerto/base_datos
+                          Cambia "postgres:30015773" si tu usuario o contraseña son diferentes.
+
+  BACKEND_PUERTO        → Puerto donde corre el servidor Express (3001 por defecto)
+
+  JWT_SECRETO           → Clave privada para firmar los tokens de acceso.
+                          Mínimo 32 caracteres, completamente aleatoria.
+
+  JWT_SECRETO_REFRESH   → Clave para los tokens de renovación (refresh).
+                          Debe ser DIFERENTE a JWT_SECRETO.
+
+  JWT_EXPIRACION        → Cada cuánto expira el token (15m = 15 minutos)
+  JWT_EXPIRACION_REFRESH→ Cada cuánto expira el refresh token (7d = 7 días)
+
+  NODE_ENV              → "development" en tu computadora, "production" en servidor real.
+
+  VITE_API_URL          → Dirección donde el frontend busca la API del backend.
+                          Si cambias el puerto del backend, actualiza esto también.
 
 
 PASO 1 - INSTALAR LAS DEPENDENCIAS (solo la primera vez)
@@ -97,15 +166,25 @@ CREDENCIALES PARA ENTRAR
 QUÉ HACER SI ALGO FALLA
 ------------------------
 
-ERROR: "Cannot connect to database"
+ERROR: "Cannot connect to database" o "P1001"
   - Verifica que PostgreSQL esté corriendo (busca el servicio en el Administrador de tareas)
   - Verifica que la base de datos "campolargo" exista en pgAdmin
-  - Revisa que el archivo backend\.env tenga los datos correctos de conexión
+  - Abre backend\.env y confirma que DATABASE_URL tenga el usuario y contraseña correctos
+  - El formato debe ser: postgresql://postgres:TU_CONTRASEÑA@localhost:5432/campolargo
+
+ERROR: "Invalid JWT secret" o errores de autenticación
+  - Verifica que backend\.env tenga JWT_SECRETO y JWT_SECRETO_REFRESH con valores (no vacíos)
+  - Deben tener al menos 32 caracteres cada uno
 
 ERROR: "Port 3001 already in use"
   - Algún proceso ya está usando ese puerto
   - Ejecuta: netstat -ano | findstr :3001
-  - Luego cierra ese proceso
+  - Luego cierra ese proceso desde el Administrador de tareas
+
+ERROR: "VITE_API_URL is undefined" o frontend no puede conectar al backend
+  - Verifica que el archivo frontend\.env exista y tenga: VITE_API_URL=http://localhost:3001/api
+  - Asegúrate de que el nombre empiece con VITE_ (mayúsculas)
+  - Reinicia el servidor de Vite después de cambiar el .env
 
 ERROR: "Module not found" o errores de TypeScript
   - Vuelve a ejecutar npm install en la carpeta que da error
@@ -123,7 +202,7 @@ ESTRUCTURA DEL SISTEMA
 El sistema tiene estas secciones en el menú:
 
   Dashboard     → Resumen general, indicadores clave, alertas y partos próximos
-  Fincas        → Las 3 fincas de la empresa con sus lotes y potreros
+  Fincas        → Las 3 fincas con panel de detalle que muestra todos sus animales
   Animales      → Todo el hato bovino, búsqueda, filtros y ficha de cada animal
   Historial Méd → Consultas veterinarias, diagnósticos y tratamientos
   Vacunación    → Calendarios de vacunación y registro de aplicaciones
@@ -144,10 +223,12 @@ DIRECCIÓN DE LA API (para referencia técnica)
 
 ARCHIVOS IMPORTANTES
 --------------------
-  backend\.env        → Credenciales de la base de datos y claves JWT (NO compartir)
-  frontend\.env       → Dirección de la API para el frontend
+  backend\.env              → URL base de datos + claves JWT (NO compartir)
+  frontend\.env             → URL de la API para el frontend (NO compartir)
+  .env.ejemplo              → Plantilla con TODAS las variables documentadas
   backend\prisma\schema.prisma → Definición de toda la base de datos
   backend\prisma\seed.ts       → Datos de prueba que se cargan al inicio
+  README.md                    → Documentación técnica completa del sistema
 
 ===============================================================
   Desarrollado por: María Fernanda Suárez Delfin

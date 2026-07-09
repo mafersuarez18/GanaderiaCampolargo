@@ -759,3 +759,349 @@ export async function generarReproductivo(
     res.end();
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REPORTE 5 — HISTORIAL MÉDICO COMPLETO DE UN ANIMAL (PDF)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function generarHistorialAnimal(
+  res: Response,
+  animalId: string,
+) {
+  const animal = await prisma.animal.findUnique({
+    where: { id: animalId },
+    select: {
+      numeroArete: true,
+      nombre: true,
+      sexo: true,
+      fechaNacimiento: true,
+      estadoSanitario: true,
+      raza: { select: { nombre: true } },
+      finca: { select: { nombre: true } },
+    },
+  });
+
+  if (!animal) {
+    res.status(404).json({ error: 'Animal no encontrado' });
+    return;
+  }
+
+  const consultas = await prisma.historialMedico.findMany({
+    where: { animalId },
+    include: {
+      veterinario: { select: { nombre: true, apellido: true } },
+      enfermedades: true,
+      tratamientos: {
+        include: { medicamento: { select: { nombre: true } } },
+      },
+      informacionEpidemiologica: true,
+      ayudasDiagnosticas: true,
+      desparasitaciones: true,
+    },
+    orderBy: { fechaConsulta: 'desc' },
+  });
+
+  const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true, autoFirstPage: true });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="historial_${animal.numeroArete}.pdf"`);
+  doc.pipe(res);
+
+  const nombreAnimal = animal.nombre ? `${animal.nombre} — #${animal.numeroArete}` : `#${animal.numeroArete}`;
+  encabezadoPDF(
+    doc,
+    `Historial Médico: ${nombreAnimal}`,
+    `${animal.raza?.nombre ?? '—'} · ${animal.finca?.nombre ?? '—'} · ${consultas.length} consulta(s)`,
+  );
+
+  // Ficha del animal
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Datos del Animal').moveDown(0.3);
+  const fichaItems: [string, string][] = [
+    ['Arete',           animal.numeroArete],
+    ['Nombre',          animal.nombre ?? '—'],
+    ['Sexo',            animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
+    ['Raza',            animal.raza?.nombre ?? '—'],
+    ['Finca',           animal.finca?.nombre ?? '—'],
+    ['Nacimiento',      fmtFecha(animal.fechaNacimiento)],
+    ['Estado sanitario', animal.estadoSanitario ?? '—'],
+  ];
+  fichaItems.forEach(([k, v], i) => {
+    const y = doc.y;
+    if (i % 2 === 0) doc.rect(50, y, doc.page.width - 100, 18).fill(VERDE_CLARO);
+    doc.fillColor(GRIS_TEXTO).font('Helvetica').fontSize(9)
+       .text(k, 55, y + 4, { continued: true })
+       .font('Helvetica-Bold').text(v, { align: 'right' });
+    doc.y = y + 18;
+  });
+
+  doc.moveDown(1);
+
+  if (consultas.length === 0) {
+    doc.font('Helvetica').fontSize(10).fillColor(GRIS_TEXTO).text('Sin consultas registradas.');
+  }
+
+  // Una sección por consulta
+  consultas.forEach((c, idx) => {
+    if (doc.y > doc.page.height - 180) { doc.addPage(); doc.y = 50; }
+
+    const titleY = doc.y;
+    doc.rect(50, titleY, doc.page.width - 100, 22).fill(VERDE_OSCURO);
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(10)
+       .text(
+         `Consulta ${idx + 1} — ${fmtFecha(c.fechaConsulta)}   ·   Vet: ${c.veterinario.nombre} ${c.veterinario.apellido}`,
+         55, titleY + 6, { width: doc.page.width - 110, lineBreak: false },
+       );
+    doc.y = titleY + 26;
+
+    const campo = (etiqueta: string, valor: string | null | undefined) => {
+      if (!valor) return;
+      const y = doc.y;
+      doc.fillColor(GRIS_TEXTO).font('Helvetica-Bold').fontSize(8)
+         .text(etiqueta + ': ', 55, y, { continued: true })
+         .font('Helvetica').text(valor, { width: doc.page.width - 110 });
+      if (doc.y > doc.page.height - 80) { doc.addPage(); doc.y = 50; }
+    };
+
+    campo('Motivo', c.motivoConsulta);
+    campo('Síntomas', c.sintomasObservados);
+    campo('Diagnóstico', c.diagnostico);
+    if (c.diagnosticoDefinitivo) campo('Diag. definitivo', c.diagnosticoDefinitivo);
+    if (c.pronostico)             campo('Pronóstico', c.pronostico);
+    if (c.planDiagnostico)        campo('Plan diagnóstico', c.planDiagnostico);
+    if (c.observaciones)          campo('Observaciones', c.observaciones);
+
+    // Signos vitales
+    const vitales: string[] = [];
+    if (c.temperatura != null)           vitales.push(`Temp: ${c.temperatura}°C`);
+    if (c.frecuenciaCardiaca != null)    vitales.push(`FC: ${c.frecuenciaCardiaca} lpm`);
+    if (c.frecuenciaRespiratoria != null) vitales.push(`FR: ${c.frecuenciaRespiratoria} rpm`);
+    if (c.tiempoLlenadoCapilar != null)  vitales.push(`TLC: ${c.tiempoLlenadoCapilar} seg`);
+    if (c.movimientosRuminales != null)  vitales.push(`Rum: ${c.movimientosRuminales}/min`);
+    if (c.condicionCorporal != null)     vitales.push(`CC: ${c.condicionCorporal}/5`);
+    if (vitales.length) campo('Signos vitales', vitales.join('   '));
+
+    // Enfermedades
+    if (c.enfermedades.length) {
+      campo('Enfermedades', c.enfermedades.map((e) => `${e.nombreEnfermedad} (${e.activa ? 'activa' : 'resuelta'})`).join('; '));
+    }
+
+    // Tratamientos
+    if (c.tratamientos.length) {
+      c.tratamientos.forEach((t) => {
+        campo('Tratamiento', `${t.medicamento.nombre} — ${t.dosis} — ${t.viaAdministracion} — ${t.frecuencia}${t.duracionDias ? ` — ${t.duracionDias}d` : ''}`);
+      });
+    }
+
+    // Desparasitaciones
+    if (c.desparasitaciones.length) {
+      c.desparasitaciones.forEach((d) => {
+        campo('Desparasitación', `${d.producto}${d.principioActivo ? ` (${d.principioActivo})` : ''} — ${fmtFecha(d.fecha)}${d.dosis ? ` — ${d.dosis}` : ''}`);
+      });
+    }
+
+    // Ayudas diagnósticas
+    if (c.ayudasDiagnosticas.length) {
+      c.ayudasDiagnosticas.forEach((a) => {
+        const linea = [a.tipo.replace(/_/g, ' '), fmtFecha(a.fecha), a.resultado].filter(Boolean).join(' — ');
+        campo('Ayuda diagnóstica', linea);
+      });
+    }
+
+    // Info epidemiológica
+    if (c.informacionEpidemiologica) {
+      const ep = c.informacionEpidemiologica as any;
+      const vecs = [ep.garrapatas && 'Garrapatas', ep.mosquitos && 'Mosquitos', ep.murcielagos && 'Murciélagos', ep.moscas && 'Moscas', ep.otrosVectores].filter(Boolean).join(', ');
+      if (vecs) campo('Vectores', vecs);
+      if (ep.descripcion) campo('Epid. descripción', ep.descripcion);
+    }
+
+    doc.moveDown(0.8);
+  });
+
+  piePaginaPDF(doc);
+  doc.end();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REPORTE 6 — PDF DE UNA CONSULTA ESPECÍFICA
+// ─────────────────────────────────────────────────────────────────────────────
+export async function generarConsulta(
+  res: Response,
+  consultaId: string,
+) {
+  const c = await prisma.historialMedico.findUnique({
+    where: { id: consultaId },
+    include: {
+      animal: {
+        select: {
+          numeroArete: true, nombre: true, sexo: true, fechaNacimiento: true,
+          raza: { select: { nombre: true } },
+          finca: { select: { nombre: true } },
+        },
+      },
+      veterinario: { select: { nombre: true, apellido: true } },
+      enfermedades: true,
+      tratamientos: { include: { medicamento: { select: { nombre: true } } } },
+      informacionEpidemiologica: true,
+      ayudasDiagnosticas: true,
+      desparasitaciones: true,
+    },
+  });
+
+  if (!c) {
+    res.status(404).json({ error: 'Consulta no encontrada' });
+    return;
+  }
+
+  const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true, autoFirstPage: true });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="consulta_${c.id}.pdf"`);
+  doc.pipe(res);
+
+  const nombreAnimal = c.animal.nombre ? `${c.animal.nombre} — #${c.animal.numeroArete}` : `#${c.animal.numeroArete}`;
+  encabezadoPDF(
+    doc,
+    `Consulta Médica — ${fmtFecha(c.fechaConsulta)}`,
+    `${nombreAnimal}  ·  ${c.animal.finca?.nombre ?? '—'}`,
+  );
+
+  // Bloque ficha
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Datos del Animal').moveDown(0.3);
+  const fichaA: [string, string][] = [
+    ['Arete',     c.animal.numeroArete],
+    ['Nombre',    c.animal.nombre ?? '—'],
+    ['Raza',      c.animal.raza?.nombre ?? '—'],
+    ['Finca',     c.animal.finca?.nombre ?? '—'],
+    ['Sexo',      c.animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
+    ['Nacimiento', fmtFecha(c.animal.fechaNacimiento)],
+  ];
+  fichaA.forEach(([k, v], i) => {
+    const y = doc.y;
+    if (i % 2 === 0) doc.rect(50, y, doc.page.width - 100, 18).fill(VERDE_CLARO);
+    doc.fillColor(GRIS_TEXTO).font('Helvetica').fontSize(9)
+       .text(k, 55, y + 4, { continued: true })
+       .font('Helvetica-Bold').text(v, { align: 'right' });
+    doc.y = y + 18;
+  });
+
+  doc.moveDown(0.8);
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Información de la Consulta').moveDown(0.3);
+
+  const campo = (etiqueta: string, valor: string | null | undefined) => {
+    if (!valor) return;
+    const y = doc.y;
+    doc.fillColor(GRIS_TEXTO).font('Helvetica-Bold').fontSize(9)
+       .text(etiqueta + ': ', 55, y, { continued: true })
+       .font('Helvetica').text(valor, { width: doc.page.width - 110 });
+    if (doc.y > doc.page.height - 80) { doc.addPage(); doc.y = 50; }
+  };
+
+  doc.font('Helvetica').fontSize(9).fillColor(GRIS_TEXTO)
+     .text(`Veterinario: ${c.veterinario.nombre} ${c.veterinario.apellido}   ·   Fecha: ${fmtFecha(c.fechaConsulta)}`)
+     .moveDown(0.4);
+
+  campo('Motivo de consulta',    c.motivoConsulta);
+  campo('Síntomas observados',   c.sintomasObservados);
+  campo('Tiempo de evolución',   c.tiempoEvolucion);
+  campo('Tratamientos previos',  c.tratamientosPrevios);
+  campo('Cirugías',              c.cirugias);
+
+  // Signos vitales
+  const vitales: string[] = [];
+  if (c.temperatura != null)            vitales.push(`Temp: ${c.temperatura}°C`);
+  if (c.frecuenciaCardiaca != null)     vitales.push(`FC: ${c.frecuenciaCardiaca} lpm`);
+  if (c.frecuenciaRespiratoria != null) vitales.push(`FR: ${c.frecuenciaRespiratoria} rpm`);
+  if (c.tiempoLlenadoCapilar != null)   vitales.push(`TLC: ${c.tiempoLlenadoCapilar} seg`);
+  if (c.movimientosRuminales != null)   vitales.push(`Rum: ${c.movimientosRuminales}/min`);
+  if (c.condicionCorporal != null)      vitales.push(`CC: ${c.condicionCorporal}/5`);
+  if (vitales.length) campo('Signos vitales', vitales.join('   ·   '));
+
+  campo('Est. reproductivo',     c.estadoReproductivo?.replace(/_/g, ' ') ?? null);
+  campo('Litros leche/día',      c.litrosLechesDiarios != null ? String(c.litrosLechesDiarios) : null);
+  campo('Ganancia de peso (kg)', c.gananciaPeso != null ? String(c.gananciaPeso) : null);
+
+  doc.moveDown(0.5);
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Diagnóstico y Plan').moveDown(0.3);
+  campo('Diagnóstico presuntivo',           c.diagnostico);
+  campo('Diagnóstico definitivo',           c.diagnosticoDefinitivo);
+  campo('Plan diagnóstico',                 c.planDiagnostico);
+  campo('Pronóstico',                       c.pronostico);
+  campo('Obs. diagnósticos oficiales',      c.observacionesDiagnosticosOficiales);
+  campo('Observaciones generales',          c.observaciones);
+
+  // Enfermedades
+  if (c.enfermedades.length) {
+    doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Enfermedades').moveDown(0.3);
+    const aE = [120, 70, 80, 230];
+    filaPDF(doc, ['Enfermedad', 'Inicio', 'Estado', 'Descripción clínica'], aE, true);
+    c.enfermedades.forEach((e, i) =>
+      filaPDF(doc, [
+        e.nombreEnfermedad,
+        fmtFecha(e.fechaInicio),
+        e.activa ? 'Activa' : 'Resuelta',
+        e.descripcionClinica ?? '—',
+      ], aE, false, i % 2 === 0),
+    );
+  }
+
+  // Tratamientos
+  if (c.tratamientos.length) {
+    doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Tratamientos').moveDown(0.3);
+    const aT = [120, 70, 80, 60, 80, 90];
+    filaPDF(doc, ['Medicamento', 'Dosis', 'Vía', 'Duración', 'Frecuencia', 'Estado'], aT, true);
+    c.tratamientos.forEach((t, i) =>
+      filaPDF(doc, [
+        t.medicamento.nombre,
+        t.dosis,
+        t.viaAdministracion,
+        t.duracionDias ? `${t.duracionDias}d` : '—',
+        t.frecuencia,
+        t.estado === 'EN_CURSO' ? 'En curso' : t.estado === 'COMPLETADO' ? 'Completado' : t.estado,
+      ], aT, false, i % 2 === 0),
+    );
+  }
+
+  // Desparasitaciones
+  if (c.desparasitaciones.length) {
+    doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Desparasitaciones').moveDown(0.3);
+    const aD = [110, 110, 70, 70, 70, 70];
+    filaPDF(doc, ['Producto', 'P. Activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'], aD, true);
+    c.desparasitaciones.forEach((d: any, i: number) =>
+      filaPDF(doc, [
+        d.producto,
+        d.principioActivo ?? '—',
+        (d.tipo as string).replace(/_/g, ' '),
+        fmtFecha(d.fecha),
+        d.dosis ?? '—',
+        d.via ?? '—',
+      ], aD, false, i % 2 === 0),
+    );
+  }
+
+  // Ayudas diagnósticas
+  if (c.ayudasDiagnosticas.length) {
+    doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Ayudas Diagnósticas').moveDown(0.3);
+    const aAD = [100, 70, 150, 180];
+    filaPDF(doc, ['Tipo', 'Fecha', 'Descripción', 'Resultado'], aAD, true);
+    c.ayudasDiagnosticas.forEach((a: any, i: number) =>
+      filaPDF(doc, [
+        (a.tipo as string).replace(/_/g, ' '),
+        fmtFecha(a.fecha),
+        a.descripcion ?? '—',
+        a.resultado ?? '—',
+      ], aAD, false, i % 2 === 0),
+    );
+  }
+
+  // Info epidemiológica
+  if (c.informacionEpidemiologica) {
+    const ep = c.informacionEpidemiologica as any;
+    const vecs = [ep.garrapatas && 'Garrapatas', ep.mosquitos && 'Mosquitos', ep.murcielagos && 'Murciélagos', ep.moscas && 'Moscas', ep.otrosVectores].filter(Boolean).join(', ');
+    if (vecs || ep.descripcion) {
+      doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Información Epidemiológica').moveDown(0.3);
+      if (vecs)          campo('Vectores',      vecs);
+      if (ep.descripcion) campo('Descripción', ep.descripcion);
+    }
+  }
+
+  piePaginaPDF(doc);
+  doc.end();
+}

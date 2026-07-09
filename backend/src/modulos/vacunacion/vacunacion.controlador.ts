@@ -8,12 +8,15 @@ import {
   actualizarCalendario,
   listarRegistrosVacunacion,
   registrarVacunacion,
+  actualizarRegistroVacunacion,
+  eliminarRegistroVacunacion,
   listarMedicamentos,
 } from './vacunacion.servicio';
 import {
   respuestaExito,
   respuestaCreado,
   respuestaListado,
+  respuestaSinContenido,
 } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 import { prisma } from '../../compartido/prisma/clientePrisma';
@@ -66,7 +69,7 @@ export async function controladorObtenerCalendario(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const calendario = await obtenerCalendario(req.params.id);
+    const calendario = await obtenerCalendario(req.params['id'] as string);
     return respuestaExito(res, calendario);
   } catch (error) { return next(error); }
 }
@@ -86,7 +89,7 @@ export async function controladorActualizarCalendario(
 ) {
   try {
     const datos = esquemaCalendario.partial().parse(req.body);
-    const calendario = await actualizarCalendario(req.params.id, datos);
+    const calendario = await actualizarCalendario(req.params['id'] as string, datos);
     return respuestaExito(res, calendario);
   } catch (error) { return next(error); }
 }
@@ -134,6 +137,33 @@ export async function controladorRegistrarVacunacion(
       aplicadoPorId: req.usuarioActual!.id,
     });
     return respuestaCreado(res, registro);
+  } catch (error) { return next(error); }
+}
+
+export async function controladorActualizarRegistro(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const id = req.params['id'] as string;
+    const datos = z.object({
+      fechaAplicacion:  z.coerce.date().optional(),
+      dosis:            z.string().max(100).optional(),
+      viaAdministracion: z.string().max(100).optional(),
+      lote:             z.string().max(100).optional(),
+      observaciones:    z.string().max(500).optional(),
+    }).parse(req.body);
+    const registro = await actualizarRegistroVacunacion(id, datos);
+    return respuestaExito(res, registro);
+  } catch (error) { return next(error); }
+}
+
+export async function controladorEliminarRegistro(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const id = req.params['id'] as string;
+    await eliminarRegistroVacunacion(id);
+    return respuestaSinContenido(res);
   } catch (error) { return next(error); }
 }
 

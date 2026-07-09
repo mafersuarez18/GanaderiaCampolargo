@@ -6,6 +6,7 @@ import {
   obtenerHistorialPorId,
   crearHistorialMedico,
   eliminarHistorialMedico,
+  obtenerPrefillConsulta,
 } from './historialMedico.servicio';
 import {
   respuestaExito,
@@ -119,7 +120,7 @@ export async function controladorObtenerHistorial(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const historial = await obtenerHistorialPorId(req.params.id);
+    const historial = await obtenerHistorialPorId(req.params['id'] as string);
     return respuestaExito(res, historial);
   } catch (error) { return next(error); }
 }
@@ -141,7 +142,17 @@ export async function controladorEliminarHistorial(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    await eliminarHistorialMedico(req.params.id);
+    await eliminarHistorialMedico(req.params['id'] as string);
     return respuestaSinContenido(res);
+  } catch (error) { return next(error); }
+}
+
+export async function controladorPrefillConsulta(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const { animalId } = z.object({ animalId: z.string().min(1) }).parse(req.query);
+    const prefill = await obtenerPrefillConsulta(animalId);
+    return respuestaExito(res, prefill);
   } catch (error) { return next(error); }
 }

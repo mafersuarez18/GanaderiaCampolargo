@@ -52,7 +52,7 @@ export async function controladorObtenerUsuario(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const usuario = await obtenerUsuarioPorId(req.params.id);
+    const usuario = await obtenerUsuarioPorId(req.params['id'] as string);
     return respuestaExito(res, usuario);
   } catch (error) { return next(error); }
 }
@@ -72,7 +72,7 @@ export async function controladorActualizarUsuario(
 ) {
   try {
     const datos = esquemaActualizar.parse(req.body);
-    const usuario = await actualizarUsuario(req.params.id, datos);
+    const usuario = await actualizarUsuario(req.params['id'] as string, datos);
     return respuestaExito(res, usuario);
   } catch (error) { return next(error); }
 }
@@ -91,7 +91,7 @@ export async function controladorDesbloquearUsuario(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const usuario = await desbloquearUsuario(req.params.id);
+    const usuario = await desbloquearUsuario(req.params['id'] as string);
     return respuestaExito(res, usuario);
   } catch (error) { return next(error); }
 }
@@ -100,7 +100,7 @@ export async function controladorEliminarUsuario(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    await eliminarUsuario(req.params.id, req.usuarioActual!.id);
+    await eliminarUsuario(req.params['id'] as string, req.usuarioActual!.id);
     return respuestaSinContenido(res);
   } catch (error) { return next(error); }
 }

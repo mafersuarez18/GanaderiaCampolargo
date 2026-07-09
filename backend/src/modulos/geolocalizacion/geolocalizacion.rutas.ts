@@ -44,7 +44,7 @@ enrutador.get('/historial/:animalId', verificarToken, cualquierRol, async (req: 
     const { limite } = z.object({ limite: z.coerce.number().int().positive().max(500).default(100) }).parse(req.query);
 
     const registros = await prisma.registroUbicacion.findMany({
-      where: { animalId: req.params.animalId },
+      where: { animalId: req.params['animalId'] as string },
       orderBy: { fechaRegistro: 'desc' },
       take: limite,
     });
@@ -65,7 +65,7 @@ enrutador.post('/dispositivos/:apiKey/ubicacion', async (req: Request, res: Resp
 
     // Autenticar dispositivo por apiKey (comparación directa — el apiKey es un secreto único)
     const dispositivo = await prisma.dispositivoGPS.findUnique({
-      where: { apiKey: req.params.apiKey, activo: true },
+      where: { apiKey: req.params['apiKey'] as string, activo: true },
       select: { id: true, animalId: true },
     });
 

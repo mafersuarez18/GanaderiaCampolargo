@@ -491,35 +491,168 @@ export default function PaginaHistorialMedico() {
               </div>
 
               <div className="p-6 space-y-5">
-                {/* Animal */}
-                <section>
-                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2">Animal</p>
+
+                {/* ── Acciones rápidas ── */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const r = await clienteHttp.get(`/reportes/consulta/${historialSeleccionado.id}`, {
+                          params: { formato: 'pdf' }, responseType: 'blob',
+                        });
+                        const url = URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
+                        const a = document.createElement('a'); a.href = url;
+                        a.download = `consulta_${historialSeleccionado.id}.pdf`; a.click();
+                        URL.revokeObjectURL(url);
+                      } catch { /* silencioso */ }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl
+                               bg-error/10 text-error hover:bg-error/20 transition-colors text-xs font-medium"
+                  >
+                    <Icono nombre="picture_as_pdf" clase="text-[15px]" />
+                    PDF esta consulta
+                  </button>
                   <button
                     onClick={() => navigate(`/animales/${historialSeleccionado.animal.id}`)}
-                    className="text-primary hover:underline font-semibold text-sm"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl
+                               bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
                   >
+                    <Icono nombre="open_in_new" clase="text-[15px]" />
+                    Ver animal
+                  </button>
+                </div>
+
+                {/* ── Animal ── */}
+                <section>
+                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Animal</p>
+                  <p className="text-sm font-semibold text-on-surface">
                     #{historialSeleccionado.animal.numeroArete}
                     {historialSeleccionado.animal.nombre && ` · ${historialSeleccionado.animal.nombre}`}
-                  </button>
+                  </p>
                   <p className="text-xs text-on-surface-variant">{historialSeleccionado.animal.finca.nombre}</p>
                 </section>
 
+                {/* ── Motivo y síntomas ── */}
                 <section>
-                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Motivo</p>
-                  <p className="text-sm text-on-surface">{historialSeleccionado.motivoConsulta}</p>
+                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Motivo de consulta</p>
+                  <p className="text-sm text-on-surface bg-surface-container p-3 rounded-xl">{historialSeleccionado.motivoConsulta}</p>
                 </section>
 
                 {historialSeleccionado.sintomasObservados && (
                   <section>
-                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Síntomas</p>
-                    <p className="text-sm text-on-surface-variant">{historialSeleccionado.sintomasObservados}</p>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Síntomas observados</p>
+                    <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">{historialSeleccionado.sintomasObservados}</p>
                   </section>
                 )}
 
+                {/* ── Anamnesis ── */}
+                {(historialSeleccionado.tiempoEvolucion || historialSeleccionado.tratamientosPrevios || historialSeleccionado.cirugias) && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2 flex items-center gap-1.5">
+                      <Icono nombre="history" clase="text-[13px]" /> Anamnesis
+                    </p>
+                    <div className="space-y-1.5 text-sm">
+                      {historialSeleccionado.tiempoEvolucion && (
+                        <p className="text-on-surface-variant">Tiempo de evolución: <span className="text-on-surface font-medium">{historialSeleccionado.tiempoEvolucion}</span></p>
+                      )}
+                      {historialSeleccionado.tratamientosPrevios && (
+                        <p className="text-on-surface-variant">Tratamientos previos: <span className="text-on-surface font-medium">{historialSeleccionado.tratamientosPrevios}</span></p>
+                      )}
+                      {historialSeleccionado.cirugias && (
+                        <p className="text-on-surface-variant">Cirugías: <span className="text-on-surface font-medium">{historialSeleccionado.cirugias}</span></p>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* ── Exploración física ── */}
+                {(historialSeleccionado.temperatura || historialSeleccionado.frecuenciaCardiaca ||
+                  historialSeleccionado.frecuenciaRespiratoria || historialSeleccionado.tiempoLlenadoCapilar ||
+                  historialSeleccionado.movimientosRuminales || historialSeleccionado.condicionCorporal) && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2 flex items-center gap-1.5">
+                      <Icono nombre="monitor_heart" clase="text-[13px]" /> Exploración física
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {historialSeleccionado.temperatura != null && (
+                        <div className="bg-surface-container rounded-xl p-2.5">
+                          <p className="text-[10px] text-on-surface-variant">Temperatura</p>
+                          <p className="text-sm font-semibold text-on-surface">{historialSeleccionado.temperatura} °C</p>
+                        </div>
+                      )}
+                      {historialSeleccionado.frecuenciaCardiaca != null && (
+                        <div className="bg-surface-container rounded-xl p-2.5">
+                          <p className="text-[10px] text-on-surface-variant">Frec. cardíaca</p>
+                          <p className="text-sm font-semibold text-on-surface">{historialSeleccionado.frecuenciaCardiaca} lpm</p>
+                        </div>
+                      )}
+                      {historialSeleccionado.frecuenciaRespiratoria != null && (
+                        <div className="bg-surface-container rounded-xl p-2.5">
+                          <p className="text-[10px] text-on-surface-variant">Frec. respiratoria</p>
+                          <p className="text-sm font-semibold text-on-surface">{historialSeleccionado.frecuenciaRespiratoria} rpm</p>
+                        </div>
+                      )}
+                      {historialSeleccionado.tiempoLlenadoCapilar != null && (
+                        <div className="bg-surface-container rounded-xl p-2.5">
+                          <p className="text-[10px] text-on-surface-variant">TLC</p>
+                          <p className="text-sm font-semibold text-on-surface">{historialSeleccionado.tiempoLlenadoCapilar} seg</p>
+                        </div>
+                      )}
+                      {historialSeleccionado.movimientosRuminales != null && (
+                        <div className="bg-surface-container rounded-xl p-2.5">
+                          <p className="text-[10px] text-on-surface-variant">Mov. ruminales</p>
+                          <p className="text-sm font-semibold text-on-surface">{historialSeleccionado.movimientosRuminales}/min</p>
+                        </div>
+                      )}
+                      {historialSeleccionado.condicionCorporal != null && (
+                        <div className="bg-surface-container rounded-xl p-2.5">
+                          <p className="text-[10px] text-on-surface-variant">Cond. corporal</p>
+                          <p className="text-sm font-semibold text-on-surface">{historialSeleccionado.condicionCorporal} / 5</p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* ── Estado del animal ── */}
+                {(historialSeleccionado.estadoReproductivo || historialSeleccionado.litrosLechesDiarios != null || historialSeleccionado.gananciaPeso != null) && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2 flex items-center gap-1.5">
+                      <Icono nombre="info" clase="text-[13px]" /> Estado del animal
+                    </p>
+                    <div className="space-y-1.5 text-sm">
+                      {historialSeleccionado.estadoReproductivo && (
+                        <p className="text-on-surface-variant">Est. reproductivo: <span className="text-on-surface font-medium">{historialSeleccionado.estadoReproductivo.replace(/_/g, ' ')}</span></p>
+                      )}
+                      {historialSeleccionado.litrosLechesDiarios != null && (
+                        <p className="text-on-surface-variant">Producción leche: <span className="text-on-surface font-medium">{historialSeleccionado.litrosLechesDiarios} L/día</span></p>
+                      )}
+                      {historialSeleccionado.gananciaPeso != null && (
+                        <p className="text-on-surface-variant">Ganancia de peso: <span className="text-on-surface font-medium">{historialSeleccionado.gananciaPeso} kg</span></p>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* ── Diagnóstico ── */}
                 <section>
-                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Diagnóstico</p>
-                  <p className="text-sm font-medium text-on-surface">{historialSeleccionado.diagnostico}</p>
+                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Diagnóstico presuntivo</p>
+                  <p className="text-sm font-medium text-on-surface bg-surface-container p-3 rounded-xl">{historialSeleccionado.diagnostico}</p>
                 </section>
+
+                {historialSeleccionado.diagnosticoDefinitivo && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Diagnóstico definitivo</p>
+                    <p className="text-sm font-medium text-on-surface bg-primary/5 border border-primary/20 p-3 rounded-xl">{historialSeleccionado.diagnosticoDefinitivo}</p>
+                  </section>
+                )}
+
+                {historialSeleccionado.planDiagnostico && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Plan diagnóstico</p>
+                    <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">{historialSeleccionado.planDiagnostico}</p>
+                  </section>
+                )}
 
                 {historialSeleccionado.pronostico && (
                   <section>
@@ -528,7 +661,62 @@ export default function PaginaHistorialMedico() {
                   </section>
                 )}
 
-                {/* Enfermedades */}
+                {historialSeleccionado.observacionesDiagnosticosOficiales && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Observaciones diagnóstico</p>
+                    <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">{historialSeleccionado.observacionesDiagnosticosOficiales}</p>
+                  </section>
+                )}
+
+                {/* ── Información epidemiológica ── */}
+                {historialSeleccionado.informacionEpidemiologica && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2 flex items-center gap-1.5">
+                      <Icono nombre="coronavirus" clase="text-[13px]" /> Información epidemiológica
+                    </p>
+                    <div className="bg-surface-container rounded-xl p-3 space-y-1.5 text-sm">
+                      {(() => {
+                        const ep = historialSeleccionado.informacionEpidemiologica as any;
+                        const vectores = [
+                          ep.garrapatas && 'Garrapatas',
+                          ep.mosquitos && 'Mosquitos',
+                          ep.murcielagos && 'Murciélagos',
+                          ep.moscas && 'Moscas',
+                          ep.otrosVectores,
+                        ].filter(Boolean).join(', ');
+                        return (
+                          <>
+                            {vectores && <p className="text-on-surface-variant">Vectores: <span className="text-on-surface font-medium">{vectores}</span></p>}
+                            {ep.descripcion && <p className="text-on-surface-variant">{ep.descripcion}</p>}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </section>
+                )}
+
+                {/* ── Ayudas diagnósticas ── */}
+                {historialSeleccionado.ayudasDiagnosticas.length > 0 && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2 flex items-center gap-1.5">
+                      <Icono nombre="biotech" clase="text-[13px]" /> Ayudas diagnósticas
+                    </p>
+                    <div className="space-y-2">
+                      {historialSeleccionado.ayudasDiagnosticas.map((a: any) => (
+                        <div key={a.id} className="p-3 rounded-xl bg-surface-container border border-outline-variant/20">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-on-surface uppercase tracking-wide">{(a.tipo as string).replace(/_/g, ' ')}</span>
+                            <span className="text-[10px] text-on-surface-variant">{new Date(a.fecha).toLocaleDateString('es-VE')}</span>
+                          </div>
+                          {a.descripcion && <p className="text-xs text-on-surface-variant">{a.descripcion}</p>}
+                          {a.resultado && <p className="text-xs text-on-surface mt-1"><span className="font-medium">Resultado:</span> {a.resultado}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* ── Enfermedades ── */}
                 {historialSeleccionado.enfermedades.length > 0 && (
                   <section>
                     <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-3 flex items-center gap-1.5">
@@ -549,13 +737,16 @@ export default function PaginaHistorialMedico() {
                           {e.descripcionClinica && (
                             <p className="text-xs text-on-surface-variant mt-1">{e.descripcionClinica}</p>
                           )}
+                          {(e as any).observaciones && (
+                            <p className="text-xs text-on-surface-variant mt-1">{(e as any).observaciones}</p>
+                          )}
                         </div>
                       ))}
                     </div>
                   </section>
                 )}
 
-                {/* Tratamientos */}
+                {/* ── Tratamientos ── */}
                 {historialSeleccionado.tratamientos.length > 0 && (
                   <section>
                     <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-3 flex items-center gap-1.5">
@@ -585,9 +776,34 @@ export default function PaginaHistorialMedico() {
                   </section>
                 )}
 
+                {/* ── Desparasitaciones ── */}
+                {historialSeleccionado.desparasitaciones.length > 0 && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2 flex items-center gap-1.5">
+                      <Icono nombre="science" clase="text-[13px]" /> Desparasitaciones
+                    </p>
+                    <div className="space-y-2">
+                      {historialSeleccionado.desparasitaciones.map((d: any) => (
+                        <div key={d.id} className="p-3 rounded-xl bg-surface-container border border-outline-variant/20">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-semibold text-on-surface">{d.producto}</span>
+                            <span className="text-[10px] text-on-surface-variant">{new Date(d.fecha).toLocaleDateString('es-VE')}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-4 text-xs text-on-surface-variant">
+                            {d.principioActivo && <span>P. activo: <strong className="text-on-surface">{d.principioActivo}</strong></span>}
+                            {d.tipo && <span>Tipo: <strong className="text-on-surface">{(d.tipo as string).replace(/_/g, ' ')}</strong></span>}
+                            {d.dosis && <span>Dosis: <strong className="text-on-surface">{d.dosis}</strong></span>}
+                            {d.via && <span>Vía: <strong className="text-on-surface">{d.via}</strong></span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {historialSeleccionado.observaciones && (
                   <section>
-                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Observaciones</p>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Observaciones generales</p>
                     <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">
                       {historialSeleccionado.observaciones}
                     </p>
@@ -699,9 +915,55 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
     animalId: animalIdPredeterminado ?? '',
   });
   const [error, setError] = useState('');
+  // Índices de desparasitaciones que vinieron pre-cargadas (se muestran con badge)
+  const [despPrecargadas, setDespPrecargadas] = useState<Set<number>>(new Set());
 
   const set = (campo: keyof FormHistorial, valor: any) =>
     setForm((f) => ({ ...f, [campo]: valor }));
+
+  // ── Prefill al seleccionar animal ────────────────────────────────────────────
+  const cargarPrefill = async (animalId: string) => {
+    if (!animalId) return;
+    try {
+      const { data } = await clienteHttp.get('/historial-medico/prefill', {
+        params: { animalId },
+      });
+      const { ultimaDesparasitacion } = data.datos as {
+        ultimaDesparasitacion: {
+          producto: string; principioActivo?: string; tipo: string;
+          fecha: string; dosis?: string; via?: string;
+        } | null;
+      };
+
+      if (ultimaDesparasitacion) {
+        // Pre-cargar con el último registro — conservar la fecha original
+        const fechaOriginal = ultimaDesparasitacion.fecha
+          ? new Date(ultimaDesparasitacion.fecha).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0];
+        setForm((f) => ({
+          ...f,
+          animalId,
+          desparasitaciones: [
+            {
+              producto:        ultimaDesparasitacion.producto,
+              principioActivo: ultimaDesparasitacion.principioActivo ?? '',
+              tipo:            ultimaDesparasitacion.tipo,
+              fecha:           fechaOriginal,
+              dosis:           ultimaDesparasitacion.dosis ?? '',
+              via:             ultimaDesparasitacion.via ?? '',
+            },
+          ],
+        }));
+        setDespPrecargadas(new Set([0]));
+      } else {
+        setForm((f) => ({ ...f, animalId }));
+        setDespPrecargadas(new Set());
+      }
+    } catch {
+      setForm((f) => ({ ...f, animalId }));
+      setDespPrecargadas(new Set());
+    }
+  };
 
   const mutacion = useMutation({
     mutationFn: (datos: FormHistorial) => {
@@ -767,12 +1029,6 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
       ayudasDiagnosticas: [...f.ayudasDiagnosticas, { tipo: 'HEMOGRAMA', descripcion: '', resultado: '', fecha: new Date().toISOString().split('T')[0] }],
     }));
 
-  const agregarDesparasitacion = () =>
-    setForm((f) => ({
-      ...f,
-      desparasitaciones: [...f.desparasitaciones, { producto: '', principioActivo: '', tipo: 'AMBOS', fecha: new Date().toISOString().split('T')[0], dosis: '', via: '' }],
-    }));
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.animalId)       { setError('Debe seleccionar un animal'); return; }
@@ -818,7 +1074,12 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <BuscadorAnimal etiqueta="Animal" requerido valor={form.animalId}
-                    alSeleccionar={(id) => set('animalId', id)} placeholder="Buscar por arete o nombre..."
+                    alSeleccionar={(id) => {
+                      setDespPrecargadas(new Set());
+                      setForm((f) => ({ ...f, animalId: id, desparasitaciones: [] }));
+                      if (id) cargarPrefill(id);
+                    }}
+                    placeholder="Buscar por arete o nombre..."
                     error={!form.animalId && error === 'Debe seleccionar un animal' ? error : undefined} />
                 </div>
                 <CampoLabel etiqueta="Fecha de consulta" req>
@@ -1016,14 +1277,39 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
 
             {/* ── 8. Programa de desparasitación ── */}
             <SeccionClinica titulo="Programa de Desparasitación" icono="vaccines">
+
+              {/* Banner informativo cuando hay datos pre-cargados */}
+              {despPrecargadas.size > 0 && (
+                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-tertiary/10 border border-tertiary/20 rounded-xl text-xs text-on-surface mb-1">
+                  <Icono nombre="auto_awesome" clase="text-[15px] text-tertiary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-tertiary">Pre-cargado automáticamente</span>
+                    <span className="text-on-surface-variant"> — datos del último registro de desparasitación del animal. Verifique y ajuste antes de guardar. Al guardar, se registrará también en el módulo de Vacunación.</span>
+                  </div>
+                </div>
+              )}
+
               {form.desparasitaciones.map((desp, idx) => (
-                <div key={idx} className="p-3 bg-surface-container rounded-xl space-y-2 relative">
+                <div key={idx} className={`p-3 rounded-xl space-y-2 relative ${despPrecargadas.has(idx) ? 'bg-tertiary/5 border border-tertiary/25' : 'bg-surface-container'}`}>
+                  {/* Badge pre-cargado */}
+                  {despPrecargadas.has(idx) && (
+                    <span className="absolute top-2 left-3 text-[10px] font-semibold text-tertiary bg-tertiary/10 px-2 py-0.5 rounded-full">
+                      Pre-cargado
+                    </span>
+                  )}
                   <button type="button"
-                    onClick={() => setForm((f) => ({ ...f, desparasitaciones: f.desparasitaciones.filter((_, i) => i !== idx) }))}
+                    onClick={() => {
+                      setForm((f) => ({ ...f, desparasitaciones: f.desparasitaciones.filter((_, i) => i !== idx) }));
+                      setDespPrecargadas((prev) => {
+                        const next = new Set<number>();
+                        prev.forEach((i) => { if (i < idx) next.add(i); else if (i > idx) next.add(i - 1); });
+                        return next;
+                      });
+                    }}
                     className="absolute top-2 right-2 p-1 text-outline hover:text-error rounded-lg transition-colors">
                     <Icono nombre="close" clase="text-[14px]" />
                   </button>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className={`grid grid-cols-3 gap-2 ${despPrecargadas.has(idx) ? 'mt-5' : ''}`}>
                     <CampoLabel etiqueta="Producto *">
                       <input type="text" value={desp.producto}
                         onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].producto = e.target.value; return { ...f, desparasitaciones: arr }; })}
@@ -1061,10 +1347,21 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                   </div>
                 </div>
               ))}
-              <button type="button" onClick={agregarDesparasitacion}
+              <button type="button" onClick={() => {
+                  setForm((f) => ({
+                    ...f,
+                    desparasitaciones: [...f.desparasitaciones, { producto: '', principioActivo: '', tipo: 'AMBOS', fecha: new Date().toISOString().split('T')[0], dosis: '', via: '' }],
+                  }));
+                }}
                 className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-primary/40 rounded-xl text-sm text-primary hover:bg-primary/5 transition-colors">
                 <Icono nombre="add" clase="text-[16px]" /> Agregar desparasitación
               </button>
+
+              {/* Nota sobre sincronización con vacunación */}
+              <p className="text-[11px] text-on-surface-variant flex items-center gap-1.5 pt-1">
+                <Icono nombre="info" clase="text-[13px]" />
+                Las desparasitaciones guardadas aquí se registrarán automáticamente en el módulo de Vacunación si existe un calendario de desparasitación activo.
+              </p>
             </SeccionClinica>
 
             {/* Botones fijos */}

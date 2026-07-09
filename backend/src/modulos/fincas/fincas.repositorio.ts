@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, EstadoAnimal } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 
 export interface FiltrosFinca {
@@ -79,4 +79,55 @@ export async function existeFincaConNombre(nombre: string, excluirId?: string) {
     select: { id: true },
   });
   return !!finca;
+}
+
+export interface FiltrosAnimalesFinca {
+  busqueda?: string;
+  loteId?: string;
+  estado?: EstadoAnimal;
+  pagina?: number;
+  porPagina?: number;
+}
+
+export async function listarAnimalesDeFinca(fincaId: string, filtros: FiltrosAnimalesFinca = {}) {
+  const { busqueda, loteId, estado, pagina = 1, porPagina = 50 } = filtros;
+
+  const donde: Prisma.AnimalWhereInput = {
+    fincaId,
+    ...(estado ? { estado } : {}),
+    ...(loteId ? { loteId } : {}),
+    ...(busqueda
+      ? {
+          OR: [
+            { numeroArete: { contains: busqueda, mode: 'insensitive' } },
+            { nombre:      { contains: busqueda, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
+  const [registros, total] = await prisma.$transaction([
+    prisma.animal.findMany({
+      where: donde,
+      select: {
+        id:              true,
+        numeroArete:     true,
+        nombre:          true,
+        sexo:            true,
+        estado:          true,
+        estadoSanitario: true,
+        fechaNacimiento: true,
+        pesoActual:      true,
+        proposito:       true,
+        raza:  { select: { id: true, nombre: true } },
+        lote:  { select: { id: true, nombre: true } },
+      },
+      orderBy: [{ estado: 'asc' }, { numeroArete: 'asc' }],
+      skip: (pagina - 1) * porPagina,
+      take: porPagina,
+    }),
+    prisma.animal.count({ where: donde }),
+  ]);
+
+  return { registros, total };
 }

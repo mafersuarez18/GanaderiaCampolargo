@@ -52,7 +52,7 @@ enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextF
 enrutador.get('/:id', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const lote = await prisma.lote.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params['id'] as string },
       include: {
         finca: { select: { nombre: true } },
         _count: { select: { animales: true, potreros: true } },
@@ -122,20 +122,20 @@ enrutador.patch(
     try {
       const datos = esquemaLote.partial().omit({ fincaId: true }).parse(req.body);
 
-      const lote = await prisma.lote.findUnique({ where: { id: req.params.id }, select: { id: true, fincaId: true } });
+      const lote = await prisma.lote.findUnique({ where: { id: req.params['id'] as string }, select: { id: true, fincaId: true } });
       if (!lote) throw new ErrorNoEncontrado('Lote no encontrado');
 
       // Verificar nombre único dentro de la misma finca
       if (datos.nombre) {
         const duplicado = await prisma.lote.findFirst({
-          where: { fincaId: lote.fincaId, nombre: datos.nombre, activo: true, id: { not: req.params.id } },
+          where: { fincaId: lote.fincaId, nombre: datos.nombre, activo: true, id: { not: req.params['id'] as string } },
           select: { id: true },
         });
         if (duplicado) throw new ErrorConflicto(`Ya existe un lote llamado "${datos.nombre}" en esta finca`);
       }
 
       const actualizado = await prisma.lote.update({
-        where: { id: req.params.id },
+        where: { id: req.params['id'] as string },
         data: datos,
         include: {
           finca: { select: { nombre: true } },
@@ -156,8 +156,8 @@ enrutador.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const lote = await prisma.lote.findUnique({
-        where: { id: req.params.id },
-        select: { id: true, _count: { select: { animales: true } } },
+        where: { id: req.params['id'] as string },
+        include: { _count: { select: { animales: true } } },
       });
       if (!lote) throw new ErrorNoEncontrado('Lote no encontrado');
 
@@ -165,7 +165,7 @@ enrutador.delete(
         throw new ErrorConflicto(`No se puede eliminar el lote porque tiene ${lote._count.animales} animal(es) asignado(s)`);
       }
 
-      await prisma.lote.update({ where: { id: req.params.id }, data: { activo: false } });
+      await prisma.lote.update({ where: { id: req.params['id'] as string }, data: { activo: false } });
       return respuestaSinContenido(res);
     } catch (error) { return next(error); }
   }

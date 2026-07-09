@@ -48,7 +48,7 @@ export async function controladorMarcarLeida(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const notificacion = await marcarLeida(req.params.id, req.usuarioActual!.id);
+    const notificacion = await marcarLeida(req.params['id'] as string, req.usuarioActual!.id);
     return respuestaExito(res, notificacion);
   } catch (error) { return next(error); }
 }
@@ -66,7 +66,7 @@ export async function controladorEliminarNotificacion(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    await eliminarNotificacion(req.params.id, req.usuarioActual!.id);
+    await eliminarNotificacion(req.params['id'] as string, req.usuarioActual!.id);
     return respuestaSinContenido(res);
   } catch (error) { return next(error); }
 }

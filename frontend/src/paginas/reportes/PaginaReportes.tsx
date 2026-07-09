@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { clienteHttp } from '../../servicios/clienteAxios';
 import Icono from '../../componentes/ui/Icono';
+import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
+import type { AnimalResumen } from '../../componentes/ui/BuscadorAnimal';
 
 interface TipoReporte {
   id: string;
@@ -16,10 +18,12 @@ interface TipoReporte {
 }
 
 export default function PaginaReportes() {
-  const [cargando, setCargando] = useState<string | null>(null);
-  const [anio, setAnio]         = useState(new Date().getFullYear());
-  const [fincaId, setFincaId]   = useState('');
-  const [estado, setEstado]     = useState('');
+  const [cargando, setCargando]         = useState<string | null>(null);
+  const [anio, setAnio]                 = useState(new Date().getFullYear());
+  const [fincaId, setFincaId]           = useState('');
+  const [estado, setEstado]             = useState('');
+  const [animalId, setAnimalId]         = useState('');
+  const [animalClinico, setAnimalClinico] = useState<AnimalResumen | null>(null);
 
   const { data: fincas = [] } = useQuery({
     queryKey: ['fincas-reportes'],
@@ -95,6 +99,25 @@ export default function PaginaReportes() {
       formatos:    ['pdf', 'excel'],
     },
   ];
+
+  const descargarHistorial = async () => {
+    if (!animalId) return;
+    try {
+      setCargando('historial-animal');
+      const r = await clienteHttp.get(`/reportes/historial-animal/${animalId}`, { responseType: 'blob' });
+      const nombre = animalClinico
+        ? `historial_${animalClinico.numeroArete}`
+        : `historial_${animalId}`;
+      const url = URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
+      const a = document.createElement('a'); a.href = url;
+      a.download = `${nombre}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error al descargar historial:', err);
+    } finally {
+      setCargando(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -204,6 +227,61 @@ export default function PaginaReportes() {
           </motion.div>
         ))}
       </div>
+
+      {/* Reportes Clínicos por animal */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="tarjeta-vidrio rounded-2xl p-6"
+      >
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-3 rounded-2xl bg-error-container flex-shrink-0">
+            <Icono nombre="folder_shared" relleno clase="text-[24px] text-error" />
+          </div>
+          <div>
+            <h3 className="font-bold text-on-surface">Reporte Clínico por Animal</h3>
+            <p className="text-sm text-on-surface-variant mt-0.5">
+              Historial médico completo de un animal en PDF — todas sus consultas, tratamientos y desparasitaciones.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex-1">
+            <BuscadorAnimal
+              valor={animalId}
+              alSeleccionar={(id, animal) => { setAnimalId(id); setAnimalClinico(animal); }}
+              etiqueta="Animal"
+              placeholder="Buscar por arete o nombre..."
+            />
+          </div>
+          <button
+            onClick={descargarHistorial}
+            disabled={!animalId || cargando === 'historial-animal'}
+            className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl text-sm font-medium
+                       bg-error text-on-primary hover:opacity-90 transition-opacity
+                       disabled:opacity-50 disabled:cursor-not-allowed shadow-sm whitespace-nowrap"
+          >
+            {cargando === 'historial-animal' ? (
+              <Icono nombre="progress_activity" clase="text-[16px] animate-spin" />
+            ) : (
+              <Icono nombre="picture_as_pdf" clase="text-[16px]" />
+            )}
+            Descargar PDF
+          </button>
+        </div>
+
+        {animalId && animalClinico && (
+          <p className="text-xs text-on-surface-variant mt-3 flex items-center gap-1.5">
+            <Icono nombre="info" clase="text-[13px]" />
+            Se generará el historial completo del animal
+            <span className="font-semibold text-on-surface">
+              #{animalClinico.numeroArete}{animalClinico.nombre ? ` — ${animalClinico.nombre}` : ''}
+            </span>
+          </p>
+        )}
+      </motion.div>
 
       {/* Nota informativa */}
       <motion.div

@@ -10,6 +10,8 @@ import {
   generarSanitario,
   generarVacunacion,
   generarReproductivo,
+  generarHistorialAnimal,
+  generarConsulta,
 } from './reportes.servicio';
 
 const enrutador = Router();
@@ -54,6 +56,20 @@ enrutador.get('/reproductivo', async (req: Request, res: Response, next: NextFun
   try {
     const filtros = esquemaFiltros.parse(req.query);
     await generarReproductivo(res, filtros.formato, filtros);
+  } catch (error) { return next(error); }
+});
+
+// GET /api/v1/reportes/historial-animal/:animalId?formato=pdf
+enrutador.get('/historial-animal/:animalId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await generarHistorialAnimal(res, req.params['animalId'] as string);
+  } catch (error) { return next(error); }
+});
+
+// GET /api/v1/reportes/consulta/:consultaId?formato=pdf
+enrutador.get('/consulta/:consultaId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await generarConsulta(res, req.params['consultaId'] as string);
   } catch (error) { return next(error); }
 });
 

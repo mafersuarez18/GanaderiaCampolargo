@@ -190,6 +190,50 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
   });
 }
 
+export async function actualizarRegistroVacunacion(
+  id: string,
+  datos: {
+    fechaAplicacion?:  Date;
+    dosis?:            string;
+    viaAdministracion?: string;
+    lote?:             string;
+    observaciones?:    string;
+  },
+) {
+  const registro = await prisma.registroVacunacion.findUnique({
+    where: { id },
+    select: { id: true, calendarioVacunacion: { select: { intervaloDias: true } } },
+  });
+  if (!registro) throw new ErrorNoEncontrado('Registro de vacunación no encontrado');
+
+  // Recalcular próxima fecha si cambia la fecha de aplicación
+  const proximaFecha = datos.fechaAplicacion
+    ? new Date(datos.fechaAplicacion.getTime() + registro.calendarioVacunacion.intervaloDias * 24 * 60 * 60 * 1000)
+    : undefined;
+
+  return prisma.registroVacunacion.update({
+    where: { id },
+    data: {
+      ...datos,
+      ...(proximaFecha && { proximaFecha }),
+    },
+    include: {
+      historialMedico: {
+        select: { animal: { select: { id: true, numeroArete: true, nombre: true } } },
+      },
+      calendarioVacunacion: { select: { id: true, nombreVacuna: true, intervaloDias: true } },
+      medicamento: { select: { id: true, nombre: true } },
+      aplicadoPor: { select: { id: true, nombre: true, apellido: true } },
+    },
+  });
+}
+
+export async function eliminarRegistroVacunacion(id: string) {
+  const registro = await prisma.registroVacunacion.findUnique({ where: { id }, select: { id: true } });
+  if (!registro) throw new ErrorNoEncontrado('Registro de vacunación no encontrado');
+  return prisma.registroVacunacion.delete({ where: { id } });
+}
+
 export async function listarMedicamentos() {
   return prisma.medicamento.findMany({
     where: { activo: true },

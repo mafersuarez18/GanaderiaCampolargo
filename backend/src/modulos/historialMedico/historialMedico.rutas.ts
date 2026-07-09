@@ -11,11 +11,15 @@ import {
   controladorObtenerHistorial,
   controladorCrearHistorial,
   controladorEliminarHistorial,
+  controladorPrefillConsulta,
 } from './historialMedico.controlador';
 
 const enrutador = Router();
 
 enrutador.use(verificarToken);
+
+// GET /api/v1/historial-medico/prefill?animalId=... — datos para pre-rellenar formulario
+enrutador.get('/prefill', cualquierRol, controladorPrefillConsulta);
 
 enrutador.get('/', cualquierRol, controladorListarHistorial);
 enrutador.get('/:id', cualquierRol, controladorObtenerHistorial);

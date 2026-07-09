@@ -70,7 +70,7 @@ export function registrarAuditoria(
           modulo,
           descripcion,
           entidadTipo,
-          entidadId: req.params.id,
+          entidadId: req.params['id'] as string,
           datosNuevos: datosEntrada as object,
           direccionIP: req.ip ?? req.socket.remoteAddress,
           agenteUsuario: req.headers['user-agent'],

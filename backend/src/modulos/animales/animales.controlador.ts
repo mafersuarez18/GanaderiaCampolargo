@@ -66,7 +66,7 @@ export async function controladorObtenerAnimal(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const animal = await servicioObtenerAnimal(req.params.id);
+    const animal = await servicioObtenerAnimal(req.params['id'] as string);
     return respuestaExito(res, animal);
   } catch (error) { return next(error); }
 }
@@ -75,7 +75,7 @@ export async function controladorBuscarPorArete(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const animal = await servicioObtenerAnimalPorArete(req.params.arete);
+    const animal = await servicioObtenerAnimalPorArete(req.params['arete'] as string);
     return respuestaExito(res, animal);
   } catch (error) { return next(error); }
 }
@@ -95,7 +95,7 @@ export async function controladorActualizarAnimal(
 ) {
   try {
     const datos = esquemaCrearAnimal.partial().parse(req.body);
-    const animal = await servicioActualizarAnimal(req.params.id, datos);
+    const animal = await servicioActualizarAnimal(req.params['id'] as string, datos);
     return respuestaExito(res, animal);
   } catch (error) { return next(error); }
 }
@@ -104,7 +104,7 @@ export async function controladorEliminarAnimal(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    await servicioEliminarAnimal(req.params.id);
+    await servicioEliminarAnimal(req.params['id'] as string);
     return respuestaSinContenido(res);
   } catch (error) { return next(error); }
 }

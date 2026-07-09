@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { EstadoAnimal } from '@prisma/client';
 import {
   servicioListarFincas,
   servicioObtenerFinca,
   servicioCrearFinca,
   servicioActualizarFinca,
   servicioEliminarFinca,
+  servicioListarAnimalesFinca,
 } from './fincas.servicio';
 import {
   respuestaExito,
@@ -47,7 +49,7 @@ export async function controladorObtenerFinca(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const finca = await servicioObtenerFinca(req.params.id);
+    const finca = await servicioObtenerFinca(req.params['id'] as string);
     return respuestaExito(res, finca);
   } catch (error) { return next(error); }
 }
@@ -67,7 +69,7 @@ export async function controladorActualizarFinca(
 ) {
   try {
     const datos = esquemaFinca.partial().parse(req.body);
-    const finca = await servicioActualizarFinca(req.params.id, datos);
+    const finca = await servicioActualizarFinca(req.params['id'] as string, datos);
     return respuestaExito(res, finca);
   } catch (error) { return next(error); }
 }
@@ -76,7 +78,27 @@ export async function controladorEliminarFinca(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    await servicioEliminarFinca(req.params.id);
+    await servicioEliminarFinca(req.params['id'] as string);
     return respuestaSinContenido(res);
+  } catch (error) { return next(error); }
+}
+
+const esquemaFiltrosAnimalesFinca = z.object({
+  busqueda:  z.string().optional(),
+  loteId:    z.string().optional(),
+  estado:    z.nativeEnum(EstadoAnimal).optional(),
+  pagina:    z.coerce.number().int().positive().default(1),
+  porPagina: z.coerce.number().int().positive().max(200).default(50),
+});
+
+export async function controladorAnimalesDeFinca(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const fincaId = req.params['id'] as string;
+    const filtros = esquemaFiltrosAnimalesFinca.parse(req.query);
+    const { registros, total } = await servicioListarAnimalesFinca(fincaId, filtros);
+    const { pagina, porPagina } = calcularPaginacion(filtros.pagina, filtros.porPagina);
+    return respuestaListado(res, registros, construirMeta(total, pagina, porPagina));
   } catch (error) { return next(error); }
 }

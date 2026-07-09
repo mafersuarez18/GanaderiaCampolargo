@@ -82,7 +82,7 @@ export default function PaginaLotes() {
   });
 
   const mutacionActualizar = useMutation({
-    mutationFn: ({ id, datos }: { id: string; datos: Partial<FormLote> & { capacidad?: number } }) =>
+    mutationFn: ({ id, datos }: { id: string; datos: { nombre?: string; descripcion?: string; capacidad?: number } }) =>
       clienteHttp.patch(`/lotes/${id}`, datos),
     onSuccess: () => {
       cliente.invalidateQueries({ queryKey: ['lotes'] });
@@ -132,16 +132,16 @@ export default function PaginaLotes() {
 
   function guardar(e: React.FormEvent) {
     e.preventDefault();
-    const payload = {
-      nombre:      form.nombre.trim(),
-      descripcion: form.descripcion.trim() || undefined,
-      capacidad:   form.capacidad ? parseInt(form.capacidad, 10) : undefined,
-      fincaId:     form.fincaId,
-    };
+    const nombre      = form.nombre.trim();
+    const descripcion = form.descripcion.trim();
+    const capacidad   = form.capacidad ? parseInt(form.capacidad, 10) : undefined;
     if (loteEditar) {
-      mutacionActualizar.mutate({ id: loteEditar.id, datos: payload });
+      mutacionActualizar.mutate({
+        id: loteEditar.id,
+        datos: { nombre, descripcion: descripcion || undefined, capacidad },
+      });
     } else {
-      mutacionCrear.mutate(payload);
+      mutacionCrear.mutate({ nombre, descripcion, capacidad, fincaId: form.fincaId });
     }
   }
 

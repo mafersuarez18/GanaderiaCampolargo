@@ -87,13 +87,13 @@ export async function iniciarSesion(datos: DatosInicioSesion): Promise<Respuesta
   };
 
   const tokenAcceso = jwt.sign(payloadToken, entorno.JWT_SECRETO, {
-    expiresIn: entorno.JWT_EXPIRACION as string,
+    expiresIn: entorno.JWT_EXPIRACION as any,
   });
 
   const tokenRefresh = jwt.sign(
     { sub: usuario.id },
     entorno.JWT_SECRETO_REFRESH,
-    { expiresIn: entorno.JWT_EXPIRACION_REFRESH as string }
+    { expiresIn: entorno.JWT_EXPIRACION_REFRESH as any }
   );
 
   // Guardar hash del refresh token y resetear intentos fallidos
@@ -162,7 +162,7 @@ export async function renovarToken(tokenRefreshRecibido: string): Promise<{ toke
       apellido: usuario.apellido,
     },
     entorno.JWT_SECRETO,
-    { expiresIn: entorno.JWT_EXPIRACION as string }
+    { expiresIn: entorno.JWT_EXPIRACION as any }
   );
 
   const expiracion = jwt.decode(nuevoTokenAcceso) as { exp: number };

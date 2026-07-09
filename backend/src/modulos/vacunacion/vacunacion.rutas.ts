@@ -13,6 +13,8 @@ import {
   controladorActualizarCalendario,
   controladorListarRegistros,
   controladorRegistrarVacunacion,
+  controladorActualizarRegistro,
+  controladorEliminarRegistro,
   controladorListarMedicamentos,
 } from './vacunacion.controlador';
 
@@ -32,5 +34,7 @@ enrutador.patch('/calendarios/:id', soloAdministrador, registrarAuditoria('Actua
 // Registros de vacunación aplicada
 enrutador.get('/', cualquierRol, controladorListarRegistros);
 enrutador.post('/', administradorOVeterinario, registrarAuditoria('Registrar vacunación', 'RegistroVacunacion'), controladorRegistrarVacunacion);
+enrutador.patch('/:id', administradorOVeterinario, registrarAuditoria('Actualizar registro vacunación', 'RegistroVacunacion'), controladorActualizarRegistro);
+enrutador.delete('/:id', administradorOVeterinario, registrarAuditoria('Eliminar registro vacunación', 'RegistroVacunacion'), controladorEliminarRegistro);
 
 export default enrutador;

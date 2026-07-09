@@ -147,6 +147,19 @@ function crearIconoAnimal(enLinea: boolean) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Abre Google Maps en el navegador para navegar desde la ubicación actual
+ * del usuario hasta las coordenadas del animal.
+ * Formato: https://www.google.com/maps/dir/?api=1&destination=LAT,LNG
+ */
+function abrirGoogleMaps(lat: number, lng: number, nombre?: string | null): void {
+  const destino = encodeURIComponent(`${lat},${lng}`);
+  const etiqueta = nombre ? encodeURIComponent(nombre) : destino;
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${destino}&destination_place_id=${etiqueta}&travelmode=driving`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 function tiempoRelativo(fecha: string | null): string {
   if (!fecha) return 'Sin conexión';
   const min = Math.floor((Date.now() - new Date(fecha).getTime()) / 60_000);
@@ -181,10 +194,11 @@ function calcularEstadisticasTrack(track: PuntoTrack[]) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function PaginaMapa() {
-  const [pestaña, setPestaña]               = useState<'dispositivos' | 'mapa' | 'movilidad'>('dispositivos');
+  const [pestaña, setPestaña]               = useState<'dispositivos' | 'mapa' | 'finca' | 'movilidad'>('dispositivos');
   const [modalConfig, setModalConfig]       = useState(false);
   const [dispositivoAmp, setDispositivoAmp] = useState<string | null>(null);
   const [filtroFinca, setFiltroFinca]       = useState<string>('todas');
+  const [fincaVista, setFincaVista]         = useState<FincaMock>(FINCAS[0]);
   const [dispositivoTrack, setDispositivoTrack] = useState<string>(
     DISPOSITIVOS.find((d) => d.track.length > 0)?.id ?? '',
   );
@@ -194,6 +208,11 @@ export default function PaginaMapa() {
       ? DISPOSITIVOS
       : DISPOSITIVOS.filter((d) => d.animal?.finca === filtroFinca),
     [filtroFinca],
+  );
+
+  const dispDeFinca = useMemo(() =>
+    DISPOSITIVOS.filter((d) => d.animal?.finca === fincaVista.nombre),
+    [fincaVista],
   );
 
   const enLinea    = DISPOSITIVOS.filter((d) => d.enLinea).length;
@@ -261,11 +280,12 @@ export default function PaginaMapa() {
       </div>
 
       {/* Pestañas */}
-      <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit flex-wrap">
         {([
-          { clave: 'dispositivos', et: 'Dispositivos GPS',   ico: 'router' },
-          { clave: 'mapa',         et: 'Mapa en vivo',       ico: 'satellite_alt' },
-          { clave: 'movilidad',    et: 'Historial Movilidad', ico: 'route' },
+          { clave: 'dispositivos', et: 'Dispositivos GPS',    ico: 'router' },
+          { clave: 'mapa',         et: 'Mapa en vivo',        ico: 'satellite_alt' },
+          { clave: 'finca',        et: 'Vista por finca',     ico: 'home_work' },
+          { clave: 'movilidad',    et: 'Historial movilidad', ico: 'route' },
         ] as const).map((p) => (
           <button
             key={p.clave}
@@ -467,7 +487,7 @@ export default function PaginaMapa() {
               {DISPOSITIVOS.filter((d) => d.lat !== null).map((disp) => (
                 <Marker key={disp.id} position={[disp.lat!, disp.lng!]} icon={crearIconoAnimal(disp.enLinea)}>
                   <Popup>
-                    <div style={{ minWidth: 180, fontFamily: 'Inter, sans-serif' }}>
+                    <div style={{ minWidth: 200, fontFamily: 'Inter, sans-serif' }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#1a1c1c', marginBottom: 4 }}>{disp.nombre}</div>
                       {disp.animal && (
                         <>
@@ -487,6 +507,18 @@ export default function PaginaMapa() {
                       <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#9ca3af', marginTop: 4 }}>
                         {disp.lat?.toFixed(6)}, {disp.lng?.toFixed(6)}
                       </div>
+                      <button
+                        onClick={() => abrirGoogleMaps(disp.lat!, disp.lng!, disp.animal?.nombre ?? disp.animal?.numeroArete)}
+                        style={{
+                          marginTop: 10, width: '100%', padding: '6px 10px',
+                          background: '#1a73e8', color: 'white', border: 'none',
+                          borderRadius: 8, fontSize: 11, fontWeight: 600,
+                          cursor: 'pointer', display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', gap: 5,
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>🧭</span> Cómo llegar
+                      </button>
                     </div>
                   </Popup>
                 </Marker>
@@ -501,7 +533,7 @@ export default function PaginaMapa() {
             </div>
             {DISPOSITIVOS.filter((d) => d.lat !== null).map((disp, idx, arr) => (
               <div key={disp.id}
-                className={`grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-5 py-3 text-xs hover:bg-surface-container-low transition-colors
+                className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 items-center px-5 py-3 text-xs hover:bg-surface-container-low transition-colors
                   ${idx < arr.length - 1 ? 'border-b border-outline-variant/10' : ''}`}
               >
                 <div>
@@ -521,9 +553,233 @@ export default function PaginaMapa() {
                       : <Badge variante="gris"  tamano="xs">Offline</Badge>}
                   </div>
                 </div>
+                <button
+                  onClick={() => abrirGoogleMaps(disp.lat!, disp.lng!, disp.animal?.nombre ?? disp.animal?.numeroArete)}
+                  title="Cómo llegar — abre Google Maps"
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-lg text-[10px] font-semibold transition-colors flex-shrink-0"
+                >
+                  <Icono nombre="directions" clase="text-[13px]" />
+                  Cómo llegar
+                </button>
               </div>
             ))}
           </div>
+        </motion.div>
+      )}
+
+      {/* ── PESTAÑA: VISTA POR FINCA ─────────────────────────────────────────── */}
+      {pestaña === 'finca' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+
+          {/* Selector de finca */}
+          <div className="flex gap-2 flex-wrap">
+            {FINCAS.map((f) => (
+              <button
+                key={f.nombre}
+                onClick={() => setFincaVista(f)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border-2 ${
+                  fincaVista.nombre === f.nombre
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-transparent bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                }`}
+              >
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: f.color }} />
+                {f.nombre}
+              </button>
+            ))}
+          </div>
+
+          {/* Cabecera de la finca seleccionada */}
+          <div className="tarjeta-vidrio rounded-2xl p-5">
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-3 rounded-xl" style={{ background: fincaVista.color + '18' }}>
+                  <span
+                    className="material-symbols-outlined text-[24px]"
+                    style={{ fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24", color: fincaVista.color }}
+                    aria-hidden="true"
+                  >home_work</span>
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-on-surface">{fincaVista.nombre}</h2>
+                  <p className="text-sm text-on-surface-variant flex items-center gap-1">
+                    <Icono nombre="location_on" clase="text-[13px] text-outline" />
+                    {fincaVista.municipio}, Yaracuy
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                {[
+                  { et: 'Animales activos', val: fincaVista.animalesActivos, ico: 'pets', col: 'text-primary', fondo: 'bg-primary/10' },
+                  { et: 'Dispositivos GPS', val: dispDeFinca.length,         ico: 'router', col: 'text-secondary', fondo: 'bg-secondary/10' },
+                  { et: 'En línea ahora',   val: dispDeFinca.filter((d) => d.enLinea).length, ico: 'wifi', col: 'text-tertiary', fondo: 'bg-tertiary/10' },
+                  { et: 'Hectáreas',        val: fincaVista.hectareas,       ico: 'straighten', col: 'text-on-surface', fondo: 'bg-surface-container' },
+                ].map((kpi) => (
+                  <div key={kpi.et} className={`${kpi.fondo} rounded-xl px-3 py-2 text-center min-w-[70px]`}>
+                    <Icono nombre={kpi.ico} clase={`text-[16px] ${kpi.col} mx-auto mb-0.5`} />
+                    <p className={`text-lg font-bold ${kpi.col}`}>{kpi.val}</p>
+                    <p className="text-[10px] text-on-surface-variant leading-tight">{kpi.et}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-outline-variant/20 grid grid-cols-3 gap-3 text-xs">
+              <div>
+                <p className="text-outline text-[10px] uppercase tracking-wide mb-0.5">Cobertura GPS</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-surface-container rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full"
+                      style={{
+                        width: `${Math.min(100, Math.round((dispDeFinca.length / Math.max(1, fincaVista.animalesActivos)) * 100))}%`,
+                        background: fincaVista.color,
+                      }}
+                    />
+                  </div>
+                  <span className="font-semibold text-on-surface">
+                    {Math.round((dispDeFinca.length / Math.max(1, fincaVista.animalesActivos)) * 100)}%
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-outline text-[10px] uppercase tracking-wide mb-0.5">Superficie</p>
+                <p className="font-semibold text-on-surface">{fincaVista.hectareas.toLocaleString('es-VE')} ha</p>
+              </div>
+              <div>
+                <p className="text-outline text-[10px] uppercase tracking-wide mb-0.5">Radio aprox.</p>
+                <p className="font-semibold text-on-surface">{(fincaVista.radioMetros / 1000).toFixed(1)} km</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Mapa centrado en la finca */}
+          <div className="rounded-2xl overflow-hidden border border-outline-variant/20 shadow-sm" style={{ height: 420 }}>
+            <MapContainer
+              center={[fincaVista.lat, fincaVista.lng]}
+              zoom={14}
+              style={{ height: '100%', width: '100%' }}
+              key={fincaVista.nombre}  // forzar re-montaje al cambiar finca
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              {/* Círculo de la finca */}
+              <Circle
+                center={[fincaVista.lat, fincaVista.lng]}
+                radius={fincaVista.radioMetros}
+                pathOptions={{ color: fincaVista.color, fillColor: fincaVista.color, fillOpacity: 0.08, weight: 2, dashArray: '6 4' }}
+              >
+                <Tooltip permanent direction="top">
+                  <span style={{ fontSize: 11, fontWeight: 600, color: fincaVista.color }}>{fincaVista.nombre}</span>
+                </Tooltip>
+              </Circle>
+              {/* Marcadores de animales de esta finca */}
+              {dispDeFinca.filter((d) => d.lat !== null).map((disp) => (
+                <Marker key={disp.id} position={[disp.lat!, disp.lng!]} icon={crearIconoAnimal(disp.enLinea)}>
+                  <Popup>
+                    <div style={{ minWidth: 190, fontFamily: 'Inter, sans-serif' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#1a1c1c', marginBottom: 4 }}>{disp.nombre}</div>
+                      {disp.animal && (
+                        <div style={{ fontSize: 12, color: '#40493d' }}>
+                          <strong>Animal:</strong> #{disp.animal.numeroArete}
+                          {disp.animal.nombre && ` — ${disp.animal.nombre}`}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: '#707a6c', marginTop: 4 }}>
+                        {disp.enLinea
+                          ? <span style={{ color: fincaVista.color, fontWeight: 600 }}>● En línea</span>
+                          : <span style={{ color: '#707a6c' }}>○ Sin señal</span>}
+                        {' · '}{tiempoRelativo(disp.ultimaConexion)}
+                      </div>
+                      <button
+                        onClick={() => abrirGoogleMaps(disp.lat!, disp.lng!, disp.animal?.nombre ?? disp.animal?.numeroArete)}
+                        style={{
+                          marginTop: 10, width: '100%', padding: '6px 10px',
+                          background: '#1a73e8', color: 'white', border: 'none',
+                          borderRadius: 8, fontSize: 11, fontWeight: 600,
+                          cursor: 'pointer', display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', gap: 5,
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>🧭</span> Cómo llegar
+                      </button>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
+
+          {/* Lista de dispositivos de la finca */}
+          {dispDeFinca.length > 0 ? (
+            <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 flex items-center justify-between">
+                <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
+                  Dispositivos en {fincaVista.nombre}
+                </p>
+                <Badge variante={dispDeFinca.some((d) => d.enLinea) ? 'verde' : 'gris'} tamano="xs" punto>
+                  {dispDeFinca.filter((d) => d.enLinea).length} en línea
+                </Badge>
+              </div>
+              {dispDeFinca.map((disp, idx) => (
+                <div
+                  key={disp.id}
+                  className={`flex items-center gap-4 p-4 hover:bg-surface-container-low transition-colors
+                    ${idx < dispDeFinca.length - 1 ? 'border-b border-outline-variant/15' : ''}`}
+                >
+                  <div className={`p-2 rounded-xl flex-shrink-0 ${disp.enLinea ? 'bg-primary/10' : 'bg-surface-container'}`}>
+                    <Icono nombre={disp.enLinea ? 'wifi' : 'wifi_off'} relleno={disp.enLinea} clase={`text-[18px] ${disp.enLinea ? 'text-primary' : 'text-outline'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-on-surface">{disp.nombre}</span>
+                      {disp.enLinea
+                        ? <Badge variante="verde" tamano="xs" punto>En línea</Badge>
+                        : <Badge variante="gris"  tamano="xs">Sin señal</Badge>}
+                    </div>
+                    {disp.animal && (
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        #{disp.animal.numeroArete}{disp.animal.nombre ? ` · ${disp.animal.nombre}` : ''}
+                      </p>
+                    )}
+                  </div>
+                  {disp.lat !== null && (
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] font-mono text-on-surface-variant">{disp.lat.toFixed(4)}</p>
+                      <p className="text-[10px] font-mono text-on-surface-variant">{disp.lng!.toFixed(4)}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-outline flex-shrink-0">{tiempoRelativo(disp.ultimaConexion)}</p>
+                  {disp.lat !== null && (
+                    <button
+                      onClick={() => abrirGoogleMaps(disp.lat!, disp.lng!, disp.animal?.nombre ?? disp.animal?.numeroArete)}
+                      title="Cómo llegar — abre Google Maps"
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-lg text-[10px] font-semibold transition-colors flex-shrink-0"
+                    >
+                      <Icono nombre="directions" clase="text-[13px]" />
+                      Cómo llegar
+                    </button>
+                  )}
+                  {disp.track.length > 0 && (
+                    <button
+                      onClick={() => { setDispositivoTrack(disp.id); setPestaña('movilidad'); }}
+                      title="Ver historial de movilidad"
+                      className="p-1.5 hover:bg-surface-container rounded-lg transition-colors"
+                    >
+                      <Icono nombre="route" clase="text-[16px] text-primary" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="tarjeta-vidrio rounded-2xl p-10 text-center">
+              <Icono nombre="router" clase="text-[40px] text-outline mx-auto mb-3" />
+              <p className="text-on-surface-variant">No hay dispositivos GPS asignados a esta finca</p>
+            </div>
+          )}
         </motion.div>
       )}
 

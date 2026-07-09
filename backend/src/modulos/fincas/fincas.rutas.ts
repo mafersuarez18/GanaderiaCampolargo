@@ -12,6 +12,7 @@ import {
   controladorCrearFinca,
   controladorActualizarFinca,
   controladorEliminarFinca,
+  controladorAnimalesDeFinca,
 } from './fincas.controlador';
 
 const enrutador = Router();
@@ -23,6 +24,9 @@ enrutador.get('/', cualquierRol, controladorListarFincas);
 
 // GET /api/v1/fincas/:id
 enrutador.get('/:id', cualquierRol, controladorObtenerFinca);
+
+// GET /api/v1/fincas/:id/animales
+enrutador.get('/:id/animales', cualquierRol, controladorAnimalesDeFinca);
 
 // POST /api/v1/fincas
 enrutador.post(

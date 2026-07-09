@@ -5,7 +5,9 @@ import {
   actualizarFinca,
   eliminarFinca,
   existeFincaConNombre,
+  listarAnimalesDeFinca,
   FiltrosFinca,
+  FiltrosAnimalesFinca,
 } from './fincas.repositorio';
 import {
   ErrorNoEncontrado,
@@ -67,4 +69,10 @@ export async function servicioEliminarFinca(id: string) {
   }
 
   return eliminarFinca(id);
+}
+
+export async function servicioListarAnimalesFinca(fincaId: string, filtros: FiltrosAnimalesFinca) {
+  const finca = await obtenerFincaPorId(fincaId);
+  if (!finca) throw new ErrorNoEncontrado(`Finca con id '${fincaId}' no encontrada`);
+  return listarAnimalesDeFinca(fincaId, filtros);
 }

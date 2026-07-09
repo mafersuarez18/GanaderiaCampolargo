@@ -62,9 +62,11 @@ export class ErrorForbidden extends ErrorAplicacion {
 export class ErrorValidacionDatos extends ErrorAplicacion {
   public readonly errores: ErrorValidacion[];
 
-  constructor(errores: ErrorValidacion[]) {
+  constructor(errores: ErrorValidacion[] | string) {
     super('Error de validación', 422);
-    this.errores = errores;
+    this.errores = typeof errores === 'string'
+      ? [{ campo: 'general', mensaje: errores }]
+      : errores;
   }
 }
 

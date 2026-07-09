@@ -5,6 +5,8 @@ import { clienteHttp } from '../../servicios/clienteAxios';
 import Badge from '../../componentes/ui/Badge';
 import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
 import Icono from '../../componentes/ui/Icono';
+import { ModalConfirmacion } from '../../componentes/ui/Modal';
+import { useAutenticacion } from '../../hooks/useAutenticacion';
 
 interface CalendarioVacunacion {
   id: string;
@@ -28,7 +30,7 @@ interface RegistroVacunacion {
   proximaFecha?: string;
   observaciones?: string;
   historialMedico?: {
-    animal: { id: string; numeroArete: string; nombre?: string };
+    animal: { id: string; numeroArete: string; nombre?: string | null };
   };
   calendarioVacunacion: { id: string; nombreVacuna: string; intervaloDias: number };
   medicamento?: { id: string; nombre: string };
@@ -63,14 +65,24 @@ const formatearIntervalo = (dias: number) => {
   return `Cada ${dias} días`;
 };
 
+const fmtFecha = (s?: string) =>
+  s ? new Date(s).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
 export default function PaginaVacunacion() {
   const queryClient = useQueryClient();
-  const [pestanaActiva, setPestanaActiva]           = useState<'calendarios' | 'registros'>('calendarios');
-  const [calendarioActivo, setCalendarioActivo]     = useState<CalendarioVacunacion | null>(null);
-  const [mostrarFormCalendario, setMostrarFormCalendario] = useState(false);
-  const [mostrarFormRegistro, setMostrarFormRegistro]     = useState(false);
-  const [filtroActivos, setFiltroActivos]           = useState<boolean | undefined>(true);
+  const { esAdministrador, esVeterinario } = useAutenticacion();
+  const puedeEditar = esAdministrador || esVeterinario;
 
+  const [pestanaActiva, setPestanaActiva]               = useState<'calendarios' | 'registros'>('calendarios');
+  const [calendarioActivo, setCalendarioActivo]         = useState<CalendarioVacunacion | null>(null);
+  const [mostrarFormCalendario, setMostrarFormCalendario] = useState(false);
+  const [mostrarFormRegistro, setMostrarFormRegistro]   = useState(false);
+  const [filtroActivos, setFiltroActivos]               = useState<boolean | undefined>(true);
+  const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroVacunacion | null>(null);
+  const [registroEditar, setRegistroEditar]             = useState<RegistroVacunacion | null>(null);
+  const [registroEliminar, setRegistroEliminar]         = useState<string | null>(null);
+
+  // ── Queries ─────────────────────────────────────────────────────────────────
   const { data: calendarios, isLoading: cargandoCalendarios } = useQuery<CalendarioVacunacion[]>({
     queryKey: ['calendarios-vacunacion', filtroActivos],
     queryFn: () =>
@@ -79,6 +91,7 @@ export default function PaginaVacunacion() {
           params: filtroActivos !== undefined ? { activos: filtroActivos } : {},
         })
         .then((r) => r.data.datos ?? r.data),
+    staleTime: 2 * 60 * 1000,   // 2 min — reduce peticiones repetidas
   });
 
   const { data: respuestaRegistros, isLoading: cargandoRegistros } = useQuery({
@@ -93,12 +106,25 @@ export default function PaginaVacunacion() {
         })
         .then((r) => r.data),
     enabled: pestanaActiva === 'registros',
+    staleTime: 60 * 1000,        // 1 min
   });
 
   const registros: RegistroVacunacion[] = respuestaRegistros?.datos ?? [];
 
-  const totalCalendarios = calendarios?.length ?? 0;
-  const totalAplicaciones = calendarios?.reduce((s, c) => s + c._count.registrosVacunacion, 0) ?? 0;
+  // ── Mutaciones ───────────────────────────────────────────────────────────────
+  const mutacionEliminar = useMutation({
+    mutationFn: (id: string) => clienteHttp.delete(`/vacunacion/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registros-vacunacion'] });
+      queryClient.invalidateQueries({ queryKey: ['calendarios-vacunacion'] });
+      setRegistroEliminar(null);
+      setRegistroSeleccionado(null);
+    },
+  });
+
+  // ── KPIs ─────────────────────────────────────────────────────────────────────
+  const totalCalendarios   = calendarios?.length ?? 0;
+  const totalAplicaciones  = calendarios?.reduce((s, c) => s + c._count.registrosVacunacion, 0) ?? 0;
   const calendariosActivos = calendarios?.filter((c) => c.activo).length ?? 0;
 
   return (
@@ -161,7 +187,7 @@ export default function PaginaVacunacion() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit">
           {[
-            { clave: 'calendarios', et: 'Calendarios',        ico: 'event_note' },
+            { clave: 'calendarios', et: 'Calendarios',              ico: 'event_note' },
             { clave: 'registros',   et: 'Historial de Aplicaciones', ico: 'history' },
           ].map((p) => (
             <button
@@ -182,7 +208,6 @@ export default function PaginaVacunacion() {
         <div className="flex items-center gap-2">
           {pestanaActiva === 'calendarios' ? (
             <>
-              {/* Filtros activos */}
               <div className="flex gap-1 p-1 bg-surface-container rounded-xl">
                 {[
                   { val: true,      et: 'Activos' },
@@ -202,13 +227,15 @@ export default function PaginaVacunacion() {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => setMostrarFormCalendario(true)}
-                className="boton boton-primario gap-2 text-sm"
-              >
-                <Icono nombre="add" clase="text-[18px]" />
-                Nuevo calendario
-              </button>
+              {puedeEditar && (
+                <button
+                  onClick={() => setMostrarFormCalendario(true)}
+                  className="boton boton-primario gap-2 text-sm"
+                >
+                  <Icono nombre="add" clase="text-[18px]" />
+                  Nuevo calendario
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -222,13 +249,15 @@ export default function PaginaVacunacion() {
                   </button>
                 </div>
               )}
-              <button
-                onClick={() => setMostrarFormRegistro(true)}
-                className="boton boton-primario gap-2 text-sm"
-              >
-                <Icono nombre="add_task" clase="text-[18px]" />
-                Registrar aplicación
-              </button>
+              {puedeEditar && (
+                <button
+                  onClick={() => setMostrarFormRegistro(true)}
+                  className="boton boton-primario gap-2 text-sm"
+                >
+                  <Icono nombre="add_task" clase="text-[18px]" />
+                  Registrar aplicación
+                </button>
+              )}
             </>
           )}
         </div>
@@ -256,10 +285,12 @@ export default function PaginaVacunacion() {
                 </div>
                 <p className="font-medium text-on-surface-variant">Sin calendarios de vacunación</p>
                 <p className="text-xs text-outline mt-1">Cree el primer protocolo</p>
-                <button onClick={() => setMostrarFormCalendario(true)} className="boton boton-primario mt-4 text-sm gap-2">
-                  <Icono nombre="add" clase="text-[18px]" />
-                  Nuevo calendario
-                </button>
+                {puedeEditar && (
+                  <button onClick={() => setMostrarFormCalendario(true)} className="boton boton-primario mt-4 text-sm gap-2">
+                    <Icono nombre="add" clase="text-[18px]" />
+                    Nuevo calendario
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -340,19 +371,22 @@ export default function PaginaVacunacion() {
               <div className="tarjeta-vidrio rounded-2xl p-12 text-center">
                 <Icono nombre="task_alt" clase="text-[40px] text-outline mx-auto mb-3" />
                 <p className="font-medium text-on-surface-variant">Sin registros de vacunación</p>
-                <button onClick={() => setMostrarFormRegistro(true)} className="boton boton-primario mt-4 text-sm gap-2">
-                  <Icono nombre="add_task" clase="text-[18px]" />
-                  Registrar aplicación
-                </button>
+                {puedeEditar && (
+                  <button onClick={() => setMostrarFormRegistro(true)} className="boton boton-primario mt-4 text-sm gap-2">
+                    <Icono nombre="add_task" clase="text-[18px]" />
+                    Registrar aplicación
+                  </button>
+                )}
               </div>
             ) : (
               <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
                 {registros.map((reg, idx) => (
                   <div
                     key={reg.id}
-                    className={`p-4 hover:bg-surface-container-low transition-colors ${
-                      idx < registros.length - 1 ? 'border-b border-outline-variant/20' : ''
-                    }`}
+                    onClick={() => setRegistroSeleccionado(reg)}
+                    className={`p-4 hover:bg-surface-container-low transition-colors cursor-pointer
+                      ${idx < registros.length - 1 ? 'border-b border-outline-variant/20' : ''}
+                      ${registroSeleccionado?.id === reg.id ? 'bg-primary/5' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
@@ -365,21 +399,17 @@ export default function PaginaVacunacion() {
                               {reg.calendarioVacunacion.nombreVacuna}
                             </span>
                             {reg.historialMedico?.animal && (
-                              <span className="text-xs text-on-surface-variant">
-                                — #{reg.historialMedico.animal.numeroArete}
-                                {reg.historialMedico.animal.nombre && ` (${reg.historialMedico.animal.nombre})`}
+                              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                                #{reg.historialMedico.animal.numeroArete}
+                                {reg.historialMedico.animal.nombre && ` · ${reg.historialMedico.animal.nombre}`}
                               </span>
                             )}
                           </div>
                           <div className="flex flex-wrap gap-3 mt-1 text-xs text-on-surface-variant">
-                            <span>
-                              {new Date(reg.fechaAplicacion).toLocaleDateString('es-VE', {
-                                day: '2-digit', month: 'short', year: 'numeric',
-                              })}
-                            </span>
-                            {reg.dosis && <span>Dosis: {reg.dosis}</span>}
+                            <span>{fmtFecha(reg.fechaAplicacion)}</span>
+                            {reg.dosis            && <span>Dosis: {reg.dosis}</span>}
                             {reg.viaAdministracion && <span>Vía: {reg.viaAdministracion}</span>}
-                            {reg.lote && <span className="font-mono">Lote: {reg.lote}</span>}
+                            {reg.lote             && <span className="font-mono">Lote: {reg.lote}</span>}
                           </div>
                         </div>
                       </div>
@@ -396,7 +426,7 @@ export default function PaginaVacunacion() {
                       </div>
                     </div>
                     {reg.observaciones && (
-                      <p className="mt-2 text-xs text-on-surface-variant pl-11">{reg.observaciones}</p>
+                      <p className="mt-2 text-xs text-on-surface-variant pl-11 line-clamp-1">{reg.observaciones}</p>
                     )}
                   </div>
                 ))}
@@ -416,7 +446,155 @@ export default function PaginaVacunacion() {
         <Icono nombre={pestanaActiva === 'calendarios' ? 'add' : 'add_task'} clase="text-[28px]" />
       </button>
 
-      {/* Formulario: Nuevo Calendario */}
+      {/* ── Panel lateral: detalle de registro ── */}
+      <AnimatePresence>
+        {registroSeleccionado && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-inverse-surface/30 z-40"
+              onClick={() => setRegistroSeleccionado(null)}
+            />
+            <motion.aside
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed right-0 top-0 h-full w-[420px] max-w-[95vw] bg-surface-container-lowest shadow-2xl z-50 overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="sticky top-0 bg-surface-container-lowest border-b border-outline-variant/20 px-5 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-on-surface">Detalle del Registro</h2>
+                  <p className="text-xs text-on-surface-variant">{fmtFecha(registroSeleccionado.fechaAplicacion)}</p>
+                </div>
+                <button
+                  onClick={() => setRegistroSeleccionado(null)}
+                  className="p-2 hover:bg-surface-container rounded-xl transition-colors"
+                >
+                  <Icono nombre="close" clase="text-[20px] text-on-surface-variant" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-5">
+
+                {/* Animal */}
+                <section>
+                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2">Animal vacunado</p>
+                  {registroSeleccionado.historialMedico?.animal ? (
+                    <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/15 rounded-xl">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Icono nombre="pets" relleno clase="text-[18px] text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-on-surface">
+                          #{registroSeleccionado.historialMedico.animal.numeroArete}
+                          {registroSeleccionado.historialMedico.animal.nombre &&
+                            ` · ${registroSeleccionado.historialMedico.animal.nombre}`}
+                        </p>
+                        <p className="text-xs text-on-surface-variant">Animal identificado</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-on-surface-variant italic">Sin animal asociado</p>
+                  )}
+                </section>
+
+                {/* Vacuna/Calendario */}
+                <section>
+                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Protocolo aplicado</p>
+                  <p className="text-sm font-semibold text-on-surface">
+                    {registroSeleccionado.calendarioVacunacion.nombreVacuna}
+                  </p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">
+                    {formatearIntervalo(registroSeleccionado.calendarioVacunacion.intervaloDias)}
+                  </p>
+                </section>
+
+                {/* Datos de la aplicación */}
+                <section>
+                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2">Datos de la aplicación</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-surface-container rounded-xl p-2.5">
+                      <p className="text-[10px] text-on-surface-variant">Fecha</p>
+                      <p className="text-sm font-semibold text-on-surface">{fmtFecha(registroSeleccionado.fechaAplicacion)}</p>
+                    </div>
+                    {registroSeleccionado.proximaFecha && (
+                      <div className="bg-tertiary/10 rounded-xl p-2.5">
+                        <p className="text-[10px] text-tertiary">Próxima aplicación</p>
+                        <p className="text-sm font-semibold text-on-surface">{fmtFecha(registroSeleccionado.proximaFecha)}</p>
+                      </div>
+                    )}
+                    {registroSeleccionado.dosis && (
+                      <div className="bg-surface-container rounded-xl p-2.5">
+                        <p className="text-[10px] text-on-surface-variant">Dosis</p>
+                        <p className="text-sm font-semibold text-on-surface">{registroSeleccionado.dosis}</p>
+                      </div>
+                    )}
+                    {registroSeleccionado.viaAdministracion && (
+                      <div className="bg-surface-container rounded-xl p-2.5">
+                        <p className="text-[10px] text-on-surface-variant">Vía</p>
+                        <p className="text-sm font-semibold text-on-surface">{registroSeleccionado.viaAdministracion}</p>
+                      </div>
+                    )}
+                    {registroSeleccionado.lote && (
+                      <div className="bg-surface-container rounded-xl p-2.5 col-span-2">
+                        <p className="text-[10px] text-on-surface-variant">Número de lote</p>
+                        <p className="text-sm font-mono font-semibold text-on-surface">{registroSeleccionado.lote}</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {registroSeleccionado.medicamento && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Medicamento</p>
+                    <p className="text-sm text-on-surface">{registroSeleccionado.medicamento.nombre}</p>
+                  </section>
+                )}
+
+                {registroSeleccionado.observaciones && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Observaciones</p>
+                    <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">
+                      {registroSeleccionado.observaciones}
+                    </p>
+                  </section>
+                )}
+
+                <section className="pt-4 border-t border-outline-variant/20">
+                  <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Registrado por</p>
+                  <p className="text-sm text-on-surface-variant">
+                    {registroSeleccionado.aplicadoPor.nombre} {registroSeleccionado.aplicadoPor.apellido}
+                  </p>
+                </section>
+
+                {/* Acciones */}
+                {puedeEditar && (
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => { setRegistroEditar(registroSeleccionado); setRegistroSeleccionado(null); }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                                 border border-primary/30 text-primary hover:bg-primary/10 transition-colors text-sm font-medium"
+                    >
+                      <Icono nombre="edit" clase="text-[16px]" />
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => { setRegistroEliminar(registroSeleccionado.id); setRegistroSeleccionado(null); }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                                 border border-error/30 text-error hover:bg-error-container/30 transition-colors text-sm font-medium"
+                    >
+                      <Icono nombre="delete" clase="text-[16px]" />
+                      Eliminar
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Nuevo Calendario */}
       <AnimatePresence>
         {mostrarFormCalendario && (
           <FormularioCalendario
@@ -429,7 +607,7 @@ export default function PaginaVacunacion() {
         )}
       </AnimatePresence>
 
-      {/* Formulario: Registrar Vacunación */}
+      {/* Modal: Registrar Vacunación */}
       <AnimatePresence>
         {mostrarFormRegistro && (
           <FormularioRegistro
@@ -444,6 +622,32 @@ export default function PaginaVacunacion() {
           />
         )}
       </AnimatePresence>
+
+      {/* Modal: Editar registro */}
+      <AnimatePresence>
+        {registroEditar && (
+          <FormularioEditarRegistro
+            registro={registroEditar}
+            onCerrar={() => setRegistroEditar(null)}
+            onExito={() => {
+              queryClient.invalidateQueries({ queryKey: ['registros-vacunacion'] });
+              setRegistroEditar(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Confirmar eliminación */}
+      <ModalConfirmacion
+        abierto={!!registroEliminar}
+        titulo="Eliminar registro de vacunación"
+        descripcion="¿Está seguro de eliminar este registro? Esta acción no se puede deshacer."
+        textoConfirmar="Eliminar"
+        variante="peligro"
+        cargando={mutacionEliminar.isPending}
+        alConfirmar={() => registroEliminar && mutacionEliminar.mutate(registroEliminar)}
+        alCerrar={() => setRegistroEliminar(null)}
+      />
     </div>
   );
 }
@@ -612,12 +816,12 @@ function FormularioRegistro({
     mutationFn: (datos: FormRegistro) =>
       clienteHttp.post('/vacunacion', {
         calendarioVacunacionId: datos.calendarioVacunacionId,
-        ...(datos.animalId        && { animalId: datos.animalId }),
-        fechaAplicacion:  new Date(datos.fechaAplicacion).toISOString(),
-        ...(datos.dosis            && { dosis: datos.dosis }),
+        ...(datos.animalId         && { animalId: datos.animalId }),
+        fechaAplicacion:   new Date(datos.fechaAplicacion).toISOString(),
+        ...(datos.dosis             && { dosis: datos.dosis }),
         ...(datos.viaAdministracion && { viaAdministracion: datos.viaAdministracion }),
-        ...(datos.lote             && { lote: datos.lote }),
-        ...(datos.observaciones    && { observaciones: datos.observaciones }),
+        ...(datos.lote              && { lote: datos.lote }),
+        ...(datos.observaciones     && { observaciones: datos.observaciones }),
       }),
     onSuccess: () => onExito(),
     onError: (err: any) => setError(err?.response?.data?.mensaje ?? 'Error al registrar la vacunación'),
@@ -735,6 +939,146 @@ function FormularioRegistro({
               <button type="button" onClick={onCerrar} className="flex-1 boton boton-secundario">Cancelar</button>
               <button type="submit" disabled={mutacion.isPending} className="flex-1 boton boton-primario">
                 {mutacion.isPending ? 'Guardando...' : 'Registrar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+// ── Formulario: Editar Registro ───────────────────────────────────────────────
+
+function FormularioEditarRegistro({
+  registro, onCerrar, onExito,
+}: {
+  registro: RegistroVacunacion;
+  onCerrar: () => void;
+  onExito: () => void;
+}) {
+  const [form, setForm] = useState({
+    fechaAplicacion:  registro.fechaAplicacion.split('T')[0],
+    dosis:            registro.dosis            ?? '',
+    viaAdministracion: registro.viaAdministracion ?? '',
+    lote:             registro.lote             ?? '',
+    observaciones:    registro.observaciones    ?? '',
+  });
+  const [error, setError] = useState('');
+
+  const mutacion = useMutation({
+    mutationFn: () =>
+      clienteHttp.patch(`/vacunacion/${registro.id}`, {
+        fechaAplicacion:   new Date(form.fechaAplicacion).toISOString(),
+        dosis:             form.dosis             || undefined,
+        viaAdministracion: form.viaAdministracion || undefined,
+        lote:              form.lote              || undefined,
+        observaciones:     form.observaciones     || undefined,
+      }),
+    onSuccess: () => onExito(),
+    onError: (err: any) => setError(err?.response?.data?.mensaje ?? 'Error al actualizar el registro'),
+  });
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-inverse-surface/40 z-40" onClick={onCerrar}
+      />
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0, y: 16 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+            <h2 className="font-bold text-on-surface flex items-center gap-2">
+              <Icono nombre="edit" clase="text-[20px] text-primary" />
+              Editar Registro
+            </h2>
+            <button onClick={onCerrar} className="p-2 hover:bg-surface-container rounded-xl transition-colors">
+              <Icono nombre="close" clase="text-[20px] text-on-surface-variant" />
+            </button>
+          </div>
+
+          {/* Info no editable */}
+          <div className="px-6 pt-4 pb-2">
+            <div className="flex items-center gap-3 p-3 bg-surface-container rounded-xl">
+              <Icono nombre="vaccines" clase="text-[18px] text-primary" />
+              <div>
+                <p className="text-sm font-semibold text-on-surface">{registro.calendarioVacunacion.nombreVacuna}</p>
+                {registro.historialMedico?.animal && (
+                  <p className="text-xs text-on-surface-variant">
+                    Animal #{registro.historialMedico.animal.numeroArete}
+                    {registro.historialMedico.animal.nombre && ` · ${registro.historialMedico.animal.nombre}`}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError('');
+              mutacion.mutate();
+            }}
+            className="px-6 pb-6 space-y-4"
+          >
+            {error && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-error-container border border-error/20 rounded-xl text-sm text-on-error-container">
+                <Icono nombre="error" clase="text-[18px] flex-shrink-0 text-error" />
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                Fecha de Aplicación <span className="text-error">*</span>
+              </label>
+              <input
+                type="date"
+                value={form.fechaAplicacion}
+                onChange={(e) => setForm((f) => ({ ...f, fechaAplicacion: e.target.value }))}
+                className="campo-entrada"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { campo: 'dosis',             et: 'Dosis',  ph: '2 ml' },
+                { campo: 'viaAdministracion', et: 'Vía',    ph: 'IM, SC...' },
+                { campo: 'lote',              et: 'Lote',   ph: 'N° lote' },
+              ].map(({ campo, et, ph }) => (
+                <div key={campo}>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">{et}</label>
+                  <input
+                    type="text"
+                    value={(form as any)[campo]}
+                    onChange={(e) => setForm((f) => ({ ...f, [campo]: e.target.value }))}
+                    placeholder={ph}
+                    className="campo-entrada"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Observaciones</label>
+              <textarea
+                rows={2}
+                value={form.observaciones}
+                onChange={(e) => setForm((f) => ({ ...f, observaciones: e.target.value }))}
+                className="campo-entrada resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onCerrar} className="flex-1 boton boton-secundario">Cancelar</button>
+              <button type="submit" disabled={mutacion.isPending} className="flex-1 boton boton-primario">
+                {mutacion.isPending ? 'Guardando...' : 'Guardar cambios'}
               </button>
             </div>
           </form>
