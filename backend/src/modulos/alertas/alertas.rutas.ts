@@ -37,26 +37,27 @@ enrutador.get('/resumen', cualquierRol, async (req: Request, res: Response, next
     const usuarioId = req.usuarioActual!.id;
 
     // Conteos por prioridad (solo no leídas)
+    const noAbordada = { usuarioId, estado: { not: 'DESCARTADA' } } as const;
+
     const [critica, alta, media, baja, totalNoLeidas] = await prisma.$transaction([
-      prisma.notificacion.count({ where: { usuarioId, leida: false, prioridad: 'CRITICA' } }),
-      prisma.notificacion.count({ where: { usuarioId, leida: false, prioridad: 'ALTA' } }),
-      prisma.notificacion.count({ where: { usuarioId, leida: false, prioridad: 'MEDIA' } }),
-      prisma.notificacion.count({ where: { usuarioId, leida: false, prioridad: 'BAJA' } }),
-      prisma.notificacion.count({ where: { usuarioId, leida: false } }),
+      prisma.notificacion.count({ where: { ...noAbordada, prioridad: 'CRITICA' } }),
+      prisma.notificacion.count({ where: { ...noAbordada, prioridad: 'ALTA' } }),
+      prisma.notificacion.count({ where: { ...noAbordada, prioridad: 'MEDIA' } }),
+      prisma.notificacion.count({ where: { ...noAbordada, prioridad: 'BAJA' } }),
+      prisma.notificacion.count({ where: noAbordada }),
     ]);
 
-    // Conteos por tipo de entidad (no leídas)
+    // Conteos por tipo de entidad (no abordadas)
     const porTipoEntidad = await prisma.notificacion.groupBy({
       by: ['entidadTipo'],
-      where: { usuarioId, leida: false },
+      where: noAbordada,
       _count: { id: true },
     });
 
-    // Últimas 5 notificaciones críticas o de alta prioridad
+    // Últimas 5 notificaciones críticas o de alta prioridad no abordadas
     const urgentes = await prisma.notificacion.findMany({
       where: {
-        usuarioId,
-        leida: false,
+        ...noAbordada,
         prioridad: { in: ['CRITICA', 'ALTA'] },
       },
       orderBy: { creadoEn: 'desc' },
@@ -78,7 +79,7 @@ enrutador.get('/resumen', cualquierRol, async (req: Request, res: Response, next
 // ── POST /api/v1/alertas/evaluar — disparo manual del motor ──────────────────
 enrutador.post('/evaluar', administradorOVeterinario, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const resultado = await evaluarTodasLasReglas();
+    const resultado = await evaluarTodasLasReglas(true); // skipThrottle = true en disparo manual
     return respuestaExito(res, {
       mensaje: `Motor ejecutado: ${resultado.evaluadas} regla(s) evaluada(s)`,
       ...resultado,
@@ -90,12 +91,16 @@ const esquemaRegla = z.object({
   nombre:                 z.string().min(2).max(200),
   descripcion:            z.string().max(500).optional(),
   tipoAlerta:             z.nativeEnum(TipoAlertaRegla),
+  prioridad:              z.nativeEnum(PrioridadAlerta).optional(),
   umbralValor:            z.number().optional(),
   umbralUnidad:           z.string().max(50).optional(),
+  mensajeAlerta:          z.string().max(500).optional(),
+  evaluarCadaHoras:       z.number().int().min(1).max(720).optional(),
   activa:                 z.boolean().default(true),
   notificarAdministrador: z.boolean().default(true),
   notificarVeterinario:   z.boolean().default(true),
   notificarTecnico:       z.boolean().default(false),
+  enviarCorreo:           z.boolean().default(true),
 });
 
 // ── POST /api/v1/alertas — crear regla de alerta ─────────────────────────────

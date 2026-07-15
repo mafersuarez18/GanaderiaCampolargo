@@ -1,6 +1,7 @@
 import { Prisma, Sexo } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado, ErrorValidacionDatos } from '../../compartido/tipos/respuesta';
+import { resolverNotificacionesDeEntidad } from '../notificaciones/notificaciones.servicio';
 
 // ─── Calendarios ─────────────────────────────────────────────────────────────
 
@@ -171,7 +172,7 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
 
   const { aplicadoPorId, historialMedicoId, medicamentoId, calendarioVacunacionId, ...resto } = datos;
 
-  return prisma.registroVacunacion.create({
+  const registro = await prisma.registroVacunacion.create({
     data: {
       ...resto,
       proximaFecha,
@@ -188,6 +189,12 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
       aplicadoPor: { select: { nombre: true, apellido: true } },
     },
   });
+
+  // Auto-resolver alertas de vacunación pendientes para este registro concreto
+  // El scheduler usa el RegistroVacunacion.id como entidadId
+  await resolverNotificacionesDeEntidad('RegistroVacunacion', registro.id).catch(() => {});
+
+  return registro;
 }
 
 export async function actualizarRegistroVacunacion(

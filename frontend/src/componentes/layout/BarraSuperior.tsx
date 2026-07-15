@@ -14,7 +14,7 @@ const titulosPorRuta: Record<string, string> = {
   '/lotes':            'Lotes',
   '/animales':         'Animales',
   '/historial-medico': 'Historial Médico',
-  '/vacunacion':       'Vacunación',
+  '/vacunacion':       'Vacunación y Desparasitación',
   '/reproduccion':     'Reproducción',
   '/inseminacion':     'Inseminación',
   '/mapa':             'Geolocalización',
@@ -30,6 +30,7 @@ interface Notificacion {
   mensaje: string;
   prioridad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA';
   leida: boolean;
+  estado: 'PENDIENTE' | 'ENVIADA' | 'LEIDA' | 'DESCARTADA';
   creadoEn: string;
 }
 
@@ -39,7 +40,8 @@ async function obtenerNoLeidas(): Promise<{ total: number }> {
 }
 
 async function obtenerNotificacionesRecientes(): Promise<{ datos: Notificacion[] }> {
-  const { data } = await clienteHttp.get('/notificaciones?porPagina=8&noLeidas=true');
+  // noLeidas=true trae las no-abordadas y no-leídas; el backend ya filtra DESCARTADA
+  const { data } = await clienteHttp.get('/notificaciones?porPagina=8');
   return data;
 }
 
@@ -100,6 +102,22 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
 
   const mutacionMarcarLeida = useMutation({
     mutationFn: (id: string) => clienteHttp.patch(`/notificaciones/${id}/leer`),
+    onSuccess: () => {
+      cliente.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
+      cliente.invalidateQueries({ queryKey: ['notificaciones-recientes'] });
+    },
+  });
+
+  const mutacionAbordar = useMutation({
+    mutationFn: (id: string) => clienteHttp.patch(`/notificaciones/${id}/abordar`),
+    onSuccess: () => {
+      cliente.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
+      cliente.invalidateQueries({ queryKey: ['notificaciones-recientes'] });
+    },
+  });
+
+  const mutacionAbordarTodas = useMutation({
+    mutationFn: () => clienteHttp.patch('/notificaciones/abordar-todas'),
     onSuccess: () => {
       cliente.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
       cliente.invalidateQueries({ queryKey: ['notificaciones-recientes'] });
@@ -245,10 +263,11 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
                       </p>
                       {totalNoLeidas > 0 && (
                         <button
-                          onClick={() => mutacionMarcarTodas.mutate()}
+                          onClick={() => mutacionAbordarTodas.mutate()}
                           className="text-xs text-primary hover:underline"
+                          title="Marcar todas como abordadas (desaparecen del panel)"
                         >
-                          Marcar todas leídas
+                          Abordar todas
                         </button>
                       )}
                     </div>
@@ -261,30 +280,43 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
                         </div>
                       ) : (
                         notificaciones.map((notif) => (
-                          <button
+                          <div
                             key={notif.id}
-                            onClick={() => {
-                              mutacionMarcarLeida.mutate(notif.id);
-                              setPanelNotifsAbierto(false);
-                              navegar('/alertas');
-                            }}
-                            className={`w-full text-left px-4 py-3 hover:bg-surface-container-low transition-colors
-                                        border-b border-outline-variant/10 last:border-0
+                            className={`px-4 py-3 border-b border-outline-variant/10 last:border-0
                                         ${!notif.leida ? 'bg-primary/5' : ''}`}
                           >
-                            <div className="flex items-start gap-2">
-                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${colorPrioridad[notif.prioridad] ?? ''}`}>
-                                {notif.prioridad}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium text-on-surface truncate">{notif.titulo}</p>
-                                <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-0.5">{notif.mensaje}</p>
+                            <button
+                              onClick={() => {
+                                mutacionMarcarLeida.mutate(notif.id);
+                                setPanelNotifsAbierto(false);
+                                navegar('/alertas');
+                              }}
+                              className="w-full text-left"
+                            >
+                              <div className="flex items-start gap-2">
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${colorPrioridad[notif.prioridad] ?? ''}`}>
+                                  {notif.prioridad}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-medium text-on-surface truncate">{notif.titulo}</p>
+                                  <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-0.5">{notif.mensaje}</p>
+                                </div>
+                                {!notif.leida && (
+                                  <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1" />
+                                )}
                               </div>
-                              {!notif.leida && (
-                                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1" />
-                              )}
-                            </div>
-                          </button>
+                            </button>
+                            {/* Botón abordar — resuelve y desaparece del panel */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); mutacionAbordar.mutate(notif.id); }}
+                              disabled={mutacionAbordar.isPending}
+                              className="mt-1.5 flex items-center gap-1 text-[10px] text-on-surface-variant hover:text-primary transition-colors ml-7"
+                              title="Marcar como abordada — desaparece hasta que se genere de nuevo"
+                            >
+                              <Icono nombre="check_circle" clase="text-[12px]" />
+                              Marcar como abordada
+                            </button>
+                          </div>
                         ))
                       )}
                     </div>

@@ -2,6 +2,32 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import * as servicioAuth from './autenticacion.servicio';
 import { respuestaExito } from '../../compartido/utilidades/respuestaHttp';
+import { TipoAccionAuditoria } from '@prisma/client';
+import prisma from '../../compartido/prisma/clientePrisma';
+import { logger } from '../../config/logger';
+
+function registrarEnAuditoria(
+  accion: TipoAccionAuditoria,
+  descripcion: string,
+  usuarioId: string | null,
+  req: Request,
+  exitosa = true,
+  errorMensaje?: string,
+) {
+  prisma.registroAuditoria.create({
+    data: {
+      accion,
+      modulo:       'autenticacion',
+      descripcion,
+      entidadTipo:  'Autenticacion',
+      direccionIP:  req.ip ?? req.socket.remoteAddress,
+      agenteUsuario: req.headers['user-agent'],
+      exitosa,
+      errorMensaje,
+      usuarioId,
+    },
+  }).catch((err: Error) => logger.warn('Error al registrar auditoría de auth', { error: err.message }));
+}
 
 const esquemaInicioSesion = z.object({
   correo: z.string().email('Correo electrónico inválido'),
@@ -14,8 +40,26 @@ const esquemaRenovarToken = z.object({
 
 export async function iniciarSesion(req: Request, res: Response): Promise<void> {
   const datos = esquemaInicioSesion.parse(req.body);
-  const resultado = await servicioAuth.iniciarSesion(datos);
-  respuestaExito(res, resultado, 'Sesión iniciada correctamente');
+  try {
+    const resultado = await servicioAuth.iniciarSesion(datos);
+    registrarEnAuditoria(
+      TipoAccionAuditoria.INICIAR_SESION,
+      `Inicio de sesión: ${datos.correo}`,
+      resultado.usuario.id,
+      req,
+    );
+    respuestaExito(res, resultado, 'Sesión iniciada correctamente');
+  } catch (error) {
+    registrarEnAuditoria(
+      TipoAccionAuditoria.INTENTO_ACCESO_FALLIDO,
+      `Intento fallido de inicio de sesión: ${datos.correo}`,
+      null,
+      req,
+      false,
+      error instanceof Error ? error.message : String(error),
+    );
+    throw error;
+  }
 }
 
 export async function renovarToken(req: Request, res: Response): Promise<void> {
@@ -25,7 +69,14 @@ export async function renovarToken(req: Request, res: Response): Promise<void> {
 }
 
 export async function cerrarSesion(req: Request, res: Response): Promise<void> {
-  await servicioAuth.cerrarSesion(req.usuarioActual!.id);
+  const usuario = req.usuarioActual!;
+  await servicioAuth.cerrarSesion(usuario.id);
+  registrarEnAuditoria(
+    TipoAccionAuditoria.CERRAR_SESION,
+    `Cierre de sesión: ${usuario.correo}`,
+    usuario.id,
+    req,
+  );
   respuestaExito(res, null, 'Sesión cerrada correctamente');
 }
 

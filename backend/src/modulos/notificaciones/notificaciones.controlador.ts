@@ -7,6 +7,8 @@ import {
   marcarLeida,
   marcarTodasLeidas,
   eliminarNotificacion,
+  abordarNotificacion,
+  abordarTodasNotificaciones,
 } from './notificaciones.servicio';
 import {
   respuestaExito,
@@ -68,5 +70,23 @@ export async function controladorEliminarNotificacion(
   try {
     await eliminarNotificacion(req.params['id'] as string, req.usuarioActual!.id);
     return respuestaSinContenido(res);
+  } catch (error) { return next(error); }
+}
+
+export async function controladorAbordarNotificacion(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const notificacion = await abordarNotificacion(req.params['id'] as string, req.usuarioActual!.id);
+    return respuestaExito(res, notificacion);
+  } catch (error) { return next(error); }
+}
+
+export async function controladorAbordarTodasNotificaciones(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const resultado = await abordarTodasNotificaciones(req.usuarioActual!.id);
+    return respuestaExito(res, resultado);
   } catch (error) { return next(error); }
 }

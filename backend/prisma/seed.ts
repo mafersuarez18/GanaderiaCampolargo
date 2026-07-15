@@ -274,31 +274,186 @@ async function main() {
     },
   });
 
+  // ── Desparasitantes ────────────────────────────────────────
+  const fenbendazol25 = await prisma.medicamento.upsert({
+    where: { id: 'med-fenbendazol-25' },
+    update: {},
+    create: {
+      id: 'med-fenbendazol-25',
+      nombre: 'Fenbendazol al 25%',
+      principioActivo: 'Fenbendazol',
+      presentacion: 'Oral (suspensión)',
+      concentracion: '250 mg/ml',
+      unidadMedida: 'ml',
+      descripcion: 'Antiparasitario oral para gastrointestinales y pulmonares. 1 ml por cada 50 kg PV.',
+    },
+  });
+
+  const levamisol15 = await prisma.medicamento.upsert({
+    where: { id: 'med-levamisol-15' },
+    update: {},
+    create: {
+      id: 'med-levamisol-15',
+      nombre: 'Levamisol al 15%',
+      principioActivo: 'Levamisol',
+      presentacion: 'Inyectable (intramuscular)',
+      concentracion: '150 mg/ml',
+      unidadMedida: 'ml',
+      descripcion: 'Antiparasitario IM para gastrointestinales y pulmonares. 1 ml por cada 30 kg PV.',
+    },
+  });
+
+  const ivermectina315 = await prisma.medicamento.upsert({
+    where: { id: 'med-ivermectina-315' },
+    update: {},
+    create: {
+      id: 'med-ivermectina-315',
+      nombre: 'Ivermectina al 3,15%',
+      principioActivo: 'Ivermectina',
+      presentacion: 'Inyectable (subcutáneo)',
+      concentracion: '31,5 mg/ml',
+      unidadMedida: 'ml',
+      descripcion: 'Control de gastrointestinales, pulmonares y ectoparásitos. 1 ml por cada 50 kg PV. Solo animales secos.',
+    },
+  });
+
+  const lombifarm = await prisma.medicamento.upsert({
+    where: { id: 'med-lombifarm' },
+    update: {},
+    create: {
+      id: 'med-lombifarm',
+      nombre: 'Lombifarm (Fenbendazol + Triclabendazol)',
+      principioActivo: 'Fenbendazol + Triclabendazol',
+      presentacion: 'Oral',
+      unidadMedida: 'ml',
+      descripcion: 'Para gastrointestinales y hepáticos. 1 ml por cada 10 kg PV. Solo animales secos.',
+    },
+  });
+
+  const doramectina1 = await prisma.medicamento.upsert({
+    where: { id: 'med-doramectina-1' },
+    update: {},
+    create: {
+      id: 'med-doramectina-1',
+      nombre: 'Doramectina al 1%',
+      principioActivo: 'Doramectina',
+      presentacion: 'Inyectable (subcutáneo)',
+      concentracion: '10 mg/ml',
+      unidadMedida: 'ml',
+      descripcion: 'Para pulmonares y ectoparásitos. 1 ml por cada 50 kg PV. Solo animales secos.',
+    },
+  });
+
+  const tratoril = await prisma.medicamento.upsert({
+    where: { id: 'med-tratoril' },
+    update: {},
+    create: {
+      id: 'med-tratoril',
+      nombre: 'Tratoril (Toltrazuril al 5%)',
+      principioActivo: 'Toltrazuril',
+      presentacion: 'Oral',
+      concentracion: '50 mg/ml',
+      unidadMedida: 'ml',
+      descripcion: 'Para coccidiosis intestinal. 3 ml por cada 10 kg PV. Solo animales secos.',
+    },
+  });
+
+  // ── Vacunas adicionales ────────────────────────────────────
+  const vacunaTriple = await prisma.medicamento.upsert({
+    where: { id: 'med-triple-carbon' },
+    update: {},
+    create: {
+      id: 'med-triple-carbon',
+      nombre: 'Vacuna Triple (Carbón Sintomático + Septicemia + Clostridiosis)',
+      principioActivo: 'Clostridium chauvoei, Pasteurella multocida, Clostridium spp.',
+      presentacion: 'Inyectable (subcutáneo)',
+      unidadMedida: 'dosis',
+      descripcion: '2-5 ml subcutánea según marca comercial. Revacunar a los 15 días de la primera dosis.',
+    },
+  });
+
+  const vacunaCarbonBact = await prisma.medicamento.upsert({
+    where: { id: 'med-carbon-bacteridiano' },
+    update: {},
+    create: {
+      id: 'med-carbon-bacteridiano',
+      nombre: 'Vacuna Carbón Bacteridiano (Ántrax)',
+      principioActivo: 'Bacillus anthracis cepa Sterne',
+      presentacion: 'Inyectable (subcutáneo)',
+      unidadMedida: 'dosis',
+      descripcion: '2 ml subcutánea. Aplicar en áreas de presentación de la enfermedad.',
+    },
+  });
+
+  const vacunaRabia = await prisma.medicamento.upsert({
+    where: { id: 'med-rabia-bovina' },
+    update: {},
+    create: {
+      id: 'med-rabia-bovina',
+      nombre: 'Vacuna Rabia Bovina',
+      principioActivo: 'Virus rábico inactivado',
+      presentacion: 'Inyectable (intramuscular)',
+      unidadMedida: 'dosis',
+      descripcion: '2 ml intramuscular. Según presentación de la enfermedad en la zona. Anual.',
+    },
+  });
+
+  const vacunaIBRDVB = await prisma.medicamento.upsert({
+    where: { id: 'med-ibr-dvb-lepto' },
+    update: {},
+    create: {
+      id: 'med-ibr-dvb-lepto',
+      nombre: 'Vacuna IBR–DVB–Leptospirosis (±PI3, Campylobacter)',
+      principioActivo: 'Herpesvirus bovino tipo 1, VDVB, Leptospira spp.',
+      presentacion: 'Inyectable (intramuscular)',
+      unidadMedida: 'dosis',
+      descripcion: '5 ml intramuscular. Con asesoría del médico veterinario, previo diagnóstico de la enfermedad en el predio.',
+    },
+  });
+
+  const vacunaAnaplasmosis = await prisma.medicamento.upsert({
+    where: { id: 'med-anaplasmosis-babesiosis' },
+    update: {},
+    create: {
+      id: 'med-anaplasmosis-babesiosis',
+      nombre: 'Vacuna Anaplasmosis y Babesiosis',
+      principioActivo: 'Anaplasma marginale, Babesia bovis, Babesia bigemina',
+      presentacion: 'Inyectable (intramuscular)',
+      unidadMedida: 'dosis',
+      descripcion: '2 ml intramuscular (cada vial independiente). Su aplicación requiere asesoría de un médico veterinario.',
+    },
+  });
+
   console.log('Medicamentos cargados');
 
   // ----------------------------------------------------------
-  // 6. CALENDARIOS DE VACUNACIÓN
+  // 6. CALENDARIOS DE VACUNACIÓN Y DESPARASITACIÓN
   // ----------------------------------------------------------
+
+  // ── PLAN DE VACUNACIÓN EN BOVINOS ─────────────────────────
+
+  // Fiebre Aftosa — todas las edades, cada 6 meses, 2 ml subcutánea
   await prisma.calendarioVacunacion.upsert({
     where: { id: 'cal-fiebre-aftosa' },
     update: {},
     create: {
       id: 'cal-fiebre-aftosa',
       nombreVacuna: 'Fiebre Aftosa',
-      descripcion: 'Vacunación obligatoria bianual según plan INSAI Venezuela',
+      descripcion: 'Todas las edades. 2 ml vía subcutánea en la paleta o tabla del cuello. Según calendario oficial INSAI.',
       fabricante: 'Biogenética',
       intervaloDias: 180,
       medicamentoId: vacunaFiebreMortal.id,
     },
   });
 
+  // Brucelosis — terneras 3 a 8 meses, dosis única
   await prisma.calendarioVacunacion.upsert({
     where: { id: 'cal-brucelosis' },
     update: {},
     create: {
       id: 'cal-brucelosis',
       nombreVacuna: 'Brucelosis RB51',
-      descripcion: 'Vacunación de hembras entre 3 y 8 meses de edad',
+      descripcion: 'Terneras entre tres y ocho meses. Dosis única. 2 ml subcutánea. De acuerdo al programa oficial.',
       intervaloDias: 365,
       aplicaASexo: Sexo.HEMBRA,
       edadMinimasDias: 90,
@@ -306,19 +461,187 @@ async function main() {
     },
   });
 
+  // Triple (Carbón Sintomático + Septicemia + Clostridiosis) — desde los 3 meses
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-triple-carbon' },
+    update: {},
+    create: {
+      id: 'cal-triple-carbon',
+      nombreVacuna: 'Triple (Carbón Sintomático, Septicemia, Clostridiosis)',
+      descripcion: 'Machos y hembras desde los tres meses. Primera dosis + revacunación a los 15 días (OBLIGATORIA para efecto del biológico), luego anual. 2 a 5 ml subcutánea según marca comercial.',
+      intervaloDias: 365,
+      edadMinimasDias: 90,
+      medicamentoId: vacunaTriple.id,
+    },
+  });
+
+  // Carbón Bacteridiano (Ántrax) — desde los 3 meses, anual
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-carbon-bacteridiano' },
+    update: {},
+    create: {
+      id: 'cal-carbon-bacteridiano',
+      nombreVacuna: 'Carbón Bacteridiano (Ántrax)',
+      descripcion: 'De tres meses en adelante. Revacunación 21–30 días después de la primera, luego anual. 2 ml subcutánea. Aplicar en áreas de presentación.',
+      intervaloDias: 365,
+      edadMinimasDias: 90,
+      medicamentoId: vacunaCarbonBact.id,
+    },
+  });
+
+  // Rabia Bovina — desde los 4 meses, anual
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-rabia-bovina' },
+    update: {},
+    create: {
+      id: 'cal-rabia-bovina',
+      nombreVacuna: 'Rabia Bovina',
+      descripcion: 'De cuatro meses en adelante. Anual. 2 ml vía intramuscular. Según presentación de la enfermedad en la zona.',
+      intervaloDias: 365,
+      edadMinimasDias: 120,
+      medicamentoId: vacunaRabia.id,
+    },
+  });
+
+  // IBR–DVB–Leptospirosis — reproductores, desde los 3 meses; hembras antes del servicio + posparto
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-ibr-dvb-lepto' },
+    update: {},
+    create: {
+      id: 'cal-ibr-dvb-lepto',
+      nombreVacuna: 'IBR – DVB – Leptospirosis (±PI3, Campylobacter)',
+      descripcion: 'Hembras y machos reproductores desde los 3 meses. Primera dosis + un mes después + anual. Hembras: al mes + un mes posparto + luego anual. 5 ml intramuscular. Con asesoría veterinaria y diagnóstico previo en el predio.',
+      intervaloDias: 365,
+      edadMinimasDias: 90,
+      medicamentoId: vacunaIBRDVB.id,
+    },
+  });
+
+  // Anaplasmosis y Babesiosis — 3 y 12 meses de edad, revacunación igual
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-anaplasmosis-babesiosis' },
+    update: {},
+    create: {
+      id: 'cal-anaplasmosis-babesiosis',
+      nombreVacuna: 'Anaplasmosis y Babesiosis',
+      descripcion: '3 y 12 meses de edad, revacunar a los 3 y 12 meses. 2 ml intramuscular (cada vial independiente). Requiere asesoría de médico veterinario.',
+      intervaloDias: 180,
+      edadMinimasDias: 90,
+      medicamentoId: vacunaAnaplasmosis.id,
+    },
+  });
+
+  // ── PLAN DE DESPARASITACIÓN ───────────────────────────────
+
+  // Terneros < 6 meses — Fenbendazol 25% (alternado con Levamisol 15%)
+  // Primer turno con Fenbendazol, segundo con Levamisol; secuencia cada 30 días
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-desp-terneros-fenbendazol' },
+    update: {},
+    create: {
+      id: 'cal-desp-terneros-fenbendazol',
+      nombreVacuna: 'Desparasitación Terneros — Fenbendazol 25%',
+      descripcion: 'Terneros hasta seis meses de edad. Gastrointestinales y pulmonares. Aplicar la primera vez y alternar al mes siguiente con Levamisol 15%, luego volver a Fenbendazol; mantener secuencia hasta los 6 meses. 1 ml por cada 50 kg PV vía oral.',
+      intervaloDias: 60,
+      edadMinimasDias: 0,
+      medicamentoId: fenbendazol25.id,
+    },
+  });
+
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-desp-terneros-levamisol' },
+    update: {},
+    create: {
+      id: 'cal-desp-terneros-levamisol',
+      nombreVacuna: 'Desparasitación Terneros — Levamisol 15%',
+      descripcion: 'Terneros hasta seis meses de edad. Gastrointestinales y pulmonares. Aplicar el mes siguiente al Fenbendazol 25% y continuar alternando. 1 ml por cada 30 kg PV vía intramuscular.',
+      intervaloDias: 60,
+      edadMinimasDias: 0,
+      medicamentoId: levamisol15.id,
+    },
+  });
+
+  // Animales mayores de 6 meses EN PRODUCCIÓN LÁCTEA — Fenbendazol 25% cada 4 meses
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-desp-lactea-fenbendazol' },
+    update: {},
+    create: {
+      id: 'cal-desp-lactea-fenbendazol',
+      nombreVacuna: 'Desparasitación Producción Láctea — Fenbendazol 25%',
+      descripcion: 'Animales mayores de 6 meses en producción láctea. Gastrointestinales y pulmonares. Cada 4 meses. 1 ml por cada 50 kg PV vía oral.',
+      intervaloDias: 120,
+      edadMinimasDias: 180,
+      medicamentoId: fenbendazol25.id,
+    },
+  });
+
+  // Animales SECOS (no en producción láctea) — protocolo completo cada 4 meses
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-desp-secos-ivermectina' },
+    update: {},
+    create: {
+      id: 'cal-desp-secos-ivermectina',
+      nombreVacuna: 'Desparasitación Animales Secos — Ivermectina 3,15%',
+      descripcion: 'Animales secos mayores de 6 meses (no en producción láctea). Gastrointestinales, pulmonares y ectoparásitos. Cada 4 meses. 1 ml por cada 50 kg PV vía subcutánea.',
+      intervaloDias: 120,
+      edadMinimasDias: 180,
+      medicamentoId: ivermectina315.id,
+    },
+  });
+
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-desp-secos-lombifarm' },
+    update: {},
+    create: {
+      id: 'cal-desp-secos-lombifarm',
+      nombreVacuna: 'Desparasitación Animales Secos — Lombifarm',
+      descripcion: 'Animales secos mayores de 6 meses. Gastrointestinales y hepáticos. Cada 4 meses. 1 ml por cada 10 kg PV vía oral.',
+      intervaloDias: 120,
+      edadMinimasDias: 180,
+      medicamentoId: lombifarm.id,
+    },
+  });
+
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-desp-secos-doramectina' },
+    update: {},
+    create: {
+      id: 'cal-desp-secos-doramectina',
+      nombreVacuna: 'Desparasitación Animales Secos — Doramectina 1%',
+      descripcion: 'Animales secos mayores de 6 meses. Pulmonares y ectoparásitos. Cada 4 meses. 1 ml por cada 50 kg PV vía subcutánea.',
+      intervaloDias: 120,
+      edadMinimasDias: 180,
+      medicamentoId: doramectina1.id,
+    },
+  });
+
+  await prisma.calendarioVacunacion.upsert({
+    where: { id: 'cal-desp-secos-tratoril' },
+    update: {},
+    create: {
+      id: 'cal-desp-secos-tratoril',
+      nombreVacuna: 'Desparasitación Animales Secos — Tratoril (Toltrazuril 5%)',
+      descripcion: 'Animales secos mayores de 6 meses. Coccidiosis intestinal. Cada 4 meses. 3 ml por cada 10 kg PV vía oral.',
+      intervaloDias: 120,
+      edadMinimasDias: 180,
+      medicamentoId: tratoril.id,
+    },
+  });
+
+  // Mantener entrada legacy de desparasitación con Ivermectina 1% (ya existía en BD)
   await prisma.calendarioVacunacion.upsert({
     where: { id: 'cal-desparasitacion' },
     update: {},
     create: {
       id: 'cal-desparasitacion',
-      nombreVacuna: 'Desparasitación (Ivermectina)',
-      descripcion: 'Control de parásitos externos e internos cada 3 meses',
+      nombreVacuna: 'Desparasitación (Ivermectina 1%)',
+      descripcion: 'Control de parásitos externos e internos cada 3 meses (protocolo legacy)',
       intervaloDias: 90,
       medicamentoId: ivermectina.id,
     },
   });
 
-  console.log('Calendarios de vacunación creados');
+  console.log('Calendarios de vacunación y desparasitación creados');
 
   // ----------------------------------------------------------
   // 7. SEMENTALES DEL LABORATORIO
@@ -445,6 +768,7 @@ async function main() {
   // ----------------------------------------------------------
   const reglasAlerta = [
     {
+      id: 'regla-vacuna-proxima',
       nombre: 'Vacuna próxima a vencer',
       tipoAlerta: TipoAlertaRegla.VACUNA_PROXIMA,
       prioridad: PrioridadAlerta.ALTA,
@@ -455,6 +779,7 @@ async function main() {
       notificarAdministrador: true,
     },
     {
+      id: 'regla-vacuna-vencida',
       nombre: 'Vacuna vencida',
       tipoAlerta: TipoAlertaRegla.VACUNA_VENCIDA,
       prioridad: PrioridadAlerta.CRITICA,
@@ -466,6 +791,7 @@ async function main() {
       notificarTecnico: true,
     },
     {
+      id: 'regla-parto-proximo',
       nombre: 'Parto próximo (7 días)',
       tipoAlerta: TipoAlertaRegla.PARTO_PROXIMO,
       prioridad: PrioridadAlerta.ALTA,
@@ -477,6 +803,7 @@ async function main() {
       notificarTecnico: true,
     },
     {
+      id: 'regla-dias-abiertos',
       nombre: 'Días abiertos excedidos',
       tipoAlerta: TipoAlertaRegla.DIAS_ABIERTOS_EXCEDIDOS,
       prioridad: PrioridadAlerta.MEDIA,
@@ -487,6 +814,7 @@ async function main() {
       notificarAdministrador: false,
     },
     {
+      id: 'regla-enfermedad-activa',
       nombre: 'Enfermedad activa sin resolución',
       tipoAlerta: TipoAlertaRegla.ENFERMEDAD_ACTIVA_SIN_RESOLUCION,
       prioridad: PrioridadAlerta.ALTA,
@@ -497,6 +825,7 @@ async function main() {
       notificarAdministrador: true,
     },
     {
+      id: 'regla-inventario-semen',
       nombre: 'Inventario de semen bajo',
       tipoAlerta: TipoAlertaRegla.INVENTARIO_SEMEN_BAJO,
       prioridad: PrioridadAlerta.MEDIA,
@@ -509,13 +838,10 @@ async function main() {
   ];
 
   for (const regla of reglasAlerta) {
-    await prisma.reglaAlerta.create({
-      data: {
-        ...regla,
-        creadoPorId: administrador.id,
-      },
-    }).catch(() => {
-      // Ignorar si ya existe (por ejecuciones anteriores del seed)
+    await prisma.reglaAlerta.upsert({
+      where: { id: regla.id },
+      update: {},
+      create: { ...regla, creadoPorId: administrador.id },
     });
   }
 

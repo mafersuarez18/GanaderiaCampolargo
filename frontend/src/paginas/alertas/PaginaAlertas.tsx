@@ -18,6 +18,7 @@ interface Notificacion {
   prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
   entidadTipo?: string;
   entidadId?: string;
+  estado: 'PENDIENTE' | 'ENVIADA' | 'LEIDA' | 'DESCARTADA';
   leida: boolean;
   fechaLeida?: string;
   creadoEn: string;
@@ -35,12 +36,16 @@ interface ReglaAlerta {
   nombre: string;
   descripcion?: string;
   tipoAlerta: string;
+  prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
   umbralValor?: number;
   umbralUnidad?: string;
+  mensajeAlerta?: string;
+  evaluarCadaHoras: number;
   activa: boolean;
   notificarAdministrador: boolean;
   notificarVeterinario: boolean;
   notificarTecnico: boolean;
+  enviarCorreo: boolean;
   ultimaEvaluacion?: string;
 }
 
@@ -137,8 +142,30 @@ export default function PaginaAlertas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
       queryClient.invalidateQueries({ queryKey: ['alertas-resumen'] });
-      queryClient.invalidateQueries({ queryKey: ['notificaciones-no-leidas'] });
+      queryClient.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
     },
+  });
+
+  const mutAbordar = useMutation({
+    mutationFn: (id: string) => clienteHttp.patch(`/notificaciones/${id}/abordar`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
+      queryClient.invalidateQueries({ queryKey: ['alertas-resumen'] });
+      queryClient.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
+      toast.success('Alerta marcada como abordada');
+    },
+    onError: () => toast.error('Error al abordar la alerta'),
+  });
+
+  const mutAbordarTodas = useMutation({
+    mutationFn: () => clienteHttp.patch('/notificaciones/abordar-todas'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
+      queryClient.invalidateQueries({ queryKey: ['alertas-resumen'] });
+      queryClient.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
+      toast.success('Todas las alertas marcadas como abordadas');
+    },
+    onError: () => toast.error('Error al abordar las alertas'),
   });
 
   const mutMarcarTodas = useMutation({
@@ -146,7 +173,7 @@ export default function PaginaAlertas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
       queryClient.invalidateQueries({ queryKey: ['alertas-resumen'] });
-      queryClient.invalidateQueries({ queryKey: ['notificaciones-no-leidas'] });
+      queryClient.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
       toast.success('Todas las alertas marcadas como leídas');
     },
   });
@@ -248,12 +275,13 @@ export default function PaginaAlertas() {
           )}
           {(resumen?.totalNoLeidas ?? 0) > 0 && (
             <button
-              onClick={() => mutMarcarTodas.mutate()}
-              disabled={mutMarcarTodas.isPending}
+              onClick={() => mutAbordarTodas.mutate()}
+              disabled={mutAbordarTodas.isPending}
               className="boton boton-secundario gap-2 text-sm"
+              title="Marca todas como abordadas: desaparecen del panel hasta que el motor las regenere"
             >
               <Icono nombre="done_all" clase="text-[18px]" />
-              Marcar todas leídas
+              Abordar todas
             </button>
           )}
         </div>
@@ -483,20 +511,19 @@ export default function PaginaAlertas() {
 
                     {/* Acciones */}
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {!notif.leida && (
-                        <button
-                          onClick={() => mutMarcarLeida.mutate(notif.id)}
-                          disabled={mutMarcarLeida.isPending}
-                          title="Marcar como leída"
-                          className="p-1.5 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                        >
-                          <Icono nombre="check" clase="text-[16px]" />
-                        </button>
-                      )}
+                      {/* Abordar: la alerta desaparece del panel hasta que el motor la regenere */}
+                      <button
+                        onClick={() => mutAbordar.mutate(notif.id)}
+                        disabled={mutAbordar.isPending}
+                        title="Abordar — la alerta desaparece del panel y la campanita hasta que el sistema la regenere"
+                        className="p-1.5 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      >
+                        <Icono nombre="check_circle" clase="text-[16px]" />
+                      </button>
                       <button
                         onClick={() => mutEliminar.mutate(notif.id)}
                         disabled={mutEliminar.isPending}
-                        title="Descartar"
+                        title="Eliminar permanentemente"
                         className="p-1.5 text-outline hover:text-error hover:bg-error-container rounded-lg transition-colors"
                       >
                         <Icono nombre="delete" clase="text-[16px]" />
@@ -615,6 +642,14 @@ export default function PaginaAlertas() {
 
 // ── Tarjeta de regla ──────────────────────────────────────────────────────────
 
+// Colores de prioridad para tarjetas de regla
+const CFG_PRIORIDAD_REGLA: Record<string, { texto: string; fondo: string }> = {
+  CRITICA: { texto: 'text-error',     fondo: 'bg-error-container' },
+  ALTA:    { texto: 'text-[#795548]', fondo: 'bg-[#efebe9]' },
+  MEDIA:   { texto: 'text-tertiary',  fondo: 'bg-tertiary/10' },
+  BAJA:    { texto: 'text-secondary', fondo: 'bg-secondary/10' },
+};
+
 function TarjetaRegla({
   regla, puedeEditar, alToggle, alEditar, alEliminar,
 }: {
@@ -624,6 +659,8 @@ function TarjetaRegla({
   alEditar: () => void;
   alEliminar: () => void;
 }) {
+  const cfgPrio = CFG_PRIORIDAD_REGLA[regla.prioridad] ?? CFG_PRIORIDAD_REGLA.MEDIA;
+
   return (
     <div className={`tarjeta-vidrio rounded-2xl p-4 flex items-start gap-4 transition-all
       ${!regla.activa ? 'opacity-60' : ''}`}
@@ -639,6 +676,7 @@ function TarjetaRegla({
 
       {/* Contenido */}
       <div className="flex-1 min-w-0">
+        {/* Fila 1: nombre + badges */}
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-semibold text-sm text-on-surface">{regla.nombre}</p>
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold
@@ -648,30 +686,69 @@ function TarjetaRegla({
           <span className="px-2 py-0.5 bg-surface-container rounded-full text-[10px] text-on-surface-variant">
             {ETIQUETA_TIPO_ALERTA[regla.tipoAlerta] ?? regla.tipoAlerta}
           </span>
+          {/* Badge de prioridad */}
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${cfgPrio.fondo} ${cfgPrio.texto}`}>
+            {regla.prioridad === 'CRITICA' ? 'Crítica' : regla.prioridad === 'ALTA' ? 'Alta' : regla.prioridad === 'MEDIA' ? 'Media' : 'Baja'}
+          </span>
         </div>
+
+        {/* Descripción */}
         {regla.descripcion && (
           <p className="text-xs text-on-surface-variant mt-1">{regla.descripcion}</p>
         )}
-        <div className="flex items-center gap-3 mt-2 text-[11px] text-outline">
+
+        {/* Mensaje personalizado */}
+        {regla.mensajeAlerta && (
+          <div className="mt-1.5 flex items-start gap-1.5">
+            <Icono nombre="chat_bubble" clase="text-[12px] text-outline flex-shrink-0 mt-0.5" />
+            <p className="text-[11px] text-outline italic truncate">{regla.mensajeAlerta}</p>
+          </div>
+        )}
+
+        {/* Fila de metadatos */}
+        <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-outline">
           {regla.umbralValor != null && (
             <span className="flex items-center gap-1">
               <Icono nombre="schedule" clase="text-[12px]" />
-              Umbral: {regla.umbralValor} {regla.umbralUnidad ?? 'días'}
+              Umbral: <strong className="text-on-surface-variant">{regla.umbralValor} {regla.umbralUnidad ?? 'días'}</strong>
             </span>
           )}
+          <span className="flex items-center gap-1">
+            <Icono nombre="repeat" clase="text-[12px]" />
+            Evaluar cada <strong className="text-on-surface-variant">{regla.evaluarCadaHoras}h</strong>
+          </span>
           {regla.ultimaEvaluacion && (
             <span className="flex items-center gap-1">
               <Icono nombre="history" clase="text-[12px]" />
-              Evaluada: {new Date(regla.ultimaEvaluacion).toLocaleString('es-VE', {
+              Última: {new Date(regla.ultimaEvaluacion).toLocaleString('es-VE', {
                 day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
               })}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-2 text-[11px] text-outline">
-          {regla.notificarAdministrador && <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px]">Admin</span>}
-          {regla.notificarVeterinario   && <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px]">Veterinario</span>}
-          {regla.notificarTecnico       && <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px]">Técnico</span>}
+
+        {/* Destinatarios + correo */}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {regla.notificarAdministrador && (
+            <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1">
+              <Icono nombre="admin_panel_settings" clase="text-[10px]" />Admin
+            </span>
+          )}
+          {regla.notificarVeterinario && (
+            <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1">
+              <Icono nombre="medical_services" clase="text-[10px]" />Veterinario
+            </span>
+          )}
+          {regla.notificarTecnico && (
+            <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1">
+              <Icono nombre="engineering" clase="text-[10px]" />Técnico
+            </span>
+          )}
+          {regla.enviarCorreo && (
+            <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1 text-primary">
+              <Icono nombre="email" clase="text-[10px]" />Correo
+            </span>
+          )}
         </div>
       </div>
 
@@ -707,13 +784,31 @@ interface FormRegla {
   nombre: string;
   descripcion: string;
   tipoAlerta: string;
+  prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
   umbralValor: string;
   umbralUnidad: string;
+  mensajeAlerta: string;
+  evaluarCadaHoras: string;
   activa: boolean;
   notificarAdministrador: boolean;
   notificarVeterinario: boolean;
   notificarTecnico: boolean;
+  enviarCorreo: boolean;
 }
+
+// Descripción contextual y variables disponibles por tipo de alerta
+const INFO_TIPO: Record<string, { ayuda: string; umbralLabel: string; umbralDefault: string; variables: string }> = {
+  VACUNA_VENCIDA:                    { ayuda: 'Se dispara cuando la próxima fecha de una vacuna ya pasó.', umbralLabel: 'Días de gracia tras vencimiento', umbralDefault: '0', variables: '{animal}, {vacuna}, {fecha}' },
+  VACUNA_PROXIMA:                    { ayuda: 'Avisa X días antes de que venza la próxima aplicación.', umbralLabel: 'Días de anticipación', umbralDefault: '7', variables: '{animal}, {vacuna}, {fecha}, {dias}' },
+  PARTO_PROXIMO:                     { ayuda: 'Avisa cuando un parto esperado está a X días o menos.', umbralLabel: 'Días antes del parto', umbralDefault: '7', variables: '{animal}, {dias}, {fecha}' },
+  DIAS_ABIERTOS_EXCEDIDOS:           { ayuda: 'Alerta cuando una vaca lleva más de X días sin nueva gestación desde el último parto.', umbralLabel: 'Días abiertos máximos', umbralDefault: '90', variables: '{animal}, {dias}' },
+  INTERVALO_REPRODUCTIVO_PROLONGADO: { ayuda: 'Avisa cuando el intervalo entre partos supera X días.', umbralLabel: 'Días máximos entre partos', umbralDefault: '365', variables: '{animal}, {dias}' },
+  AUSENCIA_CONTROL_VETERINARIO:      { ayuda: 'Alerta cuando un animal no ha tenido consulta veterinaria en más de X días.', umbralLabel: 'Días sin control', umbralDefault: '60', variables: '{animal}, {dias}' },
+  ENFERMEDAD_ACTIVA_SIN_RESOLUCION:  { ayuda: 'Avisa cuando una enfermedad activa lleva más de X días sin resolverse.', umbralLabel: 'Días con enfermedad activa', umbralDefault: '14', variables: '{animal}, {enfermedad}, {dias}' },
+  INVENTARIO_SEMEN_BAJO:             { ayuda: 'Alerta cuando el inventario de semen de un semental cae por debajo de X dosis.', umbralLabel: 'Mínimo de dosis', umbralDefault: '10', variables: '{semental}, {cantidad}, {umbral}' },
+  CONTROL_PESO_PENDIENTE:            { ayuda: 'Avisa sobre animales sin peso registrado que llevan más de X días en el sistema.', umbralLabel: 'Días desde el ingreso', umbralDefault: '30', variables: '{animal}, {dias}' },
+  PERSONALIZADA:                     { ayuda: 'Regla de referencia o recordatorio personalizado sin lógica automática.', umbralLabel: 'Valor de referencia', umbralDefault: '', variables: 'Sin variables automáticas' },
+};
 
 const TIPOS_ALERTA = [
   { val: 'VACUNA_VENCIDA',                    et: 'Vacuna vencida' },
@@ -736,17 +831,33 @@ function ModalRegla({
   onExito: () => void;
 }) {
   const [form, setForm] = useState<FormRegla>({
-    nombre:                 regla?.nombre         ?? '',
-    descripcion:            regla?.descripcion    ?? '',
-    tipoAlerta:             regla?.tipoAlerta     ?? 'VACUNA_PROXIMA',
+    nombre:                 regla?.nombre           ?? '',
+    descripcion:            regla?.descripcion      ?? '',
+    tipoAlerta:             regla?.tipoAlerta       ?? 'VACUNA_PROXIMA',
+    prioridad:              regla?.prioridad        ?? 'ALTA',
     umbralValor:            regla?.umbralValor != null ? String(regla.umbralValor) : '',
-    umbralUnidad:           regla?.umbralUnidad   ?? 'días',
-    activa:                 regla?.activa         ?? true,
+    umbralUnidad:           regla?.umbralUnidad     ?? 'días',
+    mensajeAlerta:          regla?.mensajeAlerta    ?? '',
+    evaluarCadaHoras:       regla?.evaluarCadaHoras != null ? String(regla.evaluarCadaHoras) : '24',
+    activa:                 regla?.activa           ?? true,
     notificarAdministrador: regla?.notificarAdministrador ?? true,
     notificarVeterinario:   regla?.notificarVeterinario   ?? true,
     notificarTecnico:       regla?.notificarTecnico       ?? false,
+    enviarCorreo:           regla?.enviarCorreo           ?? true,
   });
   const [error, setError] = useState('');
+
+  const infoTipo = INFO_TIPO[form.tipoAlerta] ?? INFO_TIPO.PERSONALIZADA;
+
+  // Al cambiar tipo, sugerir umbral por defecto si está vacío
+  const alCambiarTipo = (tipo: string) => {
+    const info = INFO_TIPO[tipo] ?? INFO_TIPO.PERSONALIZADA;
+    setForm((f) => ({
+      ...f,
+      tipoAlerta: tipo,
+      umbralValor: f.umbralValor === '' ? info.umbralDefault : f.umbralValor,
+    }));
+  };
 
   const mutacion = useMutation({
     mutationFn: (datos: FormRegla) => {
@@ -754,12 +865,16 @@ function ModalRegla({
         nombre:                 datos.nombre.trim(),
         descripcion:            datos.descripcion.trim() || undefined,
         tipoAlerta:             datos.tipoAlerta,
+        prioridad:              datos.prioridad,
         umbralValor:            datos.umbralValor ? Number(datos.umbralValor) : undefined,
         umbralUnidad:           datos.umbralUnidad.trim() || undefined,
+        mensajeAlerta:          datos.mensajeAlerta.trim() || undefined,
+        evaluarCadaHoras:       datos.evaluarCadaHoras ? Number(datos.evaluarCadaHoras) : 24,
         activa:                 datos.activa,
         notificarAdministrador: datos.notificarAdministrador,
         notificarVeterinario:   datos.notificarVeterinario,
         notificarTecnico:       datos.notificarTecnico,
+        enviarCorreo:           datos.enviarCorreo,
       };
       return regla
         ? clienteHttp.patch(`/alertas/${regla.id}`, payload)
@@ -774,36 +889,18 @@ function ModalRegla({
     },
   });
 
-  const campo = (
-    label: string,
-    name: keyof FormRegla,
-    required = false,
-    placeholder = '',
-    type: 'text' | 'number' = 'text',
-  ) => (
-    <div>
-      <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-        {label} {required && <span className="text-error">*</span>}
-      </label>
-      <input
-        type={type}
-        value={form[name] as string}
-        onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
-        placeholder={placeholder}
-        className="campo-entrada"
-      />
-    </div>
-  );
-
-  const check = (label: string, name: keyof FormRegla) => (
-    <label className="flex items-center gap-2 cursor-pointer">
+  const check = (label: string, name: keyof FormRegla, icono?: string) => (
+    <label className="flex items-center gap-2 cursor-pointer select-none">
       <input
         type="checkbox"
         checked={form[name] as boolean}
         onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.checked }))}
         className="w-4 h-4 accent-primary rounded"
       />
-      <span className="text-sm text-on-surface">{label}</span>
+      <span className="text-sm text-on-surface flex items-center gap-1">
+        {icono && <Icono nombre={icono} clase="text-[14px] text-outline" />}
+        {label}
+      </span>
     </label>
   );
 
@@ -821,11 +918,12 @@ function ModalRegla({
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+        <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto">
+          {/* Cabecera */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20 sticky top-0 bg-surface-container-lowest z-10">
             <h2 className="font-bold text-on-surface flex items-center gap-2">
               <Icono nombre="rule_settings" relleno clase="text-[20px] text-primary" />
-              {regla ? `Editar: ${regla.nombre}` : 'Nueva regla de alerta'}
+              {regla ? `Editar regla` : 'Nueva regla de alerta'}
             </h2>
             <button onClick={onCerrar} className="p-2 hover:bg-surface-container rounded-xl transition-colors">
               <Icono nombre="close" clase="text-[20px] text-on-surface-variant" />
@@ -840,7 +938,7 @@ function ModalRegla({
               setError('');
               mutacion.mutate(form);
             }}
-            className="p-6 space-y-4"
+            className="p-6 space-y-5"
           >
             {error && (
               <div className="flex items-center gap-2 px-4 py-3 bg-error-container border border-error/20 rounded-xl text-sm text-on-error-container">
@@ -849,42 +947,168 @@ function ModalRegla({
               </div>
             )}
 
-            {campo('Nombre de la regla', 'nombre', true, 'Ej: Vacuna próxima — Fiebre Aftosa')}
+            {/* ── Nombre ── */}
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                Nombre de la regla <span className="text-error">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.nombre}
+                onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+                placeholder="Ej: Vacuna próxima — Fiebre Aftosa"
+                className="campo-entrada"
+              />
+            </div>
 
+            {/* ── Tipo de alerta ── */}
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                 Tipo de alerta <span className="text-error">*</span>
               </label>
               <select
                 value={form.tipoAlerta}
-                onChange={(e) => setForm((f) => ({ ...f, tipoAlerta: e.target.value }))}
+                onChange={(e) => alCambiarTipo(e.target.value)}
                 className="campo-entrada"
               >
                 {TIPOS_ALERTA.map((t) => (
                   <option key={t.val} value={t.val}>{t.et}</option>
                 ))}
               </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {campo('Umbral (valor)', 'umbralValor', false, 'Ej: 7', 'number')}
-              {campo('Unidad', 'umbralUnidad', false, 'Ej: días')}
-            </div>
-
-            {campo('Descripción', 'descripcion', false, 'Descripción opcional de la regla')}
-
-            <div>
-              <p className="text-xs font-semibold text-on-surface-variant mb-2">Notificar a</p>
-              <div className="space-y-2">
-                {check('Administrador', 'notificarAdministrador')}
-                {check('Veterinario',   'notificarVeterinario')}
-                {check('Técnico',       'notificarTecnico')}
+              {/* Ayuda contextual */}
+              <div className="mt-2 flex items-start gap-2 px-3 py-2.5 bg-primary/5 border border-primary/15 rounded-xl">
+                <Icono nombre="help" clase="text-[14px] text-primary flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] text-on-surface-variant">{infoTipo.ayuda}</p>
               </div>
             </div>
 
-            {check('Regla activa', 'activa')}
+            {/* ── Prioridad ── */}
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                Prioridad de las alertas generadas
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {(['BAJA', 'MEDIA', 'ALTA', 'CRITICA'] as const).map((p) => {
+                  const cfg = CFG_PRIORIDAD_REGLA[p];
+                  const etiq = p === 'CRITICA' ? 'Crítica' : p === 'ALTA' ? 'Alta' : p === 'MEDIA' ? 'Media' : 'Baja';
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, prioridad: p }))}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all
+                        ${form.prioridad === p
+                          ? `${cfg.fondo} ${cfg.texto} border-transparent ring-2 ring-primary`
+                          : 'border-outline-variant/30 text-on-surface-variant hover:bg-surface-container'
+                        }`}
+                    >
+                      {etiq}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-            <div className="flex gap-3 pt-2">
+            {/* ── Umbral ── */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                  {infoTipo.umbralLabel}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.umbralValor}
+                  onChange={(e) => setForm((f) => ({ ...f, umbralValor: e.target.value }))}
+                  placeholder={infoTipo.umbralDefault || '—'}
+                  className="campo-entrada"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                  Unidad del umbral
+                </label>
+                <input
+                  type="text"
+                  value={form.umbralUnidad}
+                  onChange={(e) => setForm((f) => ({ ...f, umbralUnidad: e.target.value }))}
+                  placeholder="días"
+                  className="campo-entrada"
+                />
+              </div>
+            </div>
+
+            {/* ── Mensaje personalizado ── */}
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                Mensaje personalizado de la alerta
+                <span className="ml-1 font-normal text-outline">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={form.mensajeAlerta}
+                onChange={(e) => setForm((f) => ({ ...f, mensajeAlerta: e.target.value }))}
+                placeholder="Ej: Atención: {animal} necesita vacuna {vacuna} el {fecha}"
+                className="campo-entrada"
+              />
+              <p className="mt-1.5 text-[11px] text-outline">
+                Variables disponibles: <span className="font-mono text-primary">{infoTipo.variables}</span>
+              </p>
+            </div>
+
+            {/* ── Frecuencia de evaluación ── */}
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                Evaluar cada (horas)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="720"
+                value={form.evaluarCadaHoras}
+                onChange={(e) => setForm((f) => ({ ...f, evaluarCadaHoras: e.target.value }))}
+                placeholder="24"
+                className="campo-entrada"
+              />
+              <p className="mt-1 text-[11px] text-outline">
+                Mínimo 1h · Máximo 720h (30 días). Por defecto: 24h.
+              </p>
+            </div>
+
+            {/* ── Descripción ── */}
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                Descripción interna <span className="font-normal text-outline">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={form.descripcion}
+                onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+                placeholder="Descripción interna de para qué sirve esta regla"
+                className="campo-entrada"
+              />
+            </div>
+
+            {/* ── Destinatarios ── */}
+            <div>
+              <p className="text-xs font-semibold text-on-surface-variant mb-2.5">Destinatarios</p>
+              <div className="grid grid-cols-2 gap-2">
+                {check('Administrador', 'notificarAdministrador', 'admin_panel_settings')}
+                {check('Veterinario',   'notificarVeterinario',   'medical_services')}
+                {check('Técnico',       'notificarTecnico',       'engineering')}
+                {check('Enviar correo', 'enviarCorreo',           'email')}
+              </div>
+            </div>
+
+            {/* ── Activa ── */}
+            <div className="flex items-center gap-3 py-2 px-4 bg-surface-container rounded-xl">
+              {check('Regla activa', 'activa')}
+              <span className="ml-auto text-xs text-outline">
+                {form.activa ? 'El motor evaluará esta regla periódicamente' : 'Esta regla será ignorada por el motor'}
+              </span>
+            </div>
+
+            <div className="flex gap-3 pt-1">
               <button type="button" onClick={onCerrar} className="flex-1 boton boton-secundario">
                 Cancelar
               </button>

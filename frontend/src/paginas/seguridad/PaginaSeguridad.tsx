@@ -11,7 +11,7 @@ interface Usuario {
   id: string;
   nombre: string;
   apellido: string;
-  email: string;
+  correo: string;
   rol: 'ADMINISTRADOR' | 'VETERINARIO' | 'TECNICO';
   estado: 'ACTIVO' | 'INACTIVO' | 'BLOQUEADO';
   creadoEn: string;
@@ -26,7 +26,7 @@ interface RespuestaUsuarios {
 interface FormUsuario {
   nombre: string;
   apellido: string;
-  email: string;
+  correo: string;
   contrasena: string;
   rol: 'ADMINISTRADOR' | 'VETERINARIO' | 'TECNICO';
 }
@@ -200,7 +200,7 @@ export default function PaginaSeguridad() {
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-on-surface-variant truncate">{u.email}</p>
+                  <p className="text-xs text-on-surface-variant truncate">{u.correo}</p>
                 </div>
               </div>
 
@@ -289,7 +289,7 @@ function FormularioUsuario({
   const [form, setForm] = useState<FormUsuario>({
     nombre:     usuarioEditar?.nombre    ?? '',
     apellido:   usuarioEditar?.apellido  ?? '',
-    email:      usuarioEditar?.email     ?? '',
+    correo:     usuarioEditar?.correo    ?? '',
     contrasena: '',
     rol:        usuarioEditar?.rol ?? 'TECNICO',
   });
@@ -339,7 +339,7 @@ function FormularioUsuario({
             onSubmit={(e) => {
               e.preventDefault();
               if (!form.nombre.trim() || !form.apellido.trim()) { setError('Nombre y apellido son requeridos'); return; }
-              if (!form.email.trim()) { setError('El email es requerido'); return; }
+              if (!form.correo.trim()) { setError('El correo es requerido'); return; }
               if (!esEdicion && !form.contrasena) { setError('La contraseña es requerida'); return; }
               if (!esEdicion && form.contrasena.length < 8) { setError('La contraseña debe tener mínimo 8 caracteres'); return; }
               setError('');
@@ -375,11 +375,11 @@ function FormularioUsuario({
 
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-                Email <span className="text-error">*</span>
+                Correo electrónico <span className="text-error">*</span>
               </label>
               <input
-                type="email" value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                type="email" value={form.correo}
+                onChange={(e) => setForm((f) => ({ ...f, correo: e.target.value }))}
                 className="campo-entrada"
               />
             </div>

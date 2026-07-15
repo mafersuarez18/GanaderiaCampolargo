@@ -6,166 +6,249 @@ import { prisma } from '../../compartido/prisma/clientePrisma';
 
 const RUTA_LOGO = path.join(__dirname, '../../assets/logo-campolargo.png');
 
-// ── Colores corporativos ───────────────────────────────────────────────────────
-const VERDE_OSCURO = '#0d631b';
-const VERDE_CLARO  = '#e8f5e9';
-const GRIS_TEXTO   = '#40493d';
-const GRIS_LINEA   = '#e2e2e2';
+// ── Paleta corporativa ─────────────────────────────────────────────────────────
+const VERDE      = '#1a6b28';   // verde corporativo principal
+const VERDE_BG   = '#f0f7f1';   // verde muy claro para filas alternas
+const GRIS_TEXTO = '#2c2c2c';   // texto principal
+const GRIS_SUAVE = '#6b7280';   // texto secundario
+const GRIS_LINEA = '#d1d5db';   // bordes de tabla
+const BLANCO     = '#ffffff';
 
-// ── Helpers PDF ───────────────────────────────────────────────────────────────
+// Márgenes de página
+const ML = 45;   // margen izquierdo
+const MR = 45;   // margen derecho
+const MT = 50;   // margen superior (contenido tras encabezado)
+
+// ── Utilidades de fecha ────────────────────────────────────────────────────────
+const fmtFecha = (d: Date | string | null | undefined): string =>
+  d ? new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+const fmtFechaLarga = (d: Date | string | null | undefined): string =>
+  d ? new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+
+// ── Encabezado de página ───────────────────────────────────────────────────────
 function encabezadoPDF(
   doc: PDFKit.PDFDocument,
   titulo: string,
   subtitulo: string,
-) {
-  const anchoHdr = doc.page.width;
-  doc.rect(0, 0, anchoHdr, 90).fill(VERDE_OSCURO);
+): void {
+  const W = doc.page.width;
 
-  // Logo en la esquina superior izquierda
+  // Banda superior verde
+  doc.rect(0, 0, W, 78).fill(VERDE);
+
+  // Logo
   try {
-    doc.image(RUTA_LOGO, 12, 12, { width: 66, height: 66 });
-  } catch {
-    // Logo no disponible — continuar sin él
-  }
+    doc.image(RUTA_LOGO, ML, 10, { width: 56, height: 56 });
+  } catch { /* sin logo */ }
 
-  // Nombre de la empresa
-  doc.fillColor('white')
-     .font('Helvetica-Bold')
-     .fontSize(17)
-     .text('Sucesión Joao Campolargo', 90, 18, { lineBreak: false });
+  // Empresa y fecha
+  doc.fillColor(BLANCO)
+     .font('Helvetica-Bold').fontSize(15)
+     .text('Sucesión Joao Campolargo', ML + 66, 16, { lineBreak: false });
 
-  doc.font('Helvetica')
-     .fontSize(9)
-     .fillColor('rgba(255,255,255,0.85)')
-     .text('Sistema de Gestión Veterinaria · Yaracuy, Venezuela', 90, 38, { lineBreak: false });
+  doc.font('Helvetica').fontSize(8.5).fillColor('rgba(255,255,255,0.82)')
+     .text('Sistema de Gestión Veterinaria  ·  Yaracuy, Venezuela', ML + 66, 35, { lineBreak: false });
 
-  const fecha = new Date().toLocaleDateString('es-VE', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  });
-  doc.fontSize(8)
-     .fillColor('rgba(255,255,255,0.70)')
-     .text(`Generado: ${fecha}`, 90, 55, { lineBreak: false });
+  const hoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
+  doc.fontSize(7.5).fillColor('rgba(255,255,255,0.62)')
+     .text(`Generado el ${hoy}`, ML + 66, 52, { lineBreak: false });
 
-  // Título del reporte
-  doc.y = 108;
-  doc.fillColor(VERDE_OSCURO)
-     .font('Helvetica-Bold')
-     .fontSize(14)
-     .text(titulo, 50, doc.y);
+  // Título del reporte — debajo de la banda
+  doc.y = 92;
+  doc.fillColor(VERDE).font('Helvetica-Bold').fontSize(14)
+     .text(titulo, ML, doc.y, { lineBreak: false });
 
-  doc.font('Helvetica')
-     .fontSize(9)
-     .fillColor(GRIS_TEXTO)
-     .text(subtitulo)
-     .moveDown(0.8);
+  doc.y = doc.y + 20;
+  doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(9)
+     .text(subtitulo, ML, doc.y);
 
-  doc.moveTo(50, doc.y)
-     .lineTo(doc.page.width - 50, doc.y)
-     .strokeColor(VERDE_OSCURO)
-     .lineWidth(1.5)
-     .stroke()
-     .moveDown(0.6);
+  doc.y = doc.y + 10;
+
+  // Línea divisoria
+  doc.moveTo(ML, doc.y).lineTo(W - MR, doc.y)
+     .strokeColor(VERDE).lineWidth(1.2).stroke();
+
+  doc.y = doc.y + 10;
 }
 
-function piePaginaPDF(doc: PDFKit.PDFDocument) {
+// ── Pie de página ──────────────────────────────────────────────────────────────
+function piePaginaPDF(doc: PDFKit.PDFDocument): void {
   const rango = doc.bufferedPageRange();
   for (let i = rango.start; i < rango.start + rango.count; i++) {
     doc.switchToPage(i);
-    doc.fontSize(8)
-       .fillColor(GRIS_TEXTO)
+    const W = doc.page.width;
+    const y = doc.page.height - 32;
+    doc.moveTo(ML, y).lineTo(W - MR, y)
+       .strokeColor(GRIS_LINEA).lineWidth(0.5).stroke();
+    doc.fontSize(7.5).fillColor(GRIS_SUAVE)
        .text(
-         `Página ${i - rango.start + 1} de ${rango.count}  ·  Sistema Campolargo`,
-         50,
-         doc.page.height - 40,
-         { align: 'center', lineBreak: false },
+         `Página ${i - rango.start + 1} de ${rango.count}   ·   Sistema Campolargo — Confidencial`,
+         ML, y + 6, { align: 'center', width: W - ML - MR, lineBreak: false },
        );
   }
 }
 
-function filaPDF(
-  doc: PDFKit.PDFDocument,
-  celdas: string[],
-  anchos: number[],
-  esEncabezado = false,
-  esImpar = false,
-) {
-  const alturaCelda = 18;
-  const x0 = 50;
-  let x = x0;
+// ── Encabezado de sección ──────────────────────────────────────────────────────
+function seccionPDF(doc: PDFKit.PDFDocument, texto: string): void {
   const y = doc.y;
-  const anchoTotal = anchos.reduce((a, b) => a + b, 0);
+  doc.rect(ML, y, doc.page.width - ML - MR, 18).fill(VERDE);
+  doc.fillColor(BLANCO).font('Helvetica-Bold').fontSize(9)
+     .text(texto.toUpperCase(), ML + 6, y + 5, {
+       width: doc.page.width - ML - MR - 12,
+       lineBreak: false,
+     });
+  doc.y = y + 22;
+}
 
-  if (esEncabezado) {
-    doc.rect(x0, y, anchoTotal, alturaCelda).fill(VERDE_OSCURO);
-  } else if (esImpar) {
-    doc.rect(x0, y, anchoTotal, alturaCelda).fill(VERDE_CLARO);
-  }
-
-  celdas.forEach((celda, i) => {
-    doc.fillColor(esEncabezado ? 'white' : GRIS_TEXTO)
-       .font(esEncabezado ? 'Helvetica-Bold' : 'Helvetica')
-       .fontSize(8)
-       .text(String(celda ?? '—'), x + 3, y + 5, {
-         width: anchos[i] - 6,
-         lineBreak: false,
-         ellipsis: true,
-       });
-    x += anchos[i];
-  });
-
-  doc.rect(x0, y, anchoTotal, alturaCelda)
-     .strokeColor(GRIS_LINEA)
-     .lineWidth(0.5)
-     .stroke();
-
-  doc.y = y + alturaCelda;
-
-  if (doc.y > doc.page.height - 80) {
+// ── Guardia de salto de página ─────────────────────────────────────────────────
+function guardarEspacio(doc: PDFKit.PDFDocument, px: number): void {
+  if (doc.y + px > doc.page.height - 60) {
     doc.addPage();
-    doc.y = 50;
+    doc.y = MT;
   }
 }
 
-// ── Helpers Excel ─────────────────────────────────────────────────────────────
-function estiloEncabezadoExcel(fila: ExcelJS.Row) {
-  fila.eachCell((celda) => {
-    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D631B' } };
-    celda.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
-    celda.alignment = { vertical: 'middle', horizontal: 'center' };
-    celda.border = { bottom: { style: 'thin', color: { argb: 'FFFFFFFF' } } };
+// ── Tabla PDF ─────────────────────────────────────────────────────────────────
+// anchos: array de anchos de columna (px). Sum ≈ page.width - ML - MR
+function tablaPDF(
+  doc: PDFKit.PDFDocument,
+  cabecera: string[],
+  filas: (string | number)[][][],   // filas[i] = array de celdas; cada celda = [texto, opciones?]
+  anchos: number[],
+  alturaFila = 18,
+): void {
+  const anchoTotal = anchos.reduce((a, b) => a + b, 0);
+
+  const dibujarFila = (
+    celdas: string[],
+    esHeader: boolean,
+    esImpar: boolean,
+  ) => {
+    guardarEspacio(doc, alturaFila + 4);
+    const y = doc.y;
+
+    // Fondo
+    if (esHeader) {
+      doc.rect(ML, y, anchoTotal, alturaFila).fill(VERDE);
+    } else if (esImpar) {
+      doc.rect(ML, y, anchoTotal, alturaFila).fill(VERDE_BG);
+    } else {
+      doc.rect(ML, y, anchoTotal, alturaFila).fill(BLANCO);
+    }
+
+    // Texto de cada celda
+    let x = ML;
+    celdas.forEach((celda, i) => {
+      doc.fillColor(esHeader ? BLANCO : GRIS_TEXTO)
+         .font(esHeader ? 'Helvetica-Bold' : 'Helvetica')
+         .fontSize(esHeader ? 8 : 7.8)
+         .text(String(celda ?? '—'), x + 4, y + (alturaFila - 9) / 2, {
+           width: anchos[i] - 8,
+           lineBreak: false,
+           ellipsis: true,
+         });
+      x += anchos[i];
+    });
+
+    // Borde inferior
+    doc.rect(ML, y, anchoTotal, alturaFila)
+       .strokeColor(GRIS_LINEA).lineWidth(0.4).stroke();
+
+    doc.y = y + alturaFila;
+  };
+
+  // Cabecera
+  dibujarFila(cabecera, true, false);
+
+  // Filas de datos
+  (filas as string[][]).forEach((f, idx) => {
+    dibujarFila(f, false, idx % 2 === 0);
+  });
+
+  doc.moveDown(0.4);
+}
+
+// ── Bloque de par clave / valor (dos columnas) ─────────────────────────────────
+// Evita el continued:true de PDFKit que superpone texto cuando el valor es largo
+function parKV(
+  doc: PDFKit.PDFDocument,
+  clave: string,
+  valor: string | null | undefined,
+  impar = false,
+): void {
+  if (!valor) return;
+  const W = doc.page.width;
+  const anchoTotal = W - ML - MR;
+  const anchoClv = 155;
+  const anchoVal = anchoTotal - anchoClv;
+  const alturaMin = 16;
+
+  // Calcular altura necesaria para el valor (puede ser multilínea)
+  const alturaVal = doc.heightOfString(valor, { width: anchoVal - 8, lineBreak: true });
+  const altura = Math.max(alturaMin, alturaVal + 6);
+
+  guardarEspacio(doc, altura);
+  const y = doc.y;
+
+  // Fondo alterno
+  doc.rect(ML, y, anchoTotal, altura).fill(impar ? VERDE_BG : BLANCO);
+
+  // Clave (negrita, izquierda)
+  doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8)
+     .text(clave, ML + 4, y + 4, { width: anchoClv - 8, lineBreak: false, ellipsis: true });
+
+  // Valor (normal, derecha)
+  doc.fillColor(GRIS_TEXTO).font('Helvetica').fontSize(8.5)
+     .text(valor, ML + anchoClv, y + 4, { width: anchoVal - 8, lineBreak: true });
+
+  doc.rect(ML, y, anchoTotal, altura)
+     .strokeColor(GRIS_LINEA).lineWidth(0.3).stroke();
+
+  doc.y = y + altura;
+}
+
+// ── Estilos Excel ──────────────────────────────────────────────────────────────
+function estiloEncabezadoExcel(fila: ExcelJS.Row): void {
+  fila.eachCell((c) => {
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A6B28' } };
+    c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Calibri' };
+    c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    c.border = { bottom: { style: 'thin', color: { argb: 'FFFFFFFF' } } };
   });
   fila.height = 22;
 }
 
-function estiloFilaExcel(fila: ExcelJS.Row, impar: boolean) {
-  fila.eachCell((celda) => {
-    celda.fill = {
-      type: 'pattern', pattern: 'solid',
-      fgColor: { argb: impar ? 'FFF1F8E9' : 'FFFFFFFF' },
-    };
-    celda.font = { size: 9 };
-    celda.alignment = { vertical: 'middle' };
-    celda.border = { bottom: { style: 'hair', color: { argb: 'FFE0E0E0' } } };
+function estiloFilaExcel(fila: ExcelJS.Row, impar: boolean): void {
+  fila.eachCell((c) => {
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: impar ? 'FFF0F7F1' : 'FFFFFFFF' } };
+    c.font = { size: 9.5, name: 'Calibri' };
+    c.alignment = { vertical: 'middle', wrapText: false };
+    c.border = { bottom: { style: 'hair', color: { argb: 'FFD1D5DB' } } };
   });
   fila.height = 18;
 }
 
-function anchoAutoExcel(hoja: ExcelJS.Worksheet) {
-  hoja.columns.forEach((col) => {
-    let maxLen = 10;
-    col.eachCell?.({ includeEmpty: false }, (celda) => {
-      maxLen = Math.max(maxLen, String(celda.value ?? '').length + 2);
+function anchoAutoExcel(ws: ExcelJS.Worksheet): void {
+  ws.columns.forEach((col) => {
+    let max = 12;
+    col.eachCell?.({ includeEmpty: false }, (c) => {
+      max = Math.max(max, String(c.value ?? '').length + 3);
     });
-    col.width = Math.min(maxLen, 40);
+    col.width = Math.min(max, 42);
   });
 }
 
-const fmtFecha = (d: Date | string | null | undefined): string =>
-  d ? new Date(d).toLocaleDateString('es-VE') : '—';
+function agregarMetaExcel(wb: ExcelJS.Workbook, titulo: string): void {
+  wb.creator = 'Sistema Campolargo';
+  wb.created = new Date();
+  wb.title   = titulo;
+  wb.subject = 'Sucesión Joao Campolargo — Sistema de Gestión Veterinaria';
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
 // REPORTE 1 — INVENTARIO DE ANIMALES
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
 export async function generarInventario(
   res: Response,
   formato: 'pdf' | 'excel',
@@ -184,52 +267,77 @@ export async function generarInventario(
     orderBy: [{ finca: { nombre: 'asc' } }, { numeroArete: 'asc' }],
   });
 
-  const subtitulo = `Total: ${animales.length} animales${filtros.fincaId ? '' : ' · Todas las fincas'}`;
+  const totalMachos  = animales.filter((a) => a.sexo === 'MACHO').length;
+  const totalHembras = animales.filter((a) => a.sexo === 'HEMBRA').length;
+  const subtitulo    = `${animales.length} animales  ·  ${totalMachos} machos  ·  ${totalHembras} hembras${filtros.fincaId ? '' : '  ·  Todas las fincas'}`;
 
   if (formato === 'pdf') {
-    const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true, autoFirstPage: true });
+    const doc = new PDFDocument({ margin: ML, size: 'A4', bufferPages: true, autoFirstPage: true });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="inventario_animales_${filtros.anio}.pdf"`);
     doc.pipe(res);
 
     encabezadoPDF(doc, 'Inventario de Animales', subtitulo);
 
-    const anchos = [65, 90, 50, 80, 90, 60, 60, 55];
-    filaPDF(doc, ['Arete', 'Nombre', 'Sexo', 'Raza', 'Finca', 'Lote', 'Estado', 'Peso (kg)'], anchos, true);
-
-    animales.forEach((a, i) => {
-      filaPDF(doc, [
+    const W = doc.page.width - ML - MR;
+    const anchos = [62, 88, 46, 80, 92, 80, 56, 52];  // suma = ~556 ≈ A4 útil
+    tablaPDF(
+      doc,
+      ['N.° Arete', 'Nombre', 'Sexo', 'Raza', 'Finca', 'Lote', 'Estado', 'Peso kg'],
+      animales.map((a) => [
         a.numeroArete,
         a.nombre ?? '—',
         a.sexo === 'MACHO' ? 'Macho' : 'Hembra',
-        a.raza?.nombre ?? '—',
+        a.raza?.nombre  ?? '—',
         a.finca?.nombre ?? '—',
         a.lote?.nombre  ?? '—',
-        a.estado,
+        a.estado === 'ACTIVO' ? 'Activo' : a.estado === 'VENDIDO' ? 'Vendido' : a.estado === 'MUERTO' ? 'Muerto' : a.estado,
         a.pesoActual != null ? String(a.pesoActual) : '—',
-      ], anchos, false, i % 2 === 0);
-    });
+      ]),
+      anchos,
+    );
+
+    // Resumen por finca al final
+    const porFinca = animales.reduce<Record<string, { m: number; h: number }>>((acc, a) => {
+      const n = a.finca?.nombre ?? 'Sin finca';
+      if (!acc[n]) acc[n] = { m: 0, h: 0 };
+      a.sexo === 'MACHO' ? acc[n].m++ : acc[n].h++;
+      return acc;
+    }, {});
+
+    if (Object.keys(porFinca).length > 1) {
+      doc.moveDown(1);
+      guardarEspacio(doc, 60);
+      seccionPDF(doc, 'Resumen por finca');
+      tablaPDF(
+        doc,
+        ['Finca', 'Total', 'Machos', 'Hembras'],
+        Object.entries(porFinca).map(([finca, c]) => [finca, String(c.m + c.h), String(c.m), String(c.h)]),
+        [280, 90, 90, 90],
+      );
+    }
 
     piePaginaPDF(doc);
     doc.end();
 
   } else {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Sistema Campolargo';
-    wb.created = new Date();
+    agregarMetaExcel(wb, 'Inventario de Animales');
 
     const ws = wb.addWorksheet('Inventario');
     ws.columns = [
-      { header: 'Arete',          key: 'arete'      },
-      { header: 'Nombre',         key: 'nombre'     },
-      { header: 'Sexo',           key: 'sexo'       },
-      { header: 'Raza',           key: 'raza'       },
-      { header: 'Finca',          key: 'finca'      },
-      { header: 'Lote',           key: 'lote'       },
-      { header: 'Estado',         key: 'estado'     },
-      { header: 'Est. Sanitario', key: 'sanitario'  },
-      { header: 'Peso (kg)',      key: 'peso'       },
-      { header: 'F. Nacimiento',  key: 'nacimiento' },
+      { header: 'N.° Arete',         key: 'arete'      },
+      { header: 'Nombre',            key: 'nombre'     },
+      { header: 'Sexo',              key: 'sexo'       },
+      { header: 'Raza',              key: 'raza'       },
+      { header: 'Finca',             key: 'finca'      },
+      { header: 'Lote',              key: 'lote'       },
+      { header: 'Estado',            key: 'estado'     },
+      { header: 'Est. Sanitario',    key: 'sanitario'  },
+      { header: 'Peso (kg)',         key: 'peso'       },
+      { header: 'F. Nacimiento',     key: 'nacimiento' },
+      { header: 'Color',             key: 'color'      },
+      { header: 'Propósito',         key: 'proposito'  },
     ];
     estiloEncabezadoExcel(ws.getRow(1));
 
@@ -245,27 +353,31 @@ export async function generarInventario(
         sanitario:   a.estadoSanitario,
         peso:        a.pesoActual ?? '',
         nacimiento:  fmtFecha(a.fechaNacimiento),
+        color:       a.color ?? '',
+        proposito:   a.proposito ?? '',
       }), i % 2 === 0);
     });
 
-    // Hoja resumen por finca
-    const wsFinca = wb.addWorksheet('Resumen por finca');
-    wsFinca.columns = [
-      { header: 'Finca',          key: 'finca' },
-      { header: 'Total animales', key: 'total' },
+    const wsR = wb.addWorksheet('Resumen por finca');
+    wsR.columns = [
+      { header: 'Finca',    key: 'finca'  },
+      { header: 'Total',    key: 'total'  },
+      { header: 'Machos',   key: 'machos' },
+      { header: 'Hembras',  key: 'hembras'},
     ];
-    estiloEncabezadoExcel(wsFinca.getRow(1));
-    const porFinca = animales.reduce<Record<string, number>>((acc, a) => {
+    estiloEncabezadoExcel(wsR.getRow(1));
+    const pF = animales.reduce<Record<string, { m: number; h: number }>>((acc, a) => {
       const n = a.finca?.nombre ?? 'Sin finca';
-      acc[n] = (acc[n] ?? 0) + 1;
+      if (!acc[n]) acc[n] = { m: 0, h: 0 };
+      a.sexo === 'MACHO' ? acc[n].m++ : acc[n].h++;
       return acc;
     }, {});
-    Object.entries(porFinca).forEach(([finca, total], i) => {
-      estiloFilaExcel(wsFinca.addRow({ finca, total }), i % 2 === 0);
+    Object.entries(pF).forEach(([finca, c], i) => {
+      estiloFilaExcel(wsR.addRow({ finca, total: c.m + c.h, machos: c.m, hembras: c.h }), i % 2 === 0);
     });
 
     anchoAutoExcel(ws);
-    anchoAutoExcel(wsFinca);
+    anchoAutoExcel(wsR);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="inventario_animales_${filtros.anio}.xlsx"`);
@@ -274,9 +386,9 @@ export async function generarInventario(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
 // REPORTE 2 — REPORTE SANITARIO
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
 export async function generarSanitario(
   res: Response,
   formato: 'pdf' | 'excel',
@@ -299,6 +411,7 @@ export async function generarSanitario(
           },
         },
         veterinario: { select: { nombre: true, apellido: true } },
+        enfermedades: { select: { nombreEnfermedad: true, activa: true } },
       },
       orderBy: { fechaConsulta: 'desc' },
     }),
@@ -321,106 +434,127 @@ export async function generarSanitario(
           },
         },
         calendarioVacunacion: { select: { nombreVacuna: true } },
+        aplicadoPor: { select: { nombre: true, apellido: true } },
       },
       orderBy: { fechaAplicacion: 'desc' },
     }),
   ]);
 
+  const subtitulo = `Año ${filtros.anio}  ·  ${consultas.length} consultas  ·  ${vacunaciones.length} vacunaciones`;
+
   if (formato === 'pdf') {
-    const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true, autoFirstPage: true });
+    const doc = new PDFDocument({ margin: ML, size: 'A4', bufferPages: true, autoFirstPage: true });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="reporte_sanitario_${filtros.anio}.pdf"`);
     doc.pipe(res);
 
-    encabezadoPDF(
-      doc,
-      `Reporte Sanitario ${filtros.anio}`,
-      `${consultas.length} consultas · ${vacunaciones.length} vacunaciones`,
-    );
+    encabezadoPDF(doc, `Reporte Sanitario ${filtros.anio}`, subtitulo);
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO)
-       .text('Consultas y Diagnósticos').moveDown(0.3);
+    // ── Consultas ──
+    seccionPDF(doc, 'Consultas y Diagnósticos');
+    if (consultas.length === 0) {
+      doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(9)
+         .text('Sin consultas en el período.', ML, doc.y).moveDown(0.5);
+    } else {
+      tablaPDF(
+        doc,
+        ['Fecha', 'Animal', 'Finca', 'Motivo consulta', 'Diagnóstico', 'Veterinario'],
+        consultas.map((c) => [
+          fmtFecha(c.fechaConsulta),
+          `${c.animal.nombre ? c.animal.nombre + ' ' : ''}#${c.animal.numeroArete}`,
+          c.animal.finca?.nombre ?? '—',
+          c.motivoConsulta,
+          c.diagnostico,
+          `${c.veterinario.nombre} ${c.veterinario.apellido}`,
+        ]),
+        [56, 95, 80, 105, 105, 95],
+      );
+    }
 
-    const aCons = [55, 90, 80, 90, 90, 95];
-    filaPDF(doc, ['Fecha', 'Animal', 'Finca', 'Motivo', 'Diagnóstico', 'Veterinario'], aCons, true);
-    consultas.forEach((c, i) =>
-      filaPDF(doc, [
-        fmtFecha(c.fechaConsulta),
-        `${c.animal.nombre ?? ''} #${c.animal.numeroArete}`.trim(),
-        c.animal.finca?.nombre ?? '—',
-        c.motivoConsulta,
-        c.diagnostico,
-        `${c.veterinario.nombre} ${c.veterinario.apellido}`.trim(),
-      ], aCons, false, i % 2 === 0),
-    );
-
-    doc.moveDown(1)
-       .font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO)
-       .text('Vacunaciones Aplicadas').moveDown(0.3);
-
-    const aVac = [55, 90, 80, 130, 90, 55];
-    filaPDF(doc, ['Fecha', 'Animal', 'Finca', 'Vacuna', 'Próxima cita', 'Dosis'], aVac, true);
-    vacunaciones.forEach((v, i) => {
-      const animal = v.historialMedico?.animal;
-      filaPDF(doc, [
-        fmtFecha(v.fechaAplicacion),
-        `${animal?.nombre ?? ''} #${animal?.numeroArete ?? ''}`.trim(),
-        animal?.finca?.nombre ?? '—',
-        v.calendarioVacunacion.nombreVacuna,
-        fmtFecha(v.proximaFecha),
-        v.dosis ?? '—',
-      ], aVac, false, i % 2 === 0);
-    });
+    // ── Vacunaciones ──
+    doc.moveDown(0.8);
+    guardarEspacio(doc, 40);
+    seccionPDF(doc, 'Vacunaciones Aplicadas');
+    if (vacunaciones.length === 0) {
+      doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(9)
+         .text('Sin vacunaciones en el período.', ML, doc.y).moveDown(0.5);
+    } else {
+      tablaPDF(
+        doc,
+        ['Fecha', 'Animal', 'Finca', 'Vacuna / Protocolo', 'Próxima cita', 'Dosis', 'Aplicó'],
+        vacunaciones.map((v) => {
+          const a = v.historialMedico?.animal;
+          return [
+            fmtFecha(v.fechaAplicacion),
+            `${a?.nombre ? a.nombre + ' ' : ''}#${a?.numeroArete ?? ''}`,
+            a?.finca?.nombre ?? '—',
+            v.calendarioVacunacion.nombreVacuna,
+            fmtFecha(v.proximaFecha),
+            v.dosis ?? '—',
+            `${v.aplicadoPor.nombre} ${v.aplicadoPor.apellido}`,
+          ];
+        }),
+        [52, 88, 72, 115, 64, 42, 95],
+      );
+    }
 
     piePaginaPDF(doc);
     doc.end();
 
   } else {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Sistema Campolargo';
+    agregarMetaExcel(wb, `Reporte Sanitario ${filtros.anio}`);
 
     const wsC = wb.addWorksheet('Consultas médicas');
     wsC.columns = [
-      { header: 'Fecha',       key: 'fecha'       },
-      { header: 'Animal',      key: 'animal'      },
-      { header: 'Finca',       key: 'finca'       },
-      { header: 'Motivo',      key: 'motivo'      },
-      { header: 'Diagnóstico', key: 'diagnostico' },
-      { header: 'Pronóstico',  key: 'pronostico'  },
-      { header: 'Veterinario', key: 'vet'         },
+      { header: 'Fecha',          key: 'fecha'       },
+      { header: 'Arete',          key: 'arete'       },
+      { header: 'Animal',         key: 'animal'      },
+      { header: 'Finca',          key: 'finca'       },
+      { header: 'Motivo',         key: 'motivo'      },
+      { header: 'Diagnóstico',    key: 'diagnostico' },
+      { header: 'Pronóstico',     key: 'pronostico'  },
+      { header: 'Veterinario',    key: 'vet'         },
+      { header: 'Enfermedades',   key: 'enfermedades'},
     ];
     estiloEncabezadoExcel(wsC.getRow(1));
     consultas.forEach((c, i) => {
       estiloFilaExcel(wsC.addRow({
-        fecha:       fmtFecha(c.fechaConsulta),
-        animal:      `${c.animal.nombre ?? ''} #${c.animal.numeroArete}`.trim(),
-        finca:       c.animal.finca?.nombre ?? '',
-        motivo:      c.motivoConsulta,
-        diagnostico: c.diagnostico,
-        pronostico:  c.pronostico ?? '',
-        vet:         `${c.veterinario.nombre} ${c.veterinario.apellido}`.trim(),
+        fecha:        fmtFecha(c.fechaConsulta),
+        arete:        c.animal.numeroArete,
+        animal:       c.animal.nombre ?? '',
+        finca:        c.animal.finca?.nombre ?? '',
+        motivo:       c.motivoConsulta,
+        diagnostico:  c.diagnostico,
+        pronostico:   c.pronostico ?? '',
+        vet:          `${c.veterinario.nombre} ${c.veterinario.apellido}`,
+        enfermedades: c.enfermedades.map((e) => e.nombreEnfermedad).join('; '),
       }), i % 2 === 0);
     });
 
     const wsV = wb.addWorksheet('Vacunaciones');
     wsV.columns = [
       { header: 'Fecha aplicación', key: 'fecha'   },
+      { header: 'Arete',            key: 'arete'   },
       { header: 'Animal',           key: 'animal'  },
       { header: 'Finca',            key: 'finca'   },
       { header: 'Vacuna',           key: 'vacuna'  },
       { header: 'Dosis',            key: 'dosis'   },
       { header: 'Próxima cita',     key: 'proxima' },
+      { header: 'Aplicó',           key: 'aplico'  },
     ];
     estiloEncabezadoExcel(wsV.getRow(1));
     vacunaciones.forEach((v, i) => {
-      const animal = v.historialMedico?.animal;
+      const a = v.historialMedico?.animal;
       estiloFilaExcel(wsV.addRow({
         fecha:   fmtFecha(v.fechaAplicacion),
-        animal:  `${animal?.nombre ?? ''} #${animal?.numeroArete ?? ''}`.trim(),
-        finca:   animal?.finca?.nombre ?? '',
+        arete:   a?.numeroArete ?? '',
+        animal:  a?.nombre ?? '',
+        finca:   a?.finca?.nombre ?? '',
         vacuna:  v.calendarioVacunacion.nombreVacuna,
         dosis:   v.dosis ?? '',
         proxima: fmtFecha(v.proximaFecha),
+        aplico:  `${v.aplicadoPor.nombre} ${v.aplicadoPor.apellido}`,
       }), i % 2 === 0);
     });
 
@@ -434,16 +568,16 @@ export async function generarSanitario(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REPORTE 3 — CUMPLIMIENTO DE VACUNACIÓN
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// REPORTE 3 — CUMPLIMIENTO DE VACUNACIÓN Y DESPARASITACIÓN
+// =============================================================================
 export async function generarVacunacion(
   res: Response,
   formato: 'pdf' | 'excel',
   filtros: { anio: number; fincaId?: string },
 ) {
   const hoy  = new Date();
-  const en30 = new Date(hoy.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const en30 = new Date(hoy.getTime() + 30 * 86_400_000);
 
   const registros = await prisma.registroVacunacion.findMany({
     where: {
@@ -466,12 +600,13 @@ export async function generarVacunacion(
         },
       },
       calendarioVacunacion: { select: { nombreVacuna: true, intervaloDias: true } },
+      aplicadoPor: { select: { nombre: true, apellido: true } },
     },
     orderBy: { proximaFecha: 'asc' },
   });
 
-  const calcularEstado = (proxima: Date | null | undefined): string => {
-    if (!proxima) return 'Sin próxima fecha';
+  const estadoVacuna = (proxima: Date | null | undefined): string => {
+    if (!proxima) return 'Sin fecha';
     const p = new Date(proxima);
     if (p < hoy)   return 'VENCIDA';
     if (p <= en30) return 'PRÓXIMA';
@@ -479,42 +614,69 @@ export async function generarVacunacion(
   };
 
   const datos = registros.map((r) => ({
-    arete:            r.historialMedico?.animal?.numeroArete ?? '',
-    nombre:           r.historialMedico?.animal?.nombre ?? '',
-    finca:            r.historialMedico?.animal?.finca?.nombre ?? '',
-    vacuna:           r.calendarioVacunacion.nombreVacuna,
-    intervaloDias:    `${r.calendarioVacunacion.intervaloDias} días`,
-    ultimaAplicacion: fmtFecha(r.fechaAplicacion),
-    proximaFecha:     fmtFecha(r.proximaFecha),
-    estado:           calcularEstado(r.proximaFecha),
+    arete:     r.historialMedico?.animal?.numeroArete ?? '',
+    nombre:    r.historialMedico?.animal?.nombre      ?? '—',
+    finca:     r.historialMedico?.animal?.finca?.nombre ?? '—',
+    vacuna:    r.calendarioVacunacion.nombreVacuna,
+    intervalo: `${r.calendarioVacunacion.intervaloDias}d`,
+    ultima:    fmtFecha(r.fechaAplicacion),
+    proxima:   fmtFecha(r.proximaFecha),
+    estado:    estadoVacuna(r.proximaFecha),
+    aplico:    `${r.aplicadoPor.nombre} ${r.aplicadoPor.apellido}`,
   }));
 
+  const vencidas = datos.filter((d) => d.estado === 'VENCIDA').length;
+  const proximas = datos.filter((d) => d.estado === 'PRÓXIMA').length;
+  const alDia    = datos.filter((d) => d.estado === 'AL DÍA').length;
+  const subtitulo = `${datos.length} registros  ·  ${vencidas} vencidas  ·  ${proximas} próximas (30d)  ·  ${alDia} al día`;
+
   if (formato === 'pdf') {
-    const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true, autoFirstPage: true });
+    const doc = new PDFDocument({ margin: ML, size: 'A4', bufferPages: true, autoFirstPage: true });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="vacunacion_cumplimiento_${filtros.anio}.pdf"`);
     doc.pipe(res);
 
-    const vencidas = datos.filter((d) => d.estado === 'VENCIDA').length;
-    const proximas = datos.filter((d) => d.estado === 'PRÓXIMA').length;
-    encabezadoPDF(
-      doc,
-      'Cumplimiento de Vacunación',
-      `${datos.length} registros · ${vencidas} vencidas · ${proximas} próximas en 30 días`,
-    );
+    encabezadoPDF(doc, 'Cumplimiento de Vacunación y Desparasitación', subtitulo);
 
-    const anchos = [55, 85, 75, 110, 65, 65, 55];
-    filaPDF(doc, ['Arete', 'Animal', 'Finca', 'Vacuna', 'Última aplic.', 'Próxima cita', 'Estado'], anchos, true);
-    datos.forEach((d, i) => {
-      filaPDF(doc, [d.arete, d.nombre || '—', d.finca || '—', d.vacuna, d.ultimaAplicacion, d.proximaFecha, d.estado], anchos, false, i % 2 === 0);
+    // KPIs de resumen en dos columnas
+    const kpis: [string, string][] = [
+      ['Total registros activos', String(datos.length)],
+      ['Vacunas vencidas',        String(vencidas)],
+      ['Próximas en 30 días',     String(proximas)],
+      ['Al día',                  String(alDia)],
+    ];
+    const anchoKPI = (doc.page.width - ML - MR) / 2;
+    kpis.forEach(([lbl, val], i) => {
+      const col = i % 2;
+      const fila = Math.floor(i / 2);
+      const x = ML + col * anchoKPI;
+      const y = doc.y + fila * 24;
+      doc.rect(x, y, anchoKPI - 4, 20)
+         .fill(col === 0 && i === 0 ? VERDE_BG : VERDE_BG);
+      doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(8)
+         .text(lbl, x + 6, y + 5, { width: anchoKPI - 60, lineBreak: false });
+      doc.fillColor(VERDE).font('Helvetica-Bold').fontSize(11)
+         .text(val, x + anchoKPI - 55, y + 3, { width: 48, align: 'right', lineBreak: false });
     });
+    doc.y = doc.y + Math.ceil(kpis.length / 2) * 24 + 14;
+
+    // Tabla
+    seccionPDF(doc, 'Detalle por Animal');
+    tablaPDF(
+      doc,
+      ['Arete', 'Animal', 'Finca', 'Vacuna / Protocolo', 'Intervalo', 'Última aplic.', 'Próxima', 'Estado'],
+      datos.map((d) => [d.arete, d.nombre, d.finca, d.vacuna, d.intervalo, d.ultima, d.proxima, d.estado]),
+      [52, 80, 68, 115, 48, 60, 60, 53],
+    );
 
     piePaginaPDF(doc);
     doc.end();
 
   } else {
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Cumplimiento vacunación');
+    agregarMetaExcel(wb, 'Cumplimiento de Vacunación');
+
+    const ws = wb.addWorksheet('Cumplimiento');
     ws.columns = [
       { header: 'Arete',             key: 'arete'    },
       { header: 'Nombre',            key: 'nombre'   },
@@ -524,27 +686,23 @@ export async function generarVacunacion(
       { header: 'Última aplicación', key: 'ultima'   },
       { header: 'Próxima cita',      key: 'proxima'  },
       { header: 'Estado',            key: 'estado'   },
+      { header: 'Aplicó',            key: 'aplico'   },
     ];
     estiloEncabezadoExcel(ws.getRow(1));
 
     datos.forEach((d, i) => {
-      const fila = ws.addRow({
-        arete: d.arete, nombre: d.nombre, finca: d.finca,
-        vacuna: d.vacuna, intervalo: d.intervaloDias,
-        ultima: d.ultimaAplicacion, proxima: d.proximaFecha, estado: d.estado,
-      });
+      const fila = ws.addRow(d);
       estiloFilaExcel(fila, i % 2 === 0);
-
-      const celdaEstado = fila.getCell('estado');
+      const ce = fila.getCell('estado');
       if (d.estado === 'VENCIDA') {
-        celdaEstado.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCDD2' } };
-        celdaEstado.font = { bold: true, color: { argb: 'FFB71C1C' }, size: 9 };
+        ce.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCDD2' } };
+        ce.font = { bold: true, color: { argb: 'FFB71C1C' }, size: 9.5, name: 'Calibri' };
       } else if (d.estado === 'PRÓXIMA') {
-        celdaEstado.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } };
-        celdaEstado.font = { bold: true, color: { argb: 'FFF57F17' }, size: 9 };
+        ce.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } };
+        ce.font = { bold: true, color: { argb: 'FFF57F17' }, size: 9.5, name: 'Calibri' };
       } else if (d.estado === 'AL DÍA') {
-        celdaEstado.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC8E6C9' } };
-        celdaEstado.font = { bold: true, color: { argb: 'FF1B5E20' }, size: 9 };
+        ce.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC8E6C9' } };
+        ce.font = { bold: true, color: { argb: 'FF1B5E20' }, size: 9.5, name: 'Calibri' };
       }
     });
 
@@ -556,9 +714,9 @@ export async function generarVacunacion(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
 // REPORTE 4 — INDICADORES REPRODUCTIVOS
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
 export async function generarReproductivo(
   res: Response,
   formato: 'pdf' | 'excel',
@@ -566,14 +724,11 @@ export async function generarReproductivo(
 ) {
   const desde = new Date(filtros.anio, 0, 1);
   const hasta = new Date(filtros.anio, 11, 31, 23, 59, 59);
-  const dondeFinca = filtros.fincaId ? { fincaId: filtros.fincaId } : {};
+  const dF    = filtros.fincaId ? { fincaId: filtros.fincaId } : {};
 
   const [gestaciones, nacimientos, totalHembras] = await Promise.all([
     prisma.gestacion.findMany({
-      where: {
-        fechaInicio: { gte: desde, lte: hasta },
-        madre: { ...dondeFinca },
-      },
+      where: { fechaInicio: { gte: desde, lte: hasta }, madre: { ...dF } },
       include: {
         madre: {
           select: {
@@ -587,7 +742,7 @@ export async function generarReproductivo(
     prisma.nacimiento.findMany({
       where: {
         fechaNacimiento: { gte: desde, lte: hasta },
-        gestacion: { madre: { ...dondeFinca } },
+        gestacion: { madre: { ...dF } },
       },
       include: {
         gestacion: {
@@ -604,90 +759,98 @@ export async function generarReproductivo(
       },
       orderBy: { fechaNacimiento: 'desc' },
     }),
-    prisma.animal.count({
-      where: { sexo: 'HEMBRA', estado: 'ACTIVO', ...dondeFinca },
-    }),
+    prisma.animal.count({ where: { sexo: 'HEMBRA', estado: 'ACTIVO', ...dF } }),
   ]);
 
   const enCurso      = gestaciones.filter((g) => g.estadoGestacion === 'EN_CURSO').length;
   const finalizadas  = gestaciones.filter((g) => g.estadoGestacion === 'FINALIZADA_PARTO').length;
   const tasaPrenez   = totalHembras > 0
-    ? ((gestaciones.length / totalHembras) * 100).toFixed(1)
+    ? ((gestaciones.length / totalHembras) * 100).toFixed(1) + '%'
     : '—';
   const machosCrias  = nacimientos.filter((n) => n.cria?.sexo === 'MACHO').length;
   const hembrasCrias = nacimientos.filter((n) => n.cria?.sexo === 'HEMBRA').length;
 
   const kpis: [string, string][] = [
-    ['Total hembras activas',          String(totalHembras)],
-    ['Gestaciones en el período',      String(gestaciones.length)],
-    ['Tasa de preñez estimada',        `${tasaPrenez}%`],
-    ['Gestaciones en curso',           String(enCurso)],
+    ['Total hembras activas',           String(totalHembras)],
+    ['Gestaciones en el período',       String(gestaciones.length)],
+    ['Gestaciones en curso',            String(enCurso)],
     ['Gestaciones finalizadas (parto)', String(finalizadas)],
-    ['Total nacimientos',              String(nacimientos.length)],
-    ['Crías macho',                    String(machosCrias)],
-    ['Crías hembra',                   String(hembrasCrias)],
+    ['Tasa de preñez estimada',         tasaPrenez],
+    ['Total nacimientos',               String(nacimientos.length)],
+    ['Crías macho',                     String(machosCrias)],
+    ['Crías hembra',                    String(hembrasCrias)],
   ];
 
+  const subtitulo = `Año ${filtros.anio}  ·  ${gestaciones.length} gestaciones  ·  ${nacimientos.length} nacimientos  ·  Tasa preñez ${tasaPrenez}`;
+
   if (formato === 'pdf') {
-    const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true, autoFirstPage: true });
+    const doc = new PDFDocument({ margin: ML, size: 'A4', bufferPages: true, autoFirstPage: true });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="indicadores_reproductivos_${filtros.anio}.pdf"`);
     doc.pipe(res);
 
-    encabezadoPDF(
-      doc,
-      `Indicadores Reproductivos ${filtros.anio}`,
-      `${gestaciones.length} gestaciones · ${nacimientos.length} nacimientos · Tasa preñez: ${tasaPrenez}%`,
-    );
+    encabezadoPDF(doc, `Indicadores Reproductivos ${filtros.anio}`, subtitulo);
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO)
-       .text('Indicadores clave').moveDown(0.4);
-
-    kpis.forEach(([label, val], i) => {
-      const y = doc.y;
-      if (i % 2 === 0) {
-        doc.rect(50, y, doc.page.width - 100, 20).fill(VERDE_CLARO);
-      }
-      doc.fillColor(GRIS_TEXTO).font('Helvetica').fontSize(9)
-         .text(label, 55, y + 5, { continued: true })
-         .font('Helvetica-Bold').text(val, { align: 'right' });
-      doc.y = y + 20;
+    // KPIs en cuadrícula 2×4
+    seccionPDF(doc, 'Indicadores Clave');
+    const anchoKPI = (doc.page.width - ML - MR) / 2 - 4;
+    const altoKPI  = 28;
+    kpis.forEach(([lbl, val], i) => {
+      const col  = i % 2;
+      const fila = Math.floor(i / 2);
+      const x    = ML + col * (anchoKPI + 8);
+      const y    = doc.y + fila * (altoKPI + 4);
+      doc.rect(x, y, anchoKPI, altoKPI).fill(VERDE_BG)
+         .rect(x, y, anchoKPI, altoKPI).strokeColor(GRIS_LINEA).lineWidth(0.4).stroke();
+      doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(8)
+         .text(lbl, x + 6, y + 5, { width: anchoKPI - 60, lineBreak: false });
+      doc.fillColor(VERDE).font('Helvetica-Bold').fontSize(14)
+         .text(val, x + anchoKPI - 58, y + 4, { width: 52, align: 'right', lineBreak: false });
     });
+    doc.y = doc.y + Math.ceil(kpis.length / 2) * (altoKPI + 4) + 16;
 
-    doc.moveDown(1);
+    // Gestaciones
+    doc.moveDown(0.5);
+    guardarEspacio(doc, 50);
+    seccionPDF(doc, 'Gestaciones');
+    if (!gestaciones.length) {
+      doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(9)
+         .text('Sin gestaciones en el período.', ML, doc.y).moveDown(0.5);
+    } else {
+      tablaPDF(
+        doc,
+        ['Arete', 'Madre', 'Finca', 'Inicio', 'Parto esperado', 'Parto real', 'Estado'],
+        gestaciones.map((g) => [
+          g.madre.numeroArete,
+          g.madre.nombre ?? '—',
+          g.madre.finca?.nombre ?? '—',
+          fmtFecha(g.fechaInicio),
+          fmtFecha(g.fechaPartoEsperado),
+          fmtFecha(g.fechaPartoReal),
+          g.estadoGestacion.replace(/_/g, ' '),
+        ]),
+        [52, 90, 80, 58, 72, 62, 122],
+      );
+    }
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO)
-       .text('Gestaciones').moveDown(0.3);
-
-    const aGes = [55, 95, 80, 80, 80, 110];
-    filaPDF(doc, ['Arete', 'Madre', 'Finca', 'Inicio', 'Parto esperado', 'Estado'], aGes, true);
-    gestaciones.forEach((g, i) =>
-      filaPDF(doc, [
-        g.madre.numeroArete,
-        g.madre.nombre ?? '—',
-        g.madre.finca?.nombre ?? '—',
-        fmtFecha(g.fechaInicio),
-        fmtFecha(g.fechaPartoEsperado),
-        g.estadoGestacion.replace(/_/g, ' '),
-      ], aGes, false, i % 2 === 0),
-    );
-
+    // Nacimientos
     if (nacimientos.length) {
-      doc.moveDown(1)
-         .font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO)
-         .text('Nacimientos').moveDown(0.3);
-
-      const aNac = [55, 95, 55, 95, 80, 80];
-      filaPDF(doc, ['Arete cría', 'Nombre cría', 'Sexo', 'Madre', 'Finca', 'Fecha nacim.'], aNac, true);
-      nacimientos.forEach((n, i) =>
-        filaPDF(doc, [
+      doc.moveDown(0.8);
+      guardarEspacio(doc, 50);
+      seccionPDF(doc, 'Nacimientos');
+      tablaPDF(
+        doc,
+        ['Arete cría', 'Nombre cría', 'Sexo', 'Madre', 'Finca', 'Fecha nacim.', 'Tipo parto'],
+        nacimientos.map((n) => [
           n.cria?.numeroArete ?? '—',
-          n.cria?.nombre ?? '—',
+          n.cria?.nombre      ?? '—',
           n.cria?.sexo === 'MACHO' ? 'Macho' : 'Hembra',
           n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
           n.gestacion.madre.finca?.nombre ?? '—',
           fmtFecha(n.fechaNacimiento),
-        ], aNac, false, i % 2 === 0),
+          n.tipoParto ?? '—',
+        ]),
+        [60, 90, 46, 90, 76, 62, 112],
       );
     }
 
@@ -696,17 +859,21 @@ export async function generarReproductivo(
 
   } else {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Sistema Campolargo';
+    agregarMetaExcel(wb, `Indicadores Reproductivos ${filtros.anio}`);
 
-    const wsR = wb.addWorksheet('Resumen');
-    wsR.addRow([`Indicadores Reproductivos ${filtros.anio}`]);
-    wsR.getRow(1).font = { bold: true, size: 13, color: { argb: 'FF0D631B' } };
+    const wsR = wb.addWorksheet('Indicadores');
+    wsR.getCell('A1').value = `Indicadores Reproductivos ${filtros.anio}`;
+    wsR.getCell('A1').font  = { bold: true, size: 13, color: { argb: 'FF1A6B28' }, name: 'Calibri' };
+    wsR.getCell('A1').alignment = { horizontal: 'left' };
     wsR.addRow([]);
     kpis.forEach(([k, v], i) => {
-      estiloFilaExcel(wsR.addRow([k, v]), i % 2 === 0);
+      const fila = wsR.addRow([k, v]);
+      estiloFilaExcel(fila, i % 2 === 0);
+      fila.getCell(2).font = { bold: true, size: 10, name: 'Calibri' };
+      fila.getCell(2).alignment = { horizontal: 'center' };
     });
-    wsR.getColumn(1).width = 38;
-    wsR.getColumn(2).width = 18;
+    wsR.getColumn(1).width = 40;
+    wsR.getColumn(2).width = 20;
 
     const wsG = wb.addWorksheet('Gestaciones');
     wsG.columns = [
@@ -715,6 +882,7 @@ export async function generarReproductivo(
       { header: 'Finca',            key: 'finca'  },
       { header: 'Inicio gestación', key: 'inicio' },
       { header: 'Parto esperado',   key: 'parto'  },
+      { header: 'Parto real',       key: 'partoR' },
       { header: 'Estado',           key: 'estado' },
     ];
     estiloEncabezadoExcel(wsG.getRow(1));
@@ -725,6 +893,7 @@ export async function generarReproductivo(
         finca:  g.madre.finca?.nombre ?? '',
         inicio: fmtFecha(g.fechaInicio),
         parto:  fmtFecha(g.fechaPartoEsperado),
+        partoR: fmtFecha(g.fechaPartoReal),
         estado: g.estadoGestacion.replace(/_/g, ' '),
       }), i % 2 === 0);
     });
@@ -737,16 +906,20 @@ export async function generarReproductivo(
       { header: 'Madre',            key: 'madre'  },
       { header: 'Finca',            key: 'finca'  },
       { header: 'Fecha nacimiento', key: 'fecha'  },
+      { header: 'Tipo parto',       key: 'tipo'   },
+      { header: 'Estado cría',      key: 'estadoCria' },
     ];
     estiloEncabezadoExcel(wsN.getRow(1));
     nacimientos.forEach((n, i) => {
       estiloFilaExcel(wsN.addRow({
-        arete:  n.cria?.numeroArete ?? '',
-        nombre: n.cria?.nombre ?? '',
-        sexo:   n.cria?.sexo === 'MACHO' ? 'Macho' : 'Hembra',
-        madre:  n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
-        finca:  n.gestacion.madre.finca?.nombre ?? '',
-        fecha:  fmtFecha(n.fechaNacimiento),
+        arete:     n.cria?.numeroArete ?? '',
+        nombre:    n.cria?.nombre ?? '',
+        sexo:      n.cria?.sexo === 'MACHO' ? 'Macho' : 'Hembra',
+        madre:     n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
+        finca:     n.gestacion.madre.finca?.nombre ?? '',
+        fecha:     fmtFecha(n.fechaNacimiento),
+        tipo:      n.tipoParto ?? '',
+        estadoCria: n.estadoCria ?? '',
       }), i % 2 === 0);
     });
 
@@ -760,23 +933,18 @@ export async function generarReproductivo(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
 // REPORTE 5 — HISTORIAL MÉDICO COMPLETO DE UN ANIMAL (PDF)
-// ─────────────────────────────────────────────────────────────────────────────
-export async function generarHistorialAnimal(
-  res: Response,
-  animalId: string,
-) {
+// =============================================================================
+export async function generarHistorialAnimal(res: Response, animalId: string) {
   const animal = await prisma.animal.findUnique({
     where: { id: animalId },
     select: {
-      numeroArete: true,
-      nombre: true,
-      sexo: true,
-      fechaNacimiento: true,
-      estadoSanitario: true,
-      raza: { select: { nombre: true } },
+      numeroArete: true, nombre: true, sexo: true, fechaNacimiento: true,
+      pesoActual: true, color: true, estadoSanitario: true,
+      raza:  { select: { nombre: true } },
       finca: { select: { nombre: true } },
+      lote:  { select: { nombre: true } },
     },
   });
 
@@ -788,129 +956,170 @@ export async function generarHistorialAnimal(
   const consultas = await prisma.historialMedico.findMany({
     where: { animalId },
     include: {
-      veterinario: { select: { nombre: true, apellido: true } },
-      enfermedades: true,
-      tratamientos: {
-        include: { medicamento: { select: { nombre: true } } },
-      },
+      veterinario:             { select: { nombre: true, apellido: true } },
+      enfermedades:            true,
+      tratamientos:            { include: { medicamento: { select: { nombre: true } } } },
       informacionEpidemiologica: true,
-      ayudasDiagnosticas: true,
-      desparasitaciones: true,
+      ayudasDiagnosticas:      true,
+      desparasitaciones:       true,
     },
     orderBy: { fechaConsulta: 'desc' },
   });
 
-  const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true, autoFirstPage: true });
+  const doc = new PDFDocument({ margin: ML, size: 'A4', bufferPages: true, autoFirstPage: true });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="historial_${animal.numeroArete}.pdf"`);
   doc.pipe(res);
 
-  const nombreAnimal = animal.nombre ? `${animal.nombre} — #${animal.numeroArete}` : `#${animal.numeroArete}`;
+  const nombreAnimal = animal.nombre ? `${animal.nombre}  —  #${animal.numeroArete}` : `#${animal.numeroArete}`;
   encabezadoPDF(
     doc,
-    `Historial Médico: ${nombreAnimal}`,
-    `${animal.raza?.nombre ?? '—'} · ${animal.finca?.nombre ?? '—'} · ${consultas.length} consulta(s)`,
+    `Historial Médico`,
+    `${nombreAnimal}  ·  ${animal.raza?.nombre ?? '—'}  ·  ${animal.finca?.nombre ?? '—'}  ·  ${consultas.length} consulta(s)`,
   );
 
-  // Ficha del animal
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Datos del Animal').moveDown(0.3);
-  const fichaItems: [string, string][] = [
-    ['Arete',           animal.numeroArete],
-    ['Nombre',          animal.nombre ?? '—'],
-    ['Sexo',            animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
-    ['Raza',            animal.raza?.nombre ?? '—'],
-    ['Finca',           animal.finca?.nombre ?? '—'],
-    ['Nacimiento',      fmtFecha(animal.fechaNacimiento)],
+  // ── Ficha del animal ──
+  seccionPDF(doc, 'Datos del Animal');
+  const ficha: [string, string][] = [
+    ['N.° Arete',        animal.numeroArete],
+    ['Nombre',           animal.nombre ?? '—'],
+    ['Sexo',             animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
+    ['Raza',             animal.raza?.nombre ?? '—'],
+    ['Finca',            animal.finca?.nombre ?? '—'],
+    ['Lote',             animal.lote?.nombre  ?? '—'],
+    ['Fecha nacimiento', fmtFechaLarga(animal.fechaNacimiento)],
+    ['Peso actual',      animal.pesoActual != null ? `${animal.pesoActual} kg` : '—'],
+    ['Color',            animal.color ?? '—'],
     ['Estado sanitario', animal.estadoSanitario ?? '—'],
   ];
-  fichaItems.forEach(([k, v], i) => {
-    const y = doc.y;
-    if (i % 2 === 0) doc.rect(50, y, doc.page.width - 100, 18).fill(VERDE_CLARO);
-    doc.fillColor(GRIS_TEXTO).font('Helvetica').fontSize(9)
-       .text(k, 55, y + 4, { continued: true })
-       .font('Helvetica-Bold').text(v, { align: 'right' });
-    doc.y = y + 18;
-  });
+  ficha.forEach(([k, v], i) => parKV(doc, k, v, i % 2 === 0));
 
   doc.moveDown(1);
 
   if (consultas.length === 0) {
-    doc.font('Helvetica').fontSize(10).fillColor(GRIS_TEXTO).text('Sin consultas registradas.');
+    guardarEspacio(doc, 40);
+    doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(10)
+       .text('Este animal no tiene consultas veterinarias registradas.', ML, doc.y);
+    piePaginaPDF(doc);
+    doc.end();
+    return;
   }
 
-  // Una sección por consulta
+  // ── Una sección por consulta ──
   consultas.forEach((c, idx) => {
-    if (doc.y > doc.page.height - 180) { doc.addPage(); doc.y = 50; }
+    guardarEspacio(doc, 120);
 
+    // Barra de consulta
     const titleY = doc.y;
-    doc.rect(50, titleY, doc.page.width - 100, 22).fill(VERDE_OSCURO);
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(10)
+    doc.rect(ML, titleY, doc.page.width - ML - MR, 22).fill(VERDE);
+    doc.fillColor(BLANCO).font('Helvetica-Bold').fontSize(9)
        .text(
-         `Consulta ${idx + 1} — ${fmtFecha(c.fechaConsulta)}   ·   Vet: ${c.veterinario.nombre} ${c.veterinario.apellido}`,
-         55, titleY + 6, { width: doc.page.width - 110, lineBreak: false },
+         `CONSULTA ${idx + 1}  ·  ${fmtFechaLarga(c.fechaConsulta)}  ·  Dr(a). ${c.veterinario.nombre} ${c.veterinario.apellido}`,
+         ML + 6, titleY + 7, { width: doc.page.width - ML - MR - 12, lineBreak: false },
        );
     doc.y = titleY + 26;
 
-    const campo = (etiqueta: string, valor: string | null | undefined) => {
-      if (!valor) return;
-      const y = doc.y;
-      doc.fillColor(GRIS_TEXTO).font('Helvetica-Bold').fontSize(8)
-         .text(etiqueta + ': ', 55, y, { continued: true })
-         .font('Helvetica').text(valor, { width: doc.page.width - 110 });
-      if (doc.y > doc.page.height - 80) { doc.addPage(); doc.y = 50; }
+    let par = 0;
+    const campo = (etq: string, val: string | null | undefined) => {
+      if (!val) return;
+      parKV(doc, etq, val, par % 2 === 0);
+      par++;
     };
 
-    campo('Motivo', c.motivoConsulta);
-    campo('Síntomas', c.sintomasObservados);
-    campo('Diagnóstico', c.diagnostico);
-    if (c.diagnosticoDefinitivo) campo('Diag. definitivo', c.diagnosticoDefinitivo);
-    if (c.pronostico)             campo('Pronóstico', c.pronostico);
-    if (c.planDiagnostico)        campo('Plan diagnóstico', c.planDiagnostico);
-    if (c.observaciones)          campo('Observaciones', c.observaciones);
+    campo('Motivo de consulta',    c.motivoConsulta);
+    campo('Síntomas observados',   c.sintomasObservados);
+    campo('Tiempo de evolución',   c.tiempoEvolucion);
+    campo('Tratamientos previos',  c.tratamientosPrevios);
+    campo('Diagnóstico presuntivo', c.diagnostico);
+    campo('Diagnóstico definitivo', c.diagnosticoDefinitivo);
+    campo('Plan diagnóstico',      c.planDiagnostico);
+    campo('Pronóstico',            c.pronostico);
+    campo('Observaciones',         c.observaciones);
 
     // Signos vitales
     const vitales: string[] = [];
-    if (c.temperatura != null)           vitales.push(`Temp: ${c.temperatura}°C`);
-    if (c.frecuenciaCardiaca != null)    vitales.push(`FC: ${c.frecuenciaCardiaca} lpm`);
+    if (c.temperatura != null)            vitales.push(`Temperatura: ${c.temperatura} °C`);
+    if (c.frecuenciaCardiaca != null)     vitales.push(`FC: ${c.frecuenciaCardiaca} lpm`);
     if (c.frecuenciaRespiratoria != null) vitales.push(`FR: ${c.frecuenciaRespiratoria} rpm`);
-    if (c.tiempoLlenadoCapilar != null)  vitales.push(`TLC: ${c.tiempoLlenadoCapilar} seg`);
-    if (c.movimientosRuminales != null)  vitales.push(`Rum: ${c.movimientosRuminales}/min`);
-    if (c.condicionCorporal != null)     vitales.push(`CC: ${c.condicionCorporal}/5`);
-    if (vitales.length) campo('Signos vitales', vitales.join('   '));
+    if (c.tiempoLlenadoCapilar != null)   vitales.push(`TLC: ${c.tiempoLlenadoCapilar} s`);
+    if (c.movimientosRuminales != null)   vitales.push(`Rum: ${c.movimientosRuminales}/min`);
+    if (c.condicionCorporal != null)      vitales.push(`C.C.: ${c.condicionCorporal}/5`);
+    if (vitales.length) campo('Signos vitales', vitales.join('   ·   '));
 
     // Enfermedades
     if (c.enfermedades.length) {
-      campo('Enfermedades', c.enfermedades.map((e) => `${e.nombreEnfermedad} (${e.activa ? 'activa' : 'resuelta'})`).join('; '));
+      campo(
+        'Enfermedades',
+        c.enfermedades.map((e) =>
+          `${e.nombreEnfermedad} — ${e.activa ? 'Activa' : 'Resuelta'}${e.fechaResolucion ? ` (${fmtFecha(e.fechaResolucion)})` : ''}`
+        ).join('\n'),
+      );
     }
 
-    // Tratamientos
+    // Tratamientos — tabla
     if (c.tratamientos.length) {
-      c.tratamientos.forEach((t) => {
-        campo('Tratamiento', `${t.medicamento.nombre} — ${t.dosis} — ${t.viaAdministracion} — ${t.frecuencia}${t.duracionDias ? ` — ${t.duracionDias}d` : ''}`);
-      });
+      guardarEspacio(doc, 40);
+      doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8)
+         .text('Tratamientos', ML, doc.y).moveDown(0.3);
+      tablaPDF(
+        doc,
+        ['Medicamento', 'Dosis', 'Vía', 'Frecuencia', 'Duración', 'Estado'],
+        c.tratamientos.map((t) => [
+          t.medicamento.nombre, t.dosis, t.viaAdministracion,
+          t.frecuencia,
+          t.duracionDias ? `${t.duracionDias} d` : '—',
+          t.estado === 'EN_CURSO' ? 'En curso' : t.estado === 'COMPLETADO' ? 'Completado' : t.estado,
+        ]),
+        [130, 64, 72, 90, 54, 80],
+        16,
+      );
     }
 
-    // Desparasitaciones
+    // Desparasitaciones — tabla
     if (c.desparasitaciones.length) {
-      c.desparasitaciones.forEach((d) => {
-        campo('Desparasitación', `${d.producto}${d.principioActivo ? ` (${d.principioActivo})` : ''} — ${fmtFecha(d.fecha)}${d.dosis ? ` — ${d.dosis}` : ''}`);
-      });
+      guardarEspacio(doc, 40);
+      doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8)
+         .text('Desparasitaciones', ML, doc.y).moveDown(0.3);
+      tablaPDF(
+        doc,
+        ['Producto', 'Principio activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'],
+        (c.desparasitaciones as any[]).map((d) => [
+          d.producto, d.principioActivo ?? '—',
+          (d.tipo as string).replace(/_/g, ' '),
+          fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
+        ]),
+        [110, 110, 68, 60, 60, 68],
+        16,
+      );
     }
 
-    // Ayudas diagnósticas
+    // Ayudas diagnósticas — tabla
     if (c.ayudasDiagnosticas.length) {
-      c.ayudasDiagnosticas.forEach((a) => {
-        const linea = [a.tipo.replace(/_/g, ' '), fmtFecha(a.fecha), a.resultado].filter(Boolean).join(' — ');
-        campo('Ayuda diagnóstica', linea);
-      });
+      guardarEspacio(doc, 40);
+      doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8)
+         .text('Ayudas Diagnósticas', ML, doc.y).moveDown(0.3);
+      tablaPDF(
+        doc,
+        ['Tipo', 'Fecha', 'Descripción', 'Resultado'],
+        (c.ayudasDiagnosticas as any[]).map((a) => [
+          (a.tipo as string).replace(/_/g, ' '),
+          fmtFecha(a.fecha), a.descripcion ?? '—', a.resultado ?? '—',
+        ]),
+        [96, 58, 180, 152],
+        16,
+      );
     }
 
     // Info epidemiológica
     if (c.informacionEpidemiologica) {
       const ep = c.informacionEpidemiologica as any;
-      const vecs = [ep.garrapatas && 'Garrapatas', ep.mosquitos && 'Mosquitos', ep.murcielagos && 'Murciélagos', ep.moscas && 'Moscas', ep.otrosVectores].filter(Boolean).join(', ');
-      if (vecs) campo('Vectores', vecs);
-      if (ep.descripcion) campo('Epid. descripción', ep.descripcion);
+      const vecs = [
+        ep.garrapatas && 'Garrapatas', ep.mosquitos && 'Mosquitos',
+        ep.murcielagos && 'Murciélagos', ep.moscas && 'Moscas',
+        ep.otrosVectores,
+      ].filter(Boolean).join(', ');
+      if (vecs) campo('Vectores epidemiológicos', vecs);
+      if (ep.descripcion) campo('Descripción epidemiológica', ep.descripcion);
     }
 
     doc.moveDown(0.8);
@@ -920,29 +1129,28 @@ export async function generarHistorialAnimal(
   doc.end();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
 // REPORTE 6 — PDF DE UNA CONSULTA ESPECÍFICA
-// ─────────────────────────────────────────────────────────────────────────────
-export async function generarConsulta(
-  res: Response,
-  consultaId: string,
-) {
+// =============================================================================
+export async function generarConsulta(res: Response, consultaId: string) {
   const c = await prisma.historialMedico.findUnique({
     where: { id: consultaId },
     include: {
       animal: {
         select: {
           numeroArete: true, nombre: true, sexo: true, fechaNacimiento: true,
-          raza: { select: { nombre: true } },
+          pesoActual: true, color: true, estadoSanitario: true,
+          raza:  { select: { nombre: true } },
           finca: { select: { nombre: true } },
+          lote:  { select: { nombre: true } },
         },
       },
-      veterinario: { select: { nombre: true, apellido: true } },
-      enfermedades: true,
-      tratamientos: { include: { medicamento: { select: { nombre: true } } } },
+      veterinario:              { select: { nombre: true, apellido: true, cargo: true } },
+      enfermedades:             true,
+      tratamientos:             { include: { medicamento: { select: { nombre: true } } } },
       informacionEpidemiologica: true,
-      ayudasDiagnosticas: true,
-      desparasitaciones: true,
+      ayudasDiagnosticas:       true,
+      desparasitaciones:        true,
     },
   });
 
@@ -951,156 +1159,210 @@ export async function generarConsulta(
     return;
   }
 
-  const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true, autoFirstPage: true });
+  const doc = new PDFDocument({ margin: ML, size: 'A4', bufferPages: true, autoFirstPage: true });
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="consulta_${c.id}.pdf"`);
+  res.setHeader('Content-Disposition', `attachment; filename="consulta_${c.id.slice(-8)}.pdf"`);
   doc.pipe(res);
 
-  const nombreAnimal = c.animal.nombre ? `${c.animal.nombre} — #${c.animal.numeroArete}` : `#${c.animal.numeroArete}`;
+  const nombreAnimal = c.animal.nombre
+    ? `${c.animal.nombre}  —  #${c.animal.numeroArete}`
+    : `#${c.animal.numeroArete}`;
+
   encabezadoPDF(
     doc,
-    `Consulta Médica — ${fmtFecha(c.fechaConsulta)}`,
-    `${nombreAnimal}  ·  ${c.animal.finca?.nombre ?? '—'}`,
+    `Informe de Consulta Veterinaria`,
+    `${fmtFechaLarga(c.fechaConsulta)}  ·  ${nombreAnimal}  ·  ${c.animal.finca?.nombre ?? '—'}`,
   );
 
-  // Bloque ficha
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Datos del Animal').moveDown(0.3);
+  // ── Datos del animal ──
+  seccionPDF(doc, 'Datos del Animal');
   const fichaA: [string, string][] = [
-    ['Arete',     c.animal.numeroArete],
-    ['Nombre',    c.animal.nombre ?? '—'],
-    ['Raza',      c.animal.raza?.nombre ?? '—'],
-    ['Finca',     c.animal.finca?.nombre ?? '—'],
-    ['Sexo',      c.animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
-    ['Nacimiento', fmtFecha(c.animal.fechaNacimiento)],
+    ['N.° Arete',        c.animal.numeroArete],
+    ['Nombre',           c.animal.nombre ?? '—'],
+    ['Sexo',             c.animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
+    ['Raza',             c.animal.raza?.nombre ?? '—'],
+    ['Finca',            c.animal.finca?.nombre ?? '—'],
+    ['Lote',             c.animal.lote?.nombre  ?? '—'],
+    ['Fecha nacimiento', fmtFechaLarga(c.animal.fechaNacimiento)],
+    ['Peso',             c.animal.pesoActual != null ? `${c.animal.pesoActual} kg` : '—'],
+    ['Estado sanitario', c.animal.estadoSanitario ?? '—'],
   ];
-  fichaA.forEach(([k, v], i) => {
-    const y = doc.y;
-    if (i % 2 === 0) doc.rect(50, y, doc.page.width - 100, 18).fill(VERDE_CLARO);
-    doc.fillColor(GRIS_TEXTO).font('Helvetica').fontSize(9)
-       .text(k, 55, y + 4, { continued: true })
-       .font('Helvetica-Bold').text(v, { align: 'right' });
-    doc.y = y + 18;
-  });
+  fichaA.forEach(([k, v], i) => parKV(doc, k, v, i % 2 === 0));
 
+  // ── Datos de la consulta ──
   doc.moveDown(0.8);
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Información de la Consulta').moveDown(0.3);
+  guardarEspacio(doc, 40);
+  seccionPDF(doc, 'Datos de la Consulta');
 
-  const campo = (etiqueta: string, valor: string | null | undefined) => {
-    if (!valor) return;
-    const y = doc.y;
-    doc.fillColor(GRIS_TEXTO).font('Helvetica-Bold').fontSize(9)
-       .text(etiqueta + ': ', 55, y, { continued: true })
-       .font('Helvetica').text(valor, { width: doc.page.width - 110 });
-    if (doc.y > doc.page.height - 80) { doc.addPage(); doc.y = 50; }
+  const info: [string, string][] = [
+    ['Fecha de consulta', fmtFechaLarga(c.fechaConsulta)],
+    ['Veterinario',       `${c.veterinario.nombre} ${c.veterinario.apellido}${c.veterinario.cargo ? '  —  ' + c.veterinario.cargo : ''}`],
+  ];
+  info.forEach(([k, v], i) => parKV(doc, k, v, i % 2 === 0));
+
+  let par = info.length;
+  const campo = (etq: string, val: string | null | undefined) => {
+    if (!val) return;
+    parKV(doc, etq, val, par % 2 === 0);
+    par++;
   };
 
-  doc.font('Helvetica').fontSize(9).fillColor(GRIS_TEXTO)
-     .text(`Veterinario: ${c.veterinario.nombre} ${c.veterinario.apellido}   ·   Fecha: ${fmtFecha(c.fechaConsulta)}`)
-     .moveDown(0.4);
+  // ── Anamnesis ──
+  doc.moveDown(0.6);
+  guardarEspacio(doc, 30);
+  doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
+     .text('ANAMNESIS', ML, doc.y).moveDown(0.3);
+  par = 0;
+  campo('Motivo de consulta',   c.motivoConsulta);
+  campo('Síntomas observados',  c.sintomasObservados);
+  campo('Tiempo de evolución',  c.tiempoEvolucion);
+  campo('Tratamientos previos', c.tratamientosPrevios);
+  campo('Cirugías previas',     c.cirugias);
 
-  campo('Motivo de consulta',    c.motivoConsulta);
-  campo('Síntomas observados',   c.sintomasObservados);
-  campo('Tiempo de evolución',   c.tiempoEvolucion);
-  campo('Tratamientos previos',  c.tratamientosPrevios);
-  campo('Cirugías',              c.cirugias);
-
-  // Signos vitales
+  // ── Exploración física ──
   const vitales: string[] = [];
-  if (c.temperatura != null)            vitales.push(`Temp: ${c.temperatura}°C`);
+  if (c.temperatura != null)            vitales.push(`Temperatura: ${c.temperatura} °C`);
   if (c.frecuenciaCardiaca != null)     vitales.push(`FC: ${c.frecuenciaCardiaca} lpm`);
   if (c.frecuenciaRespiratoria != null) vitales.push(`FR: ${c.frecuenciaRespiratoria} rpm`);
-  if (c.tiempoLlenadoCapilar != null)   vitales.push(`TLC: ${c.tiempoLlenadoCapilar} seg`);
+  if (c.tiempoLlenadoCapilar != null)   vitales.push(`TLC: ${c.tiempoLlenadoCapilar} s`);
   if (c.movimientosRuminales != null)   vitales.push(`Rum: ${c.movimientosRuminales}/min`);
-  if (c.condicionCorporal != null)      vitales.push(`CC: ${c.condicionCorporal}/5`);
-  if (vitales.length) campo('Signos vitales', vitales.join('   ·   '));
+  if (c.condicionCorporal != null)      vitales.push(`C.C.: ${c.condicionCorporal}/5`);
+  if (c.estadoReproductivo)             vitales.push(`Est. reprod.: ${c.estadoReproductivo.replace(/_/g, ' ')}`);
+  if (c.litrosLechesDiarios != null)    vitales.push(`Leche/día: ${c.litrosLechesDiarios} L`);
+  if (c.gananciaPeso != null)           vitales.push(`Ganancia peso: ${c.gananciaPeso} kg`);
 
-  campo('Est. reproductivo',     c.estadoReproductivo?.replace(/_/g, ' ') ?? null);
-  campo('Litros leche/día',      c.litrosLechesDiarios != null ? String(c.litrosLechesDiarios) : null);
-  campo('Ganancia de peso (kg)', c.gananciaPeso != null ? String(c.gananciaPeso) : null);
+  if (vitales.length) {
+    doc.moveDown(0.6);
+    guardarEspacio(doc, 30);
+    doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
+       .text('EXPLORACIÓN FÍSICA', ML, doc.y).moveDown(0.3);
+    par = 0;
+    // Cada signo vital en su propia fila para legibilidad
+    vitales.forEach((v) => campo(v.split(':')[0].trim(), v.split(':').slice(1).join(':').trim()));
+  }
 
-  doc.moveDown(0.5);
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Diagnóstico y Plan').moveDown(0.3);
-  campo('Diagnóstico presuntivo',           c.diagnostico);
-  campo('Diagnóstico definitivo',           c.diagnosticoDefinitivo);
-  campo('Plan diagnóstico',                 c.planDiagnostico);
-  campo('Pronóstico',                       c.pronostico);
-  campo('Obs. diagnósticos oficiales',      c.observacionesDiagnosticosOficiales);
-  campo('Observaciones generales',          c.observaciones);
+  // ── Diagnóstico y plan ──
+  doc.moveDown(0.6);
+  guardarEspacio(doc, 30);
+  doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
+     .text('DIAGNÓSTICO Y PLAN', ML, doc.y).moveDown(0.3);
+  par = 0;
+  campo('Diagnóstico presuntivo',        c.diagnostico);
+  campo('Diagnóstico definitivo',        c.diagnosticoDefinitivo);
+  campo('Plan diagnóstico',              c.planDiagnostico);
+  campo('Pronóstico',                    c.pronostico);
+  campo('Obs. diagnósticos oficiales',   c.observacionesDiagnosticosOficiales);
+  campo('Observaciones generales',       c.observaciones);
 
-  // Enfermedades
+  // ── Enfermedades ──
   if (c.enfermedades.length) {
-    doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Enfermedades').moveDown(0.3);
-    const aE = [120, 70, 80, 230];
-    filaPDF(doc, ['Enfermedad', 'Inicio', 'Estado', 'Descripción clínica'], aE, true);
-    c.enfermedades.forEach((e, i) =>
-      filaPDF(doc, [
+    doc.moveDown(0.6);
+    guardarEspacio(doc, 50);
+    doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
+       .text('ENFERMEDADES', ML, doc.y).moveDown(0.3);
+    tablaPDF(
+      doc,
+      ['Enfermedad', 'Fecha inicio', 'Estado', 'Descripción clínica'],
+      c.enfermedades.map((e) => [
         e.nombreEnfermedad,
         fmtFecha(e.fechaInicio),
         e.activa ? 'Activa' : 'Resuelta',
         e.descripcionClinica ?? '—',
-      ], aE, false, i % 2 === 0),
+      ]),
+      [130, 68, 68, 220],
+      16,
     );
   }
 
-  // Tratamientos
+  // ── Tratamientos ──
   if (c.tratamientos.length) {
-    doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Tratamientos').moveDown(0.3);
-    const aT = [120, 70, 80, 60, 80, 90];
-    filaPDF(doc, ['Medicamento', 'Dosis', 'Vía', 'Duración', 'Frecuencia', 'Estado'], aT, true);
-    c.tratamientos.forEach((t, i) =>
-      filaPDF(doc, [
-        t.medicamento.nombre,
-        t.dosis,
-        t.viaAdministracion,
-        t.duracionDias ? `${t.duracionDias}d` : '—',
+    doc.moveDown(0.6);
+    guardarEspacio(doc, 50);
+    doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
+       .text('TRATAMIENTOS', ML, doc.y).moveDown(0.3);
+    tablaPDF(
+      doc,
+      ['Medicamento', 'Dosis', 'Vía', 'Frecuencia', 'Duración', 'Estado'],
+      c.tratamientos.map((t) => [
+        t.medicamento.nombre, t.dosis, t.viaAdministracion,
         t.frecuencia,
+        t.duracionDias ? `${t.duracionDias} d` : '—',
         t.estado === 'EN_CURSO' ? 'En curso' : t.estado === 'COMPLETADO' ? 'Completado' : t.estado,
-      ], aT, false, i % 2 === 0),
+      ]),
+      [130, 64, 72, 92, 52, 76],
+      16,
     );
   }
 
-  // Desparasitaciones
+  // ── Desparasitaciones ──
   if (c.desparasitaciones.length) {
-    doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Desparasitaciones').moveDown(0.3);
-    const aD = [110, 110, 70, 70, 70, 70];
-    filaPDF(doc, ['Producto', 'P. Activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'], aD, true);
-    c.desparasitaciones.forEach((d: any, i: number) =>
-      filaPDF(doc, [
-        d.producto,
-        d.principioActivo ?? '—',
+    doc.moveDown(0.6);
+    guardarEspacio(doc, 50);
+    doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
+       .text('DESPARASITACIONES', ML, doc.y).moveDown(0.3);
+    tablaPDF(
+      doc,
+      ['Producto', 'Principio activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'],
+      (c.desparasitaciones as any[]).map((d) => [
+        d.producto, d.principioActivo ?? '—',
         (d.tipo as string).replace(/_/g, ' '),
-        fmtFecha(d.fecha),
-        d.dosis ?? '—',
-        d.via ?? '—',
-      ], aD, false, i % 2 === 0),
+        fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
+      ]),
+      [110, 110, 68, 60, 60, 68],
+      16,
     );
   }
 
-  // Ayudas diagnósticas
+  // ── Ayudas diagnósticas ──
   if (c.ayudasDiagnosticas.length) {
-    doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Ayudas Diagnósticas').moveDown(0.3);
-    const aAD = [100, 70, 150, 180];
-    filaPDF(doc, ['Tipo', 'Fecha', 'Descripción', 'Resultado'], aAD, true);
-    c.ayudasDiagnosticas.forEach((a: any, i: number) =>
-      filaPDF(doc, [
+    doc.moveDown(0.6);
+    guardarEspacio(doc, 50);
+    doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
+       .text('AYUDAS DIAGNÓSTICAS', ML, doc.y).moveDown(0.3);
+    tablaPDF(
+      doc,
+      ['Tipo', 'Fecha', 'Descripción', 'Resultado'],
+      (c.ayudasDiagnosticas as any[]).map((a) => [
         (a.tipo as string).replace(/_/g, ' '),
-        fmtFecha(a.fecha),
-        a.descripcion ?? '—',
-        a.resultado ?? '—',
-      ], aAD, false, i % 2 === 0),
+        fmtFecha(a.fecha), a.descripcion ?? '—', a.resultado ?? '—',
+      ]),
+      [96, 58, 180, 152],
+      16,
     );
   }
 
-  // Info epidemiológica
+  // ── Info epidemiológica ──
   if (c.informacionEpidemiologica) {
     const ep = c.informacionEpidemiologica as any;
-    const vecs = [ep.garrapatas && 'Garrapatas', ep.mosquitos && 'Mosquitos', ep.murcielagos && 'Murciélagos', ep.moscas && 'Moscas', ep.otrosVectores].filter(Boolean).join(', ');
+    const vecs = [
+      ep.garrapatas && 'Garrapatas', ep.mosquitos && 'Mosquitos',
+      ep.murcielagos && 'Murciélagos', ep.moscas && 'Moscas',
+      ep.otrosVectores,
+    ].filter(Boolean).join(', ');
     if (vecs || ep.descripcion) {
-      doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor(VERDE_OSCURO).text('Información Epidemiológica').moveDown(0.3);
-      if (vecs)          campo('Vectores',      vecs);
+      doc.moveDown(0.6);
+      guardarEspacio(doc, 30);
+      doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
+         .text('INFORMACIÓN EPIDEMIOLÓGICA', ML, doc.y).moveDown(0.3);
+      par = 0;
+      if (vecs) campo('Vectores', vecs);
       if (ep.descripcion) campo('Descripción', ep.descripcion);
     }
   }
+
+  // ── Firma ──
+  doc.moveDown(2);
+  guardarEspacio(doc, 60);
+  const W = doc.page.width;
+  const firmaX = W / 2 + 20;
+  const firmaY = doc.y;
+  doc.moveTo(firmaX, firmaY).lineTo(W - MR, firmaY)
+     .strokeColor(GRIS_LINEA).lineWidth(0.6).stroke();
+  doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(8)
+     .text(
+       `${c.veterinario.nombre} ${c.veterinario.apellido}\n${c.veterinario.cargo ?? 'Médico Veterinario'}`,
+       firmaX, firmaY + 4, { align: 'center', width: W - MR - firmaX },
+     );
 
   piePaginaPDF(doc);
   doc.end();

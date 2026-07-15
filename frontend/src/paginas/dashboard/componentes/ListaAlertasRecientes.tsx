@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clienteHttp } from '../../../servicios/clienteAxios';
 import { EsqueletoLinea } from '../../../componentes/ui/EsqueletoTarjeta';
 import { BadgePrioridad } from '../../../componentes/ui/Badge';
@@ -7,9 +7,11 @@ import Icono from '../../../componentes/ui/Icono';
 interface AlertaResumen {
   id: string;
   titulo: string;
+  mensaje?: string;
   prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
   creadoEn: string;
   leida: boolean;
+  estado: 'PENDIENTE' | 'ENVIADA' | 'LEIDA' | 'DESCARTADA';
 }
 
 const CONFIG_PRIORIDAD = {
@@ -35,10 +37,21 @@ async function obtenerAlertasRecientes(): Promise<AlertaResumen[]> {
 }
 
 export default function ListaAlertasRecientes() {
+  const queryClient = useQueryClient();
+
   const { data: alertas, isLoading } = useQuery({
     queryKey: ['alertas-recientes-dashboard'],
     queryFn: obtenerAlertasRecientes,
     refetchInterval: 1000 * 60 * 2,
+  });
+
+  const mutAbordar = useMutation({
+    mutationFn: (id: string) => clienteHttp.patch(`/notificaciones/${id}/abordar`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alertas-recientes-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
+      queryClient.invalidateQueries({ queryKey: ['alertas-resumen'] });
+    },
   });
 
   if (isLoading) {
@@ -75,14 +88,24 @@ export default function ListaAlertasRecientes() {
         return (
           <div
             key={alerta.id}
-            className="flex items-center gap-3 p-2 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer"
+            className="flex items-start gap-3 p-2 rounded-xl hover:bg-surface-container-low transition-colors group"
           >
-            <div className={`${cfg.fondo} p-2 rounded-xl flex-shrink-0`}>
+            <div className={`${cfg.fondo} p-2 rounded-xl flex-shrink-0 mt-0.5`}>
               <Icono nombre={cfg.icono} relleno clase={`text-[14px] ${cfg.color}`} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-on-surface truncate">{alerta.titulo}</p>
               <p className="text-[11px] text-outline">{formatearFechaRelativa(alerta.creadoEn)}</p>
+              {/* Botón abordar — aparece al hover */}
+              <button
+                onClick={() => mutAbordar.mutate(alerta.id)}
+                disabled={mutAbordar.isPending}
+                className="mt-1 flex items-center gap-1 text-[10px] text-on-surface-variant hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                title="Abordar — desaparece del dashboard y la campanita"
+              >
+                <Icono nombre="check_circle" clase="text-[11px]" />
+                Abordar
+              </button>
             </div>
             <BadgePrioridad prioridad={alerta.prioridad} />
           </div>

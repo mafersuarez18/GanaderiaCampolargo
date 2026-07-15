@@ -6,6 +6,8 @@ import {
   controladorMarcarLeida,
   controladorMarcarTodasLeidas,
   controladorEliminarNotificacion,
+  controladorAbordarNotificacion,
+  controladorAbordarTodasNotificaciones,
 } from './notificaciones.controlador';
 
 const enrutador = Router();
@@ -23,6 +25,12 @@ enrutador.patch('/marcar-todas-leidas', cualquierRol, controladorMarcarTodasLeid
 
 // PATCH /api/v1/notificaciones/:id/leer
 enrutador.patch('/:id/leer', cualquierRol, controladorMarcarLeida);
+
+// PATCH /api/v1/notificaciones/abordar-todas
+enrutador.patch('/abordar-todas', cualquierRol, controladorAbordarTodasNotificaciones);
+
+// PATCH /api/v1/notificaciones/:id/abordar
+enrutador.patch('/:id/abordar', cualquierRol, controladorAbordarNotificacion);
 
 // DELETE /api/v1/notificaciones/:id
 enrutador.delete('/:id', cualquierRol, controladorEliminarNotificacion);

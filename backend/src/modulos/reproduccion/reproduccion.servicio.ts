@@ -1,6 +1,7 @@
 import { Prisma, TipoEventoReproductivo, EstadoGestacion, EstadoAnimal, Sexo, ClasificacionIA, TecnicaDeposicionSemen, NivelEstres } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado, ErrorValidacionDatos } from '../../compartido/tipos/respuesta';
+import { resolverNotificacionesDeEntidad } from '../notificaciones/notificaciones.servicio';
 
 // ─── Partos próximos ────────────────────────────────────────────────────────
 
@@ -337,11 +338,16 @@ export async function cerrarGestacion(
     PERDIDA: EstadoGestacion.PERDIDA,
   };
 
-  return prisma.gestacion.update({
+  const gestacionActualizada = await prisma.gestacion.update({
     where: { id },
     data: {
       estadoGestacion: estadoFinal[resultado],
       ...(fechaPartoReal && { fechaPartoReal }),
     },
   });
+
+  // Auto-resolver alertas de parto próximo asociadas a esta gestación
+  await resolverNotificacionesDeEntidad('Gestacion', id).catch(() => {});
+
+  return gestacionActualizada;
 }

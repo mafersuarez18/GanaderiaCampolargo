@@ -27,12 +27,27 @@ interface RespuestaAuditoria {
 }
 
 const ACCION_COLOR: Record<string, 'verde' | 'rojo' | 'azul' | 'amarillo' | 'tierra' | 'gris'> = {
-  CREATE:  'verde',
-  UPDATE:  'azul',
-  DELETE:  'rojo',
-  LOGIN:   'tierra',
-  LOGOUT:  'gris',
-  READ:    'gris',
+  CREAR:                  'verde',
+  ACTUALIZAR:             'azul',
+  ELIMINAR:               'rojo',
+  INICIAR_SESION:         'tierra',
+  CERRAR_SESION:          'gris',
+  LEER:                   'gris',
+  INTENTO_ACCESO_FALLIDO: 'rojo',
+  EXPORTAR:               'amarillo',
+  CONFIGURAR:             'azul',
+};
+
+const ACCION_ETIQUETA: Record<string, string> = {
+  CREAR:                  'Crear',
+  LEER:                   'Leer',
+  ACTUALIZAR:             'Actualizar',
+  ELIMINAR:               'Eliminar',
+  INICIAR_SESION:         'Inicio sesión',
+  CERRAR_SESION:          'Cierre sesión',
+  INTENTO_ACCESO_FALLIDO: 'Acceso fallido',
+  EXPORTAR:               'Exportar',
+  CONFIGURAR:             'Configurar',
 };
 
 const RECURSO_ICONO: Record<string, string> = {
@@ -42,7 +57,18 @@ const RECURSO_ICONO: Record<string, string> = {
   default:       'inventory_2',
 };
 
-const ACCIONES_DISPONIBLES = ['', 'CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'];
+// Solo las acciones que existen en la BD (las más comunes primero)
+const ACCIONES_DISPONIBLES = [
+  { valor: '',                       etiqueta: 'Todo' },
+  { valor: 'CREAR',                  etiqueta: 'Crear' },
+  { valor: 'ACTUALIZAR',             etiqueta: 'Actualizar' },
+  { valor: 'ELIMINAR',               etiqueta: 'Eliminar' },
+  { valor: 'INICIAR_SESION',         etiqueta: 'Inicio sesión' },
+  { valor: 'CERRAR_SESION',          etiqueta: 'Cierre sesión' },
+  { valor: 'INTENTO_ACCESO_FALLIDO', etiqueta: 'Acceso fallido' },
+  { valor: 'EXPORTAR',               etiqueta: 'Exportar' },
+  { valor: 'CONFIGURAR',             etiqueta: 'Configurar' },
+];
 
 export default function PaginaAuditoria() {
   const [busqueda, setBusqueda]           = useState('');
@@ -140,17 +166,17 @@ export default function PaginaAuditoria() {
           </div>
 
           <div className="flex gap-1 p-1 bg-surface-container rounded-xl overflow-x-auto">
-            {ACCIONES_DISPONIBLES.map((a) => (
+            {ACCIONES_DISPONIBLES.map(({ valor, etiqueta }) => (
               <button
-                key={a}
-                onClick={() => { setAccionFiltro(a); setPaginaActual(1); }}
+                key={valor}
+                onClick={() => { setAccionFiltro(valor); setPaginaActual(1); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                  accionFiltro === a
+                  accionFiltro === valor
                     ? 'bg-primary text-on-primary'
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                {a === '' ? 'Todo' : a}
+                {etiqueta}
               </button>
             ))}
           </div>
@@ -253,7 +279,9 @@ export default function PaginaAuditoria() {
                            hover:bg-surface-container-low transition-colors text-xs
                            ${!reg.exitoso ? 'bg-error-container/20' : ''}`}
               >
-                <Badge variante={ACCION_COLOR[reg.accion] ?? 'gris'} tamano="xs">{reg.accion}</Badge>
+                <Badge variante={ACCION_COLOR[reg.accion] ?? 'gris'} tamano="xs">
+                  {ACCION_ETIQUETA[reg.accion] ?? reg.accion}
+                </Badge>
 
                 <div className="flex items-center gap-1.5 text-on-surface-variant">
                   <Icono nombre={RECURSO_ICONO[reg.recurso] ?? RECURSO_ICONO.default} clase="text-[14px]" />

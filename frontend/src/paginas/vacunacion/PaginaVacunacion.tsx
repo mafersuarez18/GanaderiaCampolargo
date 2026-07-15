@@ -73,7 +73,7 @@ export default function PaginaVacunacion() {
   const { esAdministrador, esVeterinario } = useAutenticacion();
   const puedeEditar = esAdministrador || esVeterinario;
 
-  const [pestanaActiva, setPestanaActiva]               = useState<'calendarios' | 'registros'>('calendarios');
+  const [pestanaActiva, setPestanaActiva]               = useState<'calendarios' | 'registros' | 'planes'>('calendarios');
   const [calendarioActivo, setCalendarioActivo]         = useState<CalendarioVacunacion | null>(null);
   const [mostrarFormCalendario, setMostrarFormCalendario] = useState(false);
   const [mostrarFormRegistro, setMostrarFormRegistro]   = useState(false);
@@ -189,10 +189,11 @@ export default function PaginaVacunacion() {
           {[
             { clave: 'calendarios', et: 'Calendarios',              ico: 'event_note' },
             { clave: 'registros',   et: 'Historial de Aplicaciones', ico: 'history' },
+            { clave: 'planes',      et: 'Planes',                    ico: 'description' },
           ].map((p) => (
             <button
               key={p.clave}
-              onClick={() => setPestanaActiva(p.clave as 'calendarios' | 'registros')}
+              onClick={() => setPestanaActiva(p.clave as 'calendarios' | 'registros' | 'planes')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 pestanaActiva === p.clave
                   ? 'bg-surface-container-lowest text-on-surface shadow-sm'
@@ -354,7 +355,7 @@ export default function PaginaVacunacion() {
               </div>
             )}
           </motion.div>
-        ) : (
+        ) : pestanaActiva === 'registros' ? (
           <motion.div
             key="registros"
             initial={{ opacity: 0, y: 8 }}
@@ -433,18 +434,273 @@ export default function PaginaVacunacion() {
               </div>
             )}
           </motion.div>
+        ) : pestanaActiva === 'planes' ? (
+          <motion.div
+            key="planes"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="space-y-8"
+          >
+            {/* ── PLAN DE DESPARASITACIÓN ── */}
+            <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 bg-tertiary/10 border-b border-tertiary/20 flex items-center gap-3">
+                <div className="p-2 bg-tertiary/20 rounded-xl">
+                  <Icono nombre="pest_control" relleno clase="text-[20px] text-tertiary" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-on-surface">Plan de Desparasitación</h2>
+                  <p className="text-xs text-on-surface-variant">Protocolos antiparasitarios por grupo de animales</p>
+                </div>
+              </div>
+
+              {/* Terneros hasta 6 meses */}
+              <div className="p-6 space-y-4">
+                <div className="rounded-xl border border-outline-variant/30 overflow-hidden">
+                  <div className="px-4 py-3 bg-surface-container flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold text-on-surface text-sm">Terneros hasta seis meses de edad</h3>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        Fenbendazol la primera vez y al mes siguiente cambiar por Levamisol, luego Fenbendazol de nuevo
+                        y seguir la misma secuencia hasta los 6 meses.
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-tertiary bg-tertiary/10 px-2.5 py-1 rounded-full whitespace-nowrap">
+                      Cada 30 días
+                    </span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-t border-outline-variant/20">
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-error uppercase tracking-wide">Parásitos</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-error uppercase tracking-wide">Producto</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-error uppercase tracking-wide">Dosis</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-error uppercase tracking-wide">Vía</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/20">
+                      <tr className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 text-on-surface font-medium">Gastrointestinales y pulmonares</td>
+                        <td className="px-4 py-3"><span className="font-semibold text-on-surface">Fenbendazol 25%</span></td>
+                        <td className="px-4 py-3 text-on-surface-variant">1 ml / 50 kg PV</td>
+                        <td className="px-4 py-3"><span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Oral</span></td>
+                      </tr>
+                      <tr className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 text-on-surface font-medium">Gastrointestinales y pulmonares</td>
+                        <td className="px-4 py-3"><span className="font-semibold text-on-surface">Levamisol 15%</span></td>
+                        <td className="px-4 py-3 text-on-surface-variant">1 ml / 30 kg PV</td>
+                        <td className="px-4 py-3"><span className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-medium">Intramuscular</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Animales > 6 meses */}
+                <div className="rounded-xl border border-outline-variant/30 overflow-hidden">
+                  <div className="px-4 py-3 bg-surface-container flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold text-on-surface text-sm">Animales mayores de seis meses</h3>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        Se les aplica producto cada 4 meses dependiendo si están en producción láctea o no.
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-tertiary bg-tertiary/10 px-2.5 py-1 rounded-full whitespace-nowrap">
+                      Cada 4 meses
+                    </span>
+                  </div>
+
+                  {/* En producción láctea */}
+                  <div className="px-4 py-2 bg-primary/5 border-t border-primary/15">
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wide">Animales en producción láctea</p>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-t border-outline-variant/20">
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-error uppercase tracking-wide">Parásitos</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-error uppercase tracking-wide">Producto</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-error uppercase tracking-wide">Dosis</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-error uppercase tracking-wide">Vía</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/20">
+                      <tr className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 text-on-surface font-medium">Gastrointestinales y pulmonares</td>
+                        <td className="px-4 py-3"><span className="font-semibold text-on-surface">Fenbendazol 25%</span></td>
+                        <td className="px-4 py-3 text-on-surface-variant">1 ml / 50 kg PV</td>
+                        <td className="px-4 py-3"><span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Oral</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Animales secos */}
+                  <div className="px-4 py-2 bg-tertiary/5 border-t border-tertiary/15">
+                    <p className="text-xs font-semibold text-tertiary uppercase tracking-wide">Animales secos (no en producción láctea)</p>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-t border-outline-variant/20">
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-error uppercase tracking-wide">Parásitos</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-error uppercase tracking-wide">Producto</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-error uppercase tracking-wide">Dosis</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-error uppercase tracking-wide">Vía</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/20">
+                      <tr className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 text-on-surface font-medium">Gastrointestinales, pulmonares y ectoparásitos</td>
+                        <td className="px-4 py-3"><span className="font-semibold text-on-surface">Ivermectina 3,15%</span></td>
+                        <td className="px-4 py-3 text-on-surface-variant">1 ml / 50 kg PV</td>
+                        <td className="px-4 py-3"><span className="text-xs bg-tertiary/10 text-tertiary px-2 py-0.5 rounded-full font-medium">Subcutánea</span></td>
+                      </tr>
+                      <tr className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 text-on-surface font-medium">Gastrointestinales y hepáticos</td>
+                        <td className="px-4 py-3"><span className="font-semibold text-on-surface">Lombifarm (Fenbendazol + Triclabendazol)</span></td>
+                        <td className="px-4 py-3 text-on-surface-variant">1 ml / 10 kg PV</td>
+                        <td className="px-4 py-3"><span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Oral</span></td>
+                      </tr>
+                      <tr className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 text-on-surface font-medium">Pulmonares y ectoparásitos</td>
+                        <td className="px-4 py-3"><span className="font-semibold text-on-surface">Doramectina 1%</span></td>
+                        <td className="px-4 py-3 text-on-surface-variant">1 ml / 50 kg PV</td>
+                        <td className="px-4 py-3"><span className="text-xs bg-tertiary/10 text-tertiary px-2 py-0.5 rounded-full font-medium">Subcutánea</span></td>
+                      </tr>
+                      <tr className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 text-on-surface font-medium">Coccidiosis intestinal</td>
+                        <td className="px-4 py-3"><span className="font-semibold text-on-surface">Tratoril (Toltrazuril 5%)</span></td>
+                        <td className="px-4 py-3 text-on-surface-variant">3 ml / 10 kg PV</td>
+                        <td className="px-4 py-3"><span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Oral</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* ── PLAN DE VACUNACIÓN EN BOVINOS ── */}
+            <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 bg-primary/10 border-b border-primary/20 flex items-center gap-3">
+                <div className="p-2 bg-primary/20 rounded-xl">
+                  <Icono nombre="vaccines" relleno clase="text-[20px] text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-on-surface">Plan de Vacunación en Bovinos</h2>
+                  <p className="text-xs text-on-surface-variant">Protocolo oficial — Sucesión Joao Campolargo</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-surface-container border-b border-outline-variant/30">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Vacuna</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Edad de vacunación</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Revacunación</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Dosis y vía</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Observaciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/20">
+                    {[
+                      {
+                        vacuna: 'Fiebre Aftosa',
+                        edad: 'Todas las edades',
+                        revacunacion: 'Cada seis meses',
+                        dosis: '2 ml subcutánea en la paleta o tabla del cuello',
+                        obs: 'Según calendario oficial',
+                        color: 'primary',
+                      },
+                      {
+                        vacuna: 'Brucelosis',
+                        edad: 'Terneras entre 3 y 8 meses',
+                        revacunacion: 'Dosis única a terneras',
+                        dosis: '2 ml subcutánea',
+                        obs: 'De acuerdo al programa oficial',
+                        color: 'secondary',
+                      },
+                      {
+                        vacuna: 'Triple (Carbón Sintomático, Septicemia, Otras Clostridiosis)',
+                        edad: 'Machos y hembras desde los 3 meses',
+                        revacunacion: '15 días después de la primera dosis; luego anualmente',
+                        dosis: '2 a 5 ml subcutánea según marca comercial',
+                        obs: 'La revacunación a los 15 días de la primera dosis es indispensable para la efectividad del biológico',
+                        color: 'tertiary',
+                      },
+                      {
+                        vacuna: 'Carbón Bacteridiano',
+                        edad: 'De 3 meses en adelante',
+                        revacunacion: '21–30 días después de la primera; luego anual',
+                        dosis: '2 ml subcutánea',
+                        obs: 'En áreas de presentación',
+                        color: 'primary',
+                      },
+                      {
+                        vacuna: 'Rabia Bovina',
+                        edad: 'De 4 meses en adelante',
+                        revacunacion: 'Anual',
+                        dosis: '2 ml intramuscular',
+                        obs: 'Según presentación de la enfermedad en la zona',
+                        color: 'error',
+                      },
+                      {
+                        vacuna: 'IBR – DVB – Leptospirosis (algunas incluyen PI3, Campylobacter)',
+                        edad: 'Desde 3 meses en hembras y machos para reproducción / Hembras desde 6 meses antes del servicio',
+                        revacunacion: 'Un mes después de la primera dosis; luego anualmente / Al mes y un mes posparto; luego anual',
+                        dosis: '5 ml intramuscular',
+                        obs: 'Aplicación con asesoría del médico veterinario, previo diagnóstico de la enfermedad en el predio',
+                        color: 'secondary',
+                      },
+                      {
+                        vacuna: 'Anaplasmosis y Babesiosis',
+                        edad: '3 y 12 meses de edad',
+                        revacunacion: '3 y 12 meses de edad',
+                        dosis: '2 ml intramuscular (cada vial independiente)',
+                        obs: 'Su aplicación requiere asesoría de un médico veterinario',
+                        color: 'tertiary',
+                      },
+                    ].map((row, i) => (
+                      <tr key={i} className="hover:bg-surface-container-low/40 transition-colors">
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-start gap-2">
+                            <span className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${
+                              row.color === 'primary'   ? 'bg-primary' :
+                              row.color === 'secondary' ? 'bg-secondary' :
+                              row.color === 'tertiary'  ? 'bg-tertiary' : 'bg-error'
+                            }`} />
+                            <span className="font-semibold text-on-surface">{row.vacuna}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-on-surface-variant text-xs">{row.edad}</td>
+                        <td className="px-4 py-3.5 text-on-surface-variant text-xs">{row.revacunacion}</td>
+                        <td className="px-4 py-3.5 text-on-surface text-xs font-medium">{row.dosis}</td>
+                        <td className="px-4 py-3.5 text-on-surface-variant text-xs italic">{row.obs}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="registros-placeholder"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+          />
         )}
       </AnimatePresence>
 
-      {/* FAB */}
-      <button
-        onClick={() => pestanaActiva === 'calendarios' ? setMostrarFormCalendario(true) : setMostrarFormRegistro(true)}
-        className="md:hidden fixed bottom-20 right-5 w-14 h-14 bg-primary text-on-primary rounded-full
-                   shadow-[var(--shadow-primary)] flex items-center justify-center
-                   hover:scale-110 active:scale-95 transition-transform z-20"
-      >
-        <Icono nombre={pestanaActiva === 'calendarios' ? 'add' : 'add_task'} clase="text-[28px]" />
-      </button>
+      {/* FAB — solo en pestañas de edición */}
+      {pestanaActiva !== 'planes' && (
+        <button
+          onClick={() => pestanaActiva === 'calendarios' ? setMostrarFormCalendario(true) : setMostrarFormRegistro(true)}
+          className="md:hidden fixed bottom-20 right-5 w-14 h-14 bg-primary text-on-primary rounded-full
+                     shadow-[var(--shadow-primary)] flex items-center justify-center
+                     hover:scale-110 active:scale-95 transition-transform z-20"
+        >
+          <Icono nombre={pestanaActiva === 'calendarios' ? 'add' : 'add_task'} clase="text-[28px]" />
+        </button>
+      )}
 
       {/* ── Panel lateral: detalle de registro ── */}
       <AnimatePresence>

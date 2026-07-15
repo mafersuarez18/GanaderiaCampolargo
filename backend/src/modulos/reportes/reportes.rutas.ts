@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { EstadoAnimal } from '@prisma/client';
+import { EstadoAnimal, TipoAccionAuditoria } from '@prisma/client';
 import { verificarToken, administradorOVeterinario } from '../../compartido/middlewares/autenticacion';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { respuestaExito } from '../../compartido/utilidades/respuestaHttp';
+import { logger } from '../../config/logger';
 import {
   generarInventario,
   generarSanitario,
@@ -13,6 +14,21 @@ import {
   generarHistorialAnimal,
   generarConsulta,
 } from './reportes.servicio';
+
+function auditarExportacion(req: Request, descripcion: string) {
+  prisma.registroAuditoria.create({
+    data: {
+      accion:       TipoAccionAuditoria.EXPORTAR,
+      modulo:       'reportes',
+      descripcion,
+      entidadTipo:  'Reporte',
+      direccionIP:  req.ip ?? req.socket.remoteAddress,
+      agenteUsuario: req.headers['user-agent'],
+      exitosa:      true,
+      usuarioId:    req.usuarioActual?.id ?? null,
+    },
+  }).catch((err: Error) => logger.warn('Error al registrar auditoría de exportación', { error: err.message }));
+}
 
 const enrutador = Router();
 
@@ -31,6 +47,7 @@ const esquemaFiltros = z.object({
 enrutador.get('/inventario', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = esquemaFiltros.parse(req.query);
+    auditarExportacion(req, `Exportación reporte inventario (${filtros.formato.toUpperCase()}, año ${filtros.anio})`);
     await generarInventario(res, filtros.formato, filtros);
   } catch (error) { return next(error); }
 });
@@ -39,6 +56,7 @@ enrutador.get('/inventario', async (req: Request, res: Response, next: NextFunct
 enrutador.get('/sanitario', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = esquemaFiltros.parse(req.query);
+    auditarExportacion(req, `Exportación reporte sanitario (${filtros.formato.toUpperCase()}, año ${filtros.anio})`);
     await generarSanitario(res, filtros.formato, filtros);
   } catch (error) { return next(error); }
 });
@@ -47,6 +65,7 @@ enrutador.get('/sanitario', async (req: Request, res: Response, next: NextFuncti
 enrutador.get('/vacunacion', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = esquemaFiltros.parse(req.query);
+    auditarExportacion(req, `Exportación reporte vacunación (${filtros.formato.toUpperCase()}, año ${filtros.anio})`);
     await generarVacunacion(res, filtros.formato, filtros);
   } catch (error) { return next(error); }
 });
@@ -55,6 +74,7 @@ enrutador.get('/vacunacion', async (req: Request, res: Response, next: NextFunct
 enrutador.get('/reproductivo', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = esquemaFiltros.parse(req.query);
+    auditarExportacion(req, `Exportación reporte reproductivo (${filtros.formato.toUpperCase()}, año ${filtros.anio})`);
     await generarReproductivo(res, filtros.formato, filtros);
   } catch (error) { return next(error); }
 });
@@ -62,6 +82,7 @@ enrutador.get('/reproductivo', async (req: Request, res: Response, next: NextFun
 // GET /api/v1/reportes/historial-animal/:animalId?formato=pdf
 enrutador.get('/historial-animal/:animalId', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    auditarExportacion(req, `Exportación historial animal ID: ${req.params['animalId']}`);
     await generarHistorialAnimal(res, req.params['animalId'] as string);
   } catch (error) { return next(error); }
 });
@@ -69,6 +90,7 @@ enrutador.get('/historial-animal/:animalId', async (req: Request, res: Response,
 // GET /api/v1/reportes/consulta/:consultaId?formato=pdf
 enrutador.get('/consulta/:consultaId', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    auditarExportacion(req, `Exportación consulta médica ID: ${req.params['consultaId']}`);
     await generarConsulta(res, req.params['consultaId'] as string);
   } catch (error) { return next(error); }
 });

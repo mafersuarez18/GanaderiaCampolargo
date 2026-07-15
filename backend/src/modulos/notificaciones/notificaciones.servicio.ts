@@ -16,7 +16,12 @@ export async function listarNotificaciones(filtros: FiltrosNotificacion, usuario
 
   const donde: Prisma.NotificacionWhereInput = {
     usuarioId: usuarioIdActual,
-    ...(noLeidas !== undefined && { leida: !noLeidas }),
+    // Por defecto excluir abordadas (DESCARTADA); si se pide "no leídas" también excluye leídas
+    ...(noLeidas === true
+      ? { estado: { not: 'DESCARTADA' }, leida: false }
+      : noLeidas === false
+        ? { /* incluir todas, sin filtro extra */ }
+        : { estado: { not: 'DESCARTADA' } }),
     ...(prioridad && { prioridad }),
   };
 
@@ -36,7 +41,10 @@ export async function listarNotificaciones(filtros: FiltrosNotificacion, usuario
 }
 
 export async function contarNoLeidas(usuarioId: string): Promise<number> {
-  return prisma.notificacion.count({ where: { usuarioId, leida: false } });
+  // Cuenta todas las notificaciones no abordadas (excluye DESCARTADA = abordada manualmente)
+  return prisma.notificacion.count({
+    where: { usuarioId, estado: { not: 'DESCARTADA' } },
+  });
 }
 
 export async function marcarLeida(id: string, usuarioId: string) {
@@ -67,4 +75,49 @@ export async function eliminarNotificacion(id: string, usuarioId: string) {
   });
   if (!notificacion) throw new ErrorNoEncontrado('Notificación no encontrada');
   return prisma.notificacion.delete({ where: { id } });
+}
+
+/**
+ * Marca una notificación como abordada (estado DESCARTADA).
+ * Las notificaciones abordadas dejan de contar en el badge y el dashboard.
+ */
+export async function abordarNotificacion(id: string, usuarioId: string) {
+  const notificacion = await prisma.notificacion.findFirst({
+    where: { id, usuarioId },
+    select: { id: true },
+  });
+  if (!notificacion) throw new ErrorNoEncontrado('Notificación no encontrada');
+  return prisma.notificacion.update({
+    where: { id },
+    data: { estado: 'DESCARTADA', leida: true, fechaLeida: new Date() },
+  });
+}
+
+/**
+ * Marca todas las notificaciones pendientes del usuario como abordadas.
+ */
+export async function abordarTodasNotificaciones(usuarioId: string) {
+  const resultado = await prisma.notificacion.updateMany({
+    where: { usuarioId, estado: { not: 'DESCARTADA' } },
+    data: { estado: 'DESCARTADA', leida: true, fechaLeida: new Date() },
+  });
+  return { actualizadas: resultado.count };
+}
+
+/**
+ * Resuelve automáticamente notificaciones activas relacionadas con una entidad.
+ * Llamado cuando se registra una acción que soluciona la alerta (vacuna aplicada, parto registrado, etc.).
+ */
+export async function resolverNotificacionesDeEntidad(
+  entidadTipo: string,
+  entidadId: string,
+): Promise<void> {
+  await prisma.notificacion.updateMany({
+    where: {
+      entidadTipo,
+      entidadId,
+      estado: { not: 'DESCARTADA' },
+    },
+    data: { estado: 'DESCARTADA', leida: true, fechaLeida: new Date() },
+  });
 }

@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import prisma from '../../compartido/prisma/clientePrisma';
 import { logger } from '../../config/logger';
-import { TipoAlertaRegla, EstadoNotificacion, PrioridadAlerta } from '@prisma/client';
+import { TipoAlertaRegla, EstadoNotificacion, PrioridadAlerta, RolUsuario } from '@prisma/client';
 import { enviarCorreoAlerta } from '../notificaciones/correo.servicio';
 
 // ── Inicio del motor de alertas ───────────────────────────────────────────────
@@ -13,51 +13,60 @@ export function iniciarMotorAlertas(): void {
     logger.debug('Motor de alertas: evaluación periódica');
     await evaluarTodasLasReglas();
   });
-
-  // Partos próximos: cada 6 horas
-  cron.schedule('0 */6 * * *', async () => {
-    await evaluarPartosProximos();
-  });
-
-  // Vacunas y desparasitaciones: cada 12 horas
-  cron.schedule('0 */12 * * *', async () => {
-    await evaluarVacunas();
-    await evaluarDesparasitaciones();
-  });
 }
 
-/** Ejecuta todas las reglas activas de forma programática (útil para el endpoint de disparo manual) */
-export async function evaluarTodasLasReglas(): Promise<{ evaluadas: number; errores: string[] }> {
+/**
+ * Ejecuta todas las reglas activas de forma programática.
+ * Respeta evaluarCadaHoras — no re-evalúa si aún no ha pasado el tiempo configurado.
+ * Útil para el endpoint de disparo manual (en ese caso skipThrottle = true).
+ */
+export async function evaluarTodasLasReglas(
+  skipThrottle = false,
+): Promise<{ evaluadas: number; errores: string[] }> {
   const reglas = await prisma.reglaAlerta.findMany({ where: { activa: true } });
   const errores: string[] = [];
+  let evaluadas = 0;
 
   for (const regla of reglas) {
+    // ── Throttle por evaluarCadaHoras ─────────────────────────────────────
+    if (!skipThrottle && regla.ultimaEvaluacion && regla.evaluarCadaHoras > 0) {
+      const msDesdeUltima = Date.now() - regla.ultimaEvaluacion.getTime();
+      const msUmbral      = regla.evaluarCadaHoras * 3_600_000;
+      if (msDesdeUltima < msUmbral) continue; // Demasiado pronto, omitir
+    }
+
     try {
+      const umbral   = regla.umbralValor   ?? defaultUmbral(regla.tipoAlerta);
+      const prioridad = regla.prioridad;
+
       switch (regla.tipoAlerta) {
         case TipoAlertaRegla.VACUNA_VENCIDA:
         case TipoAlertaRegla.VACUNA_PROXIMA:
-          await evaluarVacunas(regla.umbralValor ?? 7);
+          await evaluarVacunas(umbral, prioridad, regla);
           break;
         case TipoAlertaRegla.PARTO_PROXIMO:
-          await evaluarPartosProximos(regla.umbralValor ?? 7);
+          await evaluarPartosProximos(umbral, prioridad, regla);
           break;
         case TipoAlertaRegla.DIAS_ABIERTOS_EXCEDIDOS:
-          await evaluarDiasAbiertos(regla.umbralValor ?? 90);
+          await evaluarDiasAbiertos(umbral, prioridad, regla);
           break;
         case TipoAlertaRegla.ENFERMEDAD_ACTIVA_SIN_RESOLUCION:
-          await evaluarEnfermedadesActivas(regla.umbralValor ?? 14);
+          await evaluarEnfermedadesActivas(umbral, prioridad, regla);
           break;
         case TipoAlertaRegla.INVENTARIO_SEMEN_BAJO:
-          await evaluarInventarioSemen(regla.umbralValor ?? 10);
+          await evaluarInventarioSemen(umbral, prioridad, regla);
           break;
         case TipoAlertaRegla.AUSENCIA_CONTROL_VETERINARIO:
-          await evaluarAusenciaControlVeterinario(regla.umbralValor ?? 60);
+          await evaluarAusenciaControlVeterinario(umbral, prioridad, regla);
           break;
         case TipoAlertaRegla.CONTROL_PESO_PENDIENTE:
-          await evaluarControlPesoPendiente(regla.umbralValor ?? 30);
+          await evaluarControlPesoPendiente(umbral, prioridad, regla);
           break;
         case TipoAlertaRegla.INTERVALO_REPRODUCTIVO_PROLONGADO:
-          await evaluarIntervaloParto(regla.umbralValor ?? 365);
+          await evaluarIntervaloParto(umbral, prioridad, regla);
+          break;
+        // PERSONALIZADA: no tiene lógica automática, solo se puede disparar manualmente
+        default:
           break;
       }
 
@@ -65,6 +74,8 @@ export async function evaluarTodasLasReglas(): Promise<{ evaluadas: number; erro
         where: { id: regla.id },
         data: { ultimaEvaluacion: new Date() },
       });
+
+      evaluadas++;
     } catch (error) {
       const msg = `Error evaluando regla '${regla.nombre}': ${String(error)}`;
       logger.error(msg);
@@ -72,15 +83,47 @@ export async function evaluarTodasLasReglas(): Promise<{ evaluadas: number; erro
     }
   }
 
-  return { evaluadas: reglas.length, errores };
+  return { evaluadas, errores };
 }
+
+// ── Umbrales por defecto ──────────────────────────────────────────────────────
+
+function defaultUmbral(tipo: TipoAlertaRegla): number {
+  switch (tipo) {
+    case TipoAlertaRegla.VACUNA_VENCIDA:                    return 0;
+    case TipoAlertaRegla.VACUNA_PROXIMA:                    return 7;
+    case TipoAlertaRegla.PARTO_PROXIMO:                     return 7;
+    case TipoAlertaRegla.DIAS_ABIERTOS_EXCEDIDOS:           return 90;
+    case TipoAlertaRegla.ENFERMEDAD_ACTIVA_SIN_RESOLUCION:  return 14;
+    case TipoAlertaRegla.INVENTARIO_SEMEN_BAJO:             return 10;
+    case TipoAlertaRegla.AUSENCIA_CONTROL_VETERINARIO:      return 60;
+    case TipoAlertaRegla.CONTROL_PESO_PENDIENTE:            return 30;
+    case TipoAlertaRegla.INTERVALO_REPRODUCTIVO_PROLONGADO: return 365;
+    default:                                                 return 7;
+  }
+}
+
+// ── Tipo de regla completa (lo que llega de la BD) ────────────────────────────
+
+type ReglaDb = {
+  id: string;
+  nombre: string;
+  mensajeAlerta: string | null;
+  notificarAdministrador: boolean;
+  notificarVeterinario: boolean;
+  notificarTecnico: boolean;
+};
 
 // ── Evaluadores individuales ──────────────────────────────────────────────────
 
 /** Vacunas próximas a vencer o ya vencidas */
-async function evaluarVacunas(diasUmbral = 7): Promise<void> {
-  const hoy     = new Date();
-  const limite  = new Date(hoy.getTime() + diasUmbral * 86_400_000);
+async function evaluarVacunas(
+  diasUmbral: number,
+  prioridad: PrioridadAlerta,
+  regla: ReglaDb,
+): Promise<void> {
+  const hoy    = new Date();
+  const limite = new Date(hoy.getTime() + diasUmbral * 86_400_000);
 
   const vacunasProximas = await prisma.registroVacunacion.findMany({
     where: {
@@ -103,29 +146,44 @@ async function evaluarVacunas(diasUmbral = 7): Promise<void> {
 
     const yaVencida = vacuna.proximaFecha != null && vacuna.proximaFecha < hoy;
 
+    const titulo = interpolar(
+      regla.mensajeAlerta ??
+        (yaVencida
+          ? 'Vacuna VENCIDA — {vacuna}'
+          : 'Vacuna próxima — {vacuna}'),
+      {
+        animal: animal.nombre ?? animal.numeroArete,
+        vacuna: vacuna.calendarioVacunacion.nombreVacuna,
+        fecha:  vacuna.proximaFecha?.toLocaleDateString('es-VE') ?? '',
+        dias:   diasUmbral.toString(),
+      },
+    );
+
+    const mensaje = `Animal: ${animal.nombre ?? animal.numeroArete} | Próxima fecha: ${vacuna.proximaFecha?.toLocaleDateString('es-VE') ?? '—'}`;
+
     await crearNotificacionSiNoExiste(
-      yaVencida
-        ? `Vacuna VENCIDA — ${vacuna.calendarioVacunacion.nombreVacuna}`
-        : `Vacuna próxima — ${vacuna.calendarioVacunacion.nombreVacuna}`,
-      `Animal: ${animal.nombre ?? animal.numeroArete} | Próxima fecha: ${vacuna.proximaFecha?.toLocaleDateString('es-VE')}`,
-      yaVencida ? PrioridadAlerta.CRITICA : PrioridadAlerta.ALTA,
+      titulo,
+      mensaje,
+      prioridad,
       'RegistroVacunacion',
       vacuna.id,
       animal.fincaId,
+      regla,
     );
   }
 }
 
 /** Desparasitaciones cuya próxima aplicación se aproxima o ya pasó */
-async function evaluarDesparasitaciones(diasUmbral = 15): Promise<void> {
+async function evaluarDesparasitaciones(
+  diasUmbral = 15,
+  prioridad: PrioridadAlerta = PrioridadAlerta.MEDIA,
+  regla?: ReglaDb,
+): Promise<void> {
   const hoy    = new Date();
   const limite = new Date(hoy.getTime() + diasUmbral * 86_400_000);
 
-  // Obtener la última desparasitación de cada animal activo
   const ultimasDesp = await prisma.programaDesparasitacion.findMany({
-    where: {
-      historialMedico: { animal: { estado: 'ACTIVO' } },
-    },
+    where: { historialMedico: { animal: { estado: 'ACTIVO' } } },
     include: {
       historialMedico: {
         include: {
@@ -144,30 +202,42 @@ async function evaluarDesparasitaciones(diasUmbral = 15): Promise<void> {
   }
 
   for (const [, desp] of porAnimal) {
-    const animal = desp.historialMedico.animal;
-
-    // Calcular próxima fecha estimada: 90 días después de la última desparasitación
+    const animal      = desp.historialMedico.animal;
     const proximaFecha = new Date(desp.fecha.getTime() + 90 * 86_400_000);
 
-    if (proximaFecha > limite) continue; // Aún no se acerca
+    if (proximaFecha > limite) continue;
 
     const yaVencida = proximaFecha < hoy;
 
-    await crearNotificacionSiNoExiste(
-      yaVencida
+    const titulo = regla?.mensajeAlerta
+      ? interpolar(regla.mensajeAlerta, {
+          animal: animal.nombre ?? animal.numeroArete,
+          vacuna: desp.producto,
+          fecha:  proximaFecha.toLocaleDateString('es-VE'),
+          dias:   diasUmbral.toString(),
+        })
+      : yaVencida
         ? `Desparasitación VENCIDA — ${animal.nombre ?? animal.numeroArete}`
-        : `Desparasitación próxima — ${animal.nombre ?? animal.numeroArete}`,
+        : `Desparasitación próxima — ${animal.nombre ?? animal.numeroArete}`;
+
+    await crearNotificacionSiNoExiste(
+      titulo,
       `Producto anterior: ${desp.producto} (${desp.fecha.toLocaleDateString('es-VE')}) | Próxima: ${proximaFecha.toLocaleDateString('es-VE')}`,
-      yaVencida ? PrioridadAlerta.ALTA : PrioridadAlerta.MEDIA,
+      prioridad,
       'ProgramaDesparasitacion',
       desp.id,
       animal.fincaId,
+      regla,
     );
   }
 }
 
 /** Partos esperados en los próximos N días */
-async function evaluarPartosProximos(diasUmbral = 7): Promise<void> {
+async function evaluarPartosProximos(
+  diasUmbral: number,
+  prioridad: PrioridadAlerta,
+  regla: ReglaDb,
+): Promise<void> {
   const hoy    = new Date();
   const limite = new Date(hoy.getTime() + diasUmbral * 86_400_000);
 
@@ -186,19 +256,33 @@ async function evaluarPartosProximos(diasUmbral = 7): Promise<void> {
       (gestacion.fechaPartoEsperado.getTime() - hoy.getTime()) / 86_400_000,
     );
 
+    const titulo = interpolar(
+      regla.mensajeAlerta ?? 'Parto próximo — {animal}',
+      {
+        animal: gestacion.madre.nombre ?? gestacion.madre.numeroArete,
+        dias:   diasRestantes.toString(),
+        fecha:  gestacion.fechaPartoEsperado.toLocaleDateString('es-VE'),
+      },
+    );
+
     await crearNotificacionSiNoExiste(
-      `Parto próximo — ${gestacion.madre.nombre ?? gestacion.madre.numeroArete}`,
+      titulo,
       `Parto esperado en ${diasRestantes} día(s) (${gestacion.fechaPartoEsperado.toLocaleDateString('es-VE')})`,
-      diasRestantes <= 3 ? PrioridadAlerta.CRITICA : PrioridadAlerta.ALTA,
+      prioridad,
       'Gestacion',
       gestacion.id,
       gestacion.madre.fincaId,
+      regla,
     );
   }
 }
 
-/** Vacas con días abiertos (sin gestación confirmada) que superan el umbral */
-async function evaluarDiasAbiertos(umbralDias: number): Promise<void> {
+/** Vacas con días abiertos que superan el umbral */
+async function evaluarDiasAbiertos(
+  umbralDias: number,
+  prioridad: PrioridadAlerta,
+  regla: ReglaDb,
+): Promise<void> {
   const fechaLimite = new Date(Date.now() - umbralDias * 86_400_000);
 
   const ultimosPartos = await prisma.nacimiento.findMany({
@@ -224,19 +308,29 @@ async function evaluarDiasAbiertos(umbralDias: number): Promise<void> {
       (Date.now() - parto.fechaNacimiento.getTime()) / 86_400_000,
     );
 
+    const titulo = interpolar(
+      regla.mensajeAlerta ?? 'Días abiertos excedidos — {animal}',
+      { animal: madre.nombre ?? madre.numeroArete, dias: diasAbiertos.toString() },
+    );
+
     await crearNotificacionSiNoExiste(
-      `Días abiertos excedidos — ${madre.nombre ?? madre.numeroArete}`,
+      titulo,
       `La vaca lleva ${diasAbiertos} días sin nueva gestación confirmada (umbral: ${umbralDias} días)`,
-      PrioridadAlerta.MEDIA,
+      prioridad,
       'Animal',
       madre.id,
       madre.fincaId,
+      regla,
     );
   }
 }
 
 /** Enfermedades activas sin resolución que superan el umbral de días */
-async function evaluarEnfermedadesActivas(umbralDias: number): Promise<void> {
+async function evaluarEnfermedadesActivas(
+  umbralDias: number,
+  prioridad: PrioridadAlerta,
+  regla: ReglaDb,
+): Promise<void> {
   const fechaLimite = new Date(Date.now() - umbralDias * 86_400_000);
 
   const enfermedadesAntiguas = await prisma.enfermedadDiagnosticada.findMany({
@@ -258,19 +352,33 @@ async function evaluarEnfermedadesActivas(umbralDias: number): Promise<void> {
     const animal = enfermedad.historialMedico.animal;
     const dias   = Math.floor((Date.now() - enfermedad.fechaInicio.getTime()) / 86_400_000);
 
+    const titulo = interpolar(
+      regla.mensajeAlerta ?? 'Enfermedad sin resolución — {animal}',
+      {
+        animal:     animal.nombre ?? animal.numeroArete,
+        enfermedad: enfermedad.nombreEnfermedad,
+        dias:       dias.toString(),
+      },
+    );
+
     await crearNotificacionSiNoExiste(
-      `Enfermedad sin resolución — ${animal.nombre ?? animal.numeroArete}`,
+      titulo,
       `${enfermedad.nombreEnfermedad} lleva ${dias} días activa sin resolución (umbral: ${umbralDias} días)`,
-      PrioridadAlerta.ALTA,
+      prioridad,
       'EnfermedadDiagnosticada',
       enfermedad.id,
       animal.fincaId,
+      regla,
     );
   }
 }
 
 /** Animales activos sin consulta veterinaria en más de N días */
-async function evaluarAusenciaControlVeterinario(umbralDias: number): Promise<void> {
+async function evaluarAusenciaControlVeterinario(
+  umbralDias: number,
+  prioridad: PrioridadAlerta,
+  regla: ReglaDb,
+): Promise<void> {
   const fechaLimite = new Date(Date.now() - umbralDias * 86_400_000);
 
   const animalesSinControl = await prisma.animal.findMany({
@@ -278,11 +386,7 @@ async function evaluarAusenciaControlVeterinario(umbralDias: number): Promise<vo
       estado: 'ACTIVO',
       OR: [
         { historialesMedicos: { none: {} } },
-        {
-          historialesMedicos: {
-            none: { fechaConsulta: { gte: fechaLimite } },
-          },
-        },
+        { historialesMedicos: { none: { fechaConsulta: { gte: fechaLimite } } } },
       ],
     },
     select: {
@@ -304,62 +408,70 @@ async function evaluarAusenciaControlVeterinario(umbralDias: number): Promise<vo
       ? Math.floor((Date.now() - ultimaConsulta.getTime()) / 86_400_000)
       : null;
 
+    const titulo = interpolar(
+      regla.mensajeAlerta ?? 'Sin control veterinario — {animal}',
+      {
+        animal: animal.nombre ?? animal.numeroArete,
+        dias:   (diasSinControl ?? umbralDias).toString(),
+      },
+    );
+
     const mensaje = diasSinControl != null
       ? `Último control hace ${diasSinControl} días (umbral: ${umbralDias} días)`
       : `Sin consulta veterinaria registrada en el sistema`;
 
     await crearNotificacionSiNoExiste(
-      `Sin control veterinario — ${animal.nombre ?? animal.numeroArete}`,
+      titulo,
       mensaje,
-      PrioridadAlerta.MEDIA,
+      prioridad,
       'Animal',
       animal.id,
       animal.fincaId,
+      regla,
     );
   }
 }
 
-/** Animales sin registro de peso en los últimos N días */
-async function evaluarControlPesoPendiente(umbralDias: number): Promise<void> {
-  const fechaLimite = new Date(Date.now() - umbralDias * 86_400_000);
-
-  // Animales activos con pesoActual desactualizado (no existe campo de fecha de peso,
-  // usamos la fecha de actualizadoEn como proxy)
+/** Animales sin peso registrado */
+async function evaluarControlPesoPendiente(
+  umbralDias: number,
+  prioridad: PrioridadAlerta,
+  regla: ReglaDb,
+): Promise<void> {
   const animalesSinPeso = await prisma.animal.findMany({
-    where: {
-      estado: 'ACTIVO',
-      pesoActual: null,
-    },
-    select: {
-      id: true,
-      numeroArete: true,
-      nombre: true,
-      fincaId: true,
-      fechaIngreso: true,
-    },
+    where: { estado: 'ACTIVO', pesoActual: null },
+    select: { id: true, numeroArete: true, nombre: true, fincaId: true, fechaIngreso: true },
   });
 
   for (const animal of animalesSinPeso) {
     const diasDesdeIngreso = Math.floor(
       (Date.now() - animal.fechaIngreso.getTime()) / 86_400_000,
     );
-
-    // Solo alertar si el animal lleva más de umbralDias en el sistema
     if (diasDesdeIngreso < umbralDias) continue;
 
+    const titulo = interpolar(
+      regla.mensajeAlerta ?? 'Control de peso pendiente — {animal}',
+      { animal: animal.nombre ?? animal.numeroArete, dias: diasDesdeIngreso.toString() },
+    );
+
     await crearNotificacionSiNoExiste(
-      `Control de peso pendiente — ${animal.nombre ?? animal.numeroArete}`,
+      titulo,
       `El animal no tiene peso registrado y lleva ${diasDesdeIngreso} días en el sistema`,
-      PrioridadAlerta.BAJA,
+      prioridad,
       'Animal',
       animal.id,
       animal.fincaId,
+      regla,
     );
   }
 }
 
 /** Vacas cuyo intervalo entre partos supera el umbral de días */
-async function evaluarIntervaloParto(umbralDias: number): Promise<void> {
+async function evaluarIntervaloParto(
+  umbralDias: number,
+  prioridad: PrioridadAlerta,
+  regla: ReglaDb,
+): Promise<void> {
   const fechaLimite = new Date(Date.now() - umbralDias * 86_400_000);
 
   const gestacionesAntiguas = await prisma.gestacion.findMany({
@@ -369,7 +481,7 @@ async function evaluarIntervaloParto(umbralDias: number): Promise<void> {
       madre: { estado: 'ACTIVO', sexo: 'HEMBRA' },
     },
     include: {
-      madre:      { select: { id: true, numeroArete: true, nombre: true, fincaId: true } },
+      madre:       { select: { id: true, numeroArete: true, nombre: true, fincaId: true } },
       nacimientos: { select: { fechaNacimiento: true }, orderBy: { fechaNacimiento: 'desc' }, take: 1 },
     },
   });
@@ -381,19 +493,29 @@ async function evaluarIntervaloParto(umbralDias: number): Promise<void> {
       (Date.now() - primerNacimiento.fechaNacimiento.getTime()) / 86_400_000,
     );
 
+    const titulo = interpolar(
+      regla.mensajeAlerta ?? 'Intervalo reproductivo prolongado — {animal}',
+      { animal: gestacion.madre.nombre ?? gestacion.madre.numeroArete, dias: dias.toString() },
+    );
+
     await crearNotificacionSiNoExiste(
-      `Intervalo reproductivo prolongado — ${gestacion.madre.nombre ?? gestacion.madre.numeroArete}`,
+      titulo,
       `Han pasado ${dias} días desde el último parto sin nueva gestación (umbral: ${umbralDias} días)`,
-      PrioridadAlerta.MEDIA,
+      prioridad,
       'Gestacion',
       gestacion.id,
       gestacion.madre.fincaId,
+      regla,
     );
   }
 }
 
 /** Inventario de semen por debajo del umbral */
-async function evaluarInventarioSemen(umbralUnidades: number): Promise<void> {
+async function evaluarInventarioSemen(
+  umbralUnidades: number,
+  prioridad: PrioridadAlerta,
+  regla: ReglaDb,
+): Promise<void> {
   const inventariosBajos = await prisma.inventarioSemen.findMany({
     where: { activo: true, cantidadDosis: { gt: 0 } },
     include: { semental: true },
@@ -403,23 +525,42 @@ async function evaluarInventarioSemen(umbralUnidades: number): Promise<void> {
     const disponibles = inventario.cantidadDosis - inventario.cantidadUsada;
     if (disponibles > umbralUnidades) continue;
 
+    const titulo = interpolar(
+      regla.mensajeAlerta ?? 'Inventario de semen bajo — {semental}',
+      {
+        semental:  inventario.semental.nombre,
+        cantidad:  disponibles.toString(),
+        umbral:    umbralUnidades.toString(),
+      },
+    );
+
     await crearNotificacionSiNoExiste(
-      `Inventario de semen bajo — ${inventario.semental.nombre}`,
+      titulo,
       `Quedan ${disponibles} dosis disponibles (mínimo recomendado: ${umbralUnidades})`,
-      PrioridadAlerta.MEDIA,
+      prioridad,
       'InventarioSemen',
       inventario.id,
       null,
+      regla,
     );
   }
 }
 
-// ── Helper: crear notificación evitando duplicados recientes ─────────────────
+// ── Helper: interpolación de variables en mensajeAlerta ──────────────────────
 
 /**
- * Crea una notificación para todos los usuarios activos con el rol adecuado,
- * pero sólo si no existe ya una notificación no leída con el mismo entidadId
- * generada en las últimas 24 h.
+ * Reemplaza variables como {animal}, {vacuna}, {dias}, {fecha}, {enfermedad},
+ * {semental}, {cantidad}, {umbral} en el mensaje personalizado de la regla.
+ */
+function interpolar(plantilla: string, vars: Record<string, string>): string {
+  return plantilla.replace(/\{(\w+)\}/g, (_, clave) => vars[clave] ?? `{${clave}}`);
+}
+
+// ── Helper: crear notificación evitando duplicados recientes ──────────────────
+
+/**
+ * Crea una notificación para los usuarios que corresponde según la configuración
+ * de destinatarios de la regla, evitando duplicados en las últimas 24h.
  */
 async function crearNotificacionSiNoExiste(
   titulo: string,
@@ -428,24 +569,27 @@ async function crearNotificacionSiNoExiste(
   entidadTipo: string,
   entidadId: string,
   fincaId: string | null,
+  regla?: ReglaDb,
 ): Promise<void> {
   const hace24h = new Date(Date.now() - 24 * 3_600_000);
 
-  // Verificar si ya existe una notificación reciente para esta entidad
   const yaExiste = await prisma.notificacion.findFirst({
-    where: {
-      entidadId,
-      entidadTipo,
-      leida: false,
-      creadoEn: { gte: hace24h },
-    },
+    where: { entidadId, entidadTipo, leida: false, creadoEn: { gte: hace24h } },
     select: { id: true },
   });
+  if (yaExiste) return;
 
-  if (yaExiste) return; // Evitar flood de notificaciones duplicadas
+  // Filtrar usuarios según la configuración de destinatarios de la regla
+  const rolFiltros: RolUsuario[] = [];
+  if (!regla || regla.notificarAdministrador) rolFiltros.push(RolUsuario.ADMINISTRADOR);
+  if (!regla || regla.notificarVeterinario)   rolFiltros.push(RolUsuario.VETERINARIO);
+  if (regla?.notificarTecnico)                rolFiltros.push(RolUsuario.TECNICO);
 
   const usuarios = await prisma.usuario.findMany({
-    where: { estado: 'ACTIVO' },
+    where: {
+      estado: 'ACTIVO',
+      rol: rolFiltros.length > 0 ? { in: rolFiltros } : undefined,
+    },
     select: { id: true, correo: true, nombre: true, rol: true },
   });
 
@@ -459,6 +603,7 @@ async function crearNotificacionSiNoExiste(
         entidadTipo,
         entidadId,
         usuarioId: usuario.id,
+        ...(regla && { reglaId: regla.id }),
       },
     });
 
