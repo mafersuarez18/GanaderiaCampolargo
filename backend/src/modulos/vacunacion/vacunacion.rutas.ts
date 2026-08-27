@@ -1,9 +1,7 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import {
   verificarToken,
-  soloAdministrador,
-  administradorOVeterinario,
-  cualquierRol,
+  requerirPrivilegio,
 } from '../../compartido/middlewares/autenticacion';
 import { registrarAuditoria } from '../../compartido/middlewares/auditoria';
 import {
@@ -23,18 +21,18 @@ const enrutador = Router();
 enrutador.use(verificarToken);
 
 // Medicamentos (catálogo)
-enrutador.get('/medicamentos', cualquierRol, controladorListarMedicamentos);
+enrutador.get('/medicamentos', requerirPrivilegio('vacunacion.ver'), controladorListarMedicamentos);
 
 // Calendarios de vacunación
-enrutador.get('/calendarios', cualquierRol, controladorListarCalendarios);
-enrutador.get('/calendarios/:id', cualquierRol, controladorObtenerCalendario);
-enrutador.post('/calendarios', soloAdministrador, registrarAuditoria('Crear calendario vacunación', 'CalendarioVacunacion'), controladorCrearCalendario);
-enrutador.patch('/calendarios/:id', soloAdministrador, registrarAuditoria('Actualizar calendario vacunación', 'CalendarioVacunacion'), controladorActualizarCalendario);
+enrutador.get('/calendarios', requerirPrivilegio('vacunacion.ver'), controladorListarCalendarios);
+enrutador.get('/calendarios/:id', requerirPrivilegio('vacunacion.ver'), controladorObtenerCalendario);
+enrutador.post('/calendarios', requerirPrivilegio('vacunacion.gestionar_calendario'), registrarAuditoria('Crear calendario vacunación', 'CalendarioVacunacion'), controladorCrearCalendario);
+enrutador.patch('/calendarios/:id', requerirPrivilegio('vacunacion.gestionar_calendario'), registrarAuditoria('Actualizar calendario vacunación', 'CalendarioVacunacion'), controladorActualizarCalendario);
 
 // Registros de vacunación aplicada
-enrutador.get('/', cualquierRol, controladorListarRegistros);
-enrutador.post('/', administradorOVeterinario, registrarAuditoria('Registrar vacunación', 'RegistroVacunacion'), controladorRegistrarVacunacion);
-enrutador.patch('/:id', administradorOVeterinario, registrarAuditoria('Actualizar registro vacunación', 'RegistroVacunacion'), controladorActualizarRegistro);
-enrutador.delete('/:id', administradorOVeterinario, registrarAuditoria('Eliminar registro vacunación', 'RegistroVacunacion'), controladorEliminarRegistro);
+enrutador.get('/', requerirPrivilegio('vacunacion.ver'), controladorListarRegistros);
+enrutador.post('/', requerirPrivilegio('vacunacion.registrar'), registrarAuditoria('Registrar vacunación', 'RegistroVacunacion'), controladorRegistrarVacunacion);
+enrutador.patch('/:id', requerirPrivilegio('vacunacion.registrar'), registrarAuditoria('Actualizar registro vacunación', 'RegistroVacunacion'), controladorActualizarRegistro);
+enrutador.delete('/:id', requerirPrivilegio('vacunacion.registrar'), registrarAuditoria('Eliminar registro vacunación', 'RegistroVacunacion'), controladorEliminarRegistro);
 
 export default enrutador;

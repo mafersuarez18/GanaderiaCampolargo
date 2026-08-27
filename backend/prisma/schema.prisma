@@ -48,12 +48,6 @@ enum EstadoSanitario {
   CUARENTENA
 }
 
-enum RolUsuario {
-  ADMINISTRADOR
-  VETERINARIO
-  TECNICO
-}
-
 enum EstadoUsuario {
   ACTIVO
   INACTIVO
@@ -165,16 +159,6 @@ enum EstadoReproductivo {
   GESTANTE
 }
 
-enum TipoAyudaDiagnostica {
-  HEMOGRAMA
-  BIOQUIMICA_SANGUINEA
-  RASPADO_PIEL
-  ANALISIS_COPROLOGICO
-  TEST_CALIFORNIA_MASTITIS
-  ECOGRAFIA
-  OTRO
-}
-
 enum TipoDesparasitante {
   ECTOPARASITO
   ENDOPARASITO
@@ -197,6 +181,12 @@ enum NivelEstres {
   BAJO
 }
 
+enum NivelGravedad {
+  LEVE
+  MODERADA
+  GRAVE
+}
+
 // =============================================================
 // MÓDULO: INFRAESTRUCTURA (Fincas, Lotes, Potreros)
 // =============================================================
@@ -209,19 +199,16 @@ model Finca {
   direccion    String?
   hectareas    Float?
   descripcion  String?
-  activa       Boolean  @default(true)
-  creadoEn     DateTime @default(now())
-  actualizadoEn DateTime @updatedAt
 
   // Coordenadas del centro geográfico de la finca (PostGIS)
   latitudCentro  Float?
   longitudCentro Float?
 
   // Relaciones
-  lotes    Lote[]
-  animales Animal[]
+  lotes Lote[]
+  registrosUbicacion RegistroUbicacion[]
 
-  @@map("fincas")
+  @@map("finca")
 }
 
 model Lote {
@@ -229,11 +216,8 @@ model Lote {
   nombre      String
   descripcion String?
   capacidad   Int?     // Capacidad máxima de animales
-  activo      Boolean  @default(true)
-  creadoEn    DateTime @default(now())
-  actualizadoEn DateTime @updatedAt
 
-  fincaId String
+  fincaId String   @map("finca_id")
   finca   Finca  @relation(fields: [fincaId], references: [id], onDelete: Restrict)
 
   // Relaciones
@@ -241,7 +225,7 @@ model Lote {
   potreros  Potrero[]
 
   @@unique([nombre, fincaId])
-  @@map("lotes")
+  @@map("lote")
 }
 
 model Potrero {
@@ -249,14 +233,11 @@ model Potrero {
   nombre      String
   hectareas   Float?
   descripcion String?
-  activo      Boolean  @default(true)
-  creadoEn    DateTime @default(now())
-  actualizadoEn DateTime @updatedAt
 
-  loteId String
+  loteId String   @map("lote_id")
   lote   Lote   @relation(fields: [loteId], references: [id], onDelete: Restrict)
 
-  @@map("potreros")
+  @@map("potrero")
 }
 
 // =============================================================
@@ -269,13 +250,11 @@ model Raza {
   origen      String?
   proposito   TipoPropositoAnimal
   descripcion String?
-  activa      Boolean             @default(true)
-  creadoEn    DateTime            @default(now())
 
   animales  Animal[]
   sementales Semental[]
 
-  @@map("razas")
+  @@map("raza")
 }
 
 model Medicamento {
@@ -287,15 +266,13 @@ model Medicamento {
   concentracion   String?
   unidadMedida    String?  // ml, mg, unidades
   descripcion     String?
-  activo          Boolean  @default(true)
-  creadoEn        DateTime @default(now())
-  actualizadoEn   DateTime @updatedAt
 
   tratamientos         Tratamiento[]
   registrosVacunacion  RegistroVacunacion[]
   calendariosVacunacion CalendarioVacunacion[]
+  desparasitaciones    ProgramaDesparasitacion[]
 
-  @@map("medicamentos")
+  @@map("medicamento")
 }
 
 // =============================================================
@@ -321,23 +298,19 @@ model Animal {
   fechaIngreso    DateTime            @default(now())
   fechaEgreso     DateTime?
   motivoEgreso    String?
-  creadoEn        DateTime            @default(now())
   actualizadoEn   DateTime            @updatedAt
 
-  // Última posición GPS conocida (se actualiza con cada señal del dispositivo)
-  latitudActual  Float?
-  longitudActual Float?
-
   // Claves foráneas
-  fincaId String
-  loteId  String?
-  razaId  String
-  padreId String? // Semental (padre biológico)
-  madreId String? // Vaca (madre biológica)
+  loteId  String  @map("lote_id")  // Todo animal debe estar asignado a un lote (y por extensión, a la finca del lote)
+  razaId  String  @map("raza_id")
+  padreId String? @map("padre_id") // Semental (padre biológico)
+  madreId String? @map("madre_id") // Vaca (madre biológica)
+  // Nacimiento del cual proviene este animal, según el modelo lógico del tomo
+  // (dirección inversa a Nacimiento.criaId, que ya cumple el mismo propósito)
+  nacimientoId String? @unique @map("nacimiento_id")
 
   // Relaciones de infraestructura
-  finca Finca  @relation(fields: [fincaId], references: [id], onDelete: Restrict)
-  lote  Lote?  @relation(fields: [loteId], references: [id], onDelete: SetNull)
+  lote  Lote   @relation(fields: [loteId], references: [id], onDelete: Restrict)
   raza  Raza   @relation(fields: [razaId], references: [id], onDelete: Restrict)
 
   // Árbol genealógico (auto-referencia)
@@ -351,16 +324,16 @@ model Animal {
   eventosReproductivos   EventoReproductivo[]
   gestacionesComoMadre   Gestacion[]          @relation("GestacionMadre")
   nacimientosComoCria    Nacimiento?          @relation("NacimientoCria")
+  nacimientoOrigen       Nacimiento?          @relation("NacimientoOrigenAnimal", fields: [nacimientoId], references: [id], onDelete: SetNull)
   registrosUbicacion     RegistroUbicacion[]
   dispositivoGPS         DispositivoGPS?
 
-  @@index([fincaId])
   @@index([loteId])
   @@index([razaId])
   @@index([estado])
   @@index([estadoSanitario])
   @@index([numeroArete])
-  @@map("animales")
+  @@map("animal")
 }
 
 // =============================================================
@@ -372,12 +345,12 @@ model HistorialMedico {
   fechaConsulta   DateTime
   motivoConsulta  String
   sintomasObservados String?
-  diagnostico     String
-  pronostico      String?
   observaciones   String?
+  // Estado sanitario evaluado en esta consulta puntual (distinto del estado
+  // sanitario vigente del animal, que vive en Animal.estadoSanitario)
+  estadoSanitario EstadoSanitario? @map("estadosanitario")
 
   // Anamnesis
-  tiempoEvolucion                    String?
   tratamientosPrevios                String?
   cirugias                           String?
 
@@ -385,27 +358,24 @@ model HistorialMedico {
   temperatura                        Float?
   frecuenciaCardiaca                 Int?
   frecuenciaRespiratoria             Int?
-  tiempoLlenadoCapilar               Float?
+  tiempoLlenadoCapilar               Float?   @map("tiempollenadocapilar")
   movimientosRuminales               Int?
-  condicionCorporal                  Float?
+  condicionCorporal                  Float?   @map("condicioncorporal")
 
   // Estado del animal
   estadoReproductivo                 EstadoReproductivo?
-  litrosLechesDiarios                Float?
-  gananciaPeso                       Float?
+  litrosLechesDiarios                Float?   @map("litros_lechediario")
+  gananciaPeso                       Float?   @map("gananciapeso")
 
-  // Diagnóstico y plan
+  // Diagnóstico y plan (a nivel de consulta general; el detalle por condición
+  // diagnosticada vive en EnfermedadDiagnosticada, según el modelo lógico)
   diagnosticoDefinitivo              String?
-  planDiagnostico                    String?
 
   // Pruebas obligatorias
   observacionesDiagnosticosOficiales String?
 
-  creadoEn        DateTime @default(now())
-  actualizadoEn   DateTime @updatedAt
-
-  animalId       String
-  veterinarioId  String
+  animalId       String @map("animal_id")
+  veterinarioId  String @map("usuario_id")
 
   animal      Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
   veterinario Usuario @relation("HistorialesCreados", fields: [veterinarioId], references: [id], onDelete: Restrict)
@@ -415,33 +385,41 @@ model HistorialMedico {
   tratamientos              Tratamiento[]
   registrosVacunacion       RegistroVacunacion[]
   informacionEpidemiologica InformacionEpidemiologica?
-  ayudasDiagnosticas        AyudaDiagnostica[]
   desparasitaciones         ProgramaDesparasitacion[]
 
   @@index([animalId])
   @@index([veterinarioId])
   @@index([fechaConsulta])
-  @@map("historiales_medicos")
+  @@map("registro_medico")
 }
 
 model EnfermedadDiagnosticada {
   id              String   @id @default(cuid())
-  nombreEnfermedad String
+  nombreEnfermedad String  @map("nombre_condicion")
+  nivelGravedad   NivelGravedad? @map("nivel_gravedad")
   fechaInicio     DateTime
   fechaResolucion DateTime?
   activa          Boolean  @default(true)
   descripcionClinica String?
   observaciones   String?
-  creadoEn        DateTime @default(now())
-  actualizadoEn   DateTime @updatedAt
+  // Campos trasladados desde REGISTRO_MEDICO: en el modelo lógico del tomo,
+  // el diagnóstico/pronóstico/plan/síntomas/tiempo de evolución se registran
+  // por cada condición diagnosticada, no a nivel de la consulta general.
+  diagnostico     String?
+  pronostico      String?
+  planDiagnostico String?
+  tiempoEvolucion String?
+  sintomas        String?
 
-  historialMedicoId String
+  historialMedicoId String @map("registro_medico_id")
   historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+
+  tratamientos Tratamiento[]
 
   @@index([historialMedicoId])
   @@index([activa])
   @@index([nombreEnfermedad])
-  @@map("enfermedades_diagnosticadas")
+  @@map("detalle_diagnostico")
 }
 
 model Tratamiento {
@@ -455,19 +433,23 @@ model Tratamiento {
   estado           EstadoTratamiento @default(EN_CURSO)
   respuestaTratamiento String?       // Evolución del animal
   observaciones    String?
-  creadoEn         DateTime          @default(now())
-  actualizadoEn    DateTime          @updatedAt
+  descripcion      String?
 
   historialMedicoId String
-  medicamentoId     String
+  medicamentoId     String @map("medicamento_id")
+  // Condición diagnosticada que este tratamiento atiende específicamente,
+  // cuando la consulta distingue varios diagnósticos con tratamientos propios.
+  enfermedadDiagnosticadaId String? @map("detalle_diagnostico_id")
 
   historialMedico HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
   medicamento     Medicamento     @relation(fields: [medicamentoId], references: [id], onDelete: Restrict)
+  enfermedadDiagnosticada EnfermedadDiagnosticada? @relation(fields: [enfermedadDiagnosticadaId], references: [id], onDelete: SetNull)
 
   @@index([historialMedicoId])
   @@index([medicamentoId])
+  @@index([enfermedadDiagnosticadaId])
   @@index([estado])
-  @@map("tratamientos")
+  @@map("tratamiento")
 }
 
 model InformacionEpidemiologica {
@@ -479,25 +461,15 @@ model InformacionEpidemiologica {
   otrosVectores String?
   descripcion   String?
 
-  historialMedicoId String          @unique
+  historialMedicoId String          @unique @map("registro_medico_id")
   historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+
+  // Veterinario que registró la información epidemiológica (puede diferir del
+  // veterinario de la consulta general)
+  veterinarioRegistroId String? @map("veterinarioRegistro_id")
+  veterinarioRegistro   Usuario? @relation("InformacionEpidemiologicaRegistrada", fields: [veterinarioRegistroId], references: [id], onDelete: SetNull)
 
   @@map("informacion_epidemiologica")
-}
-
-model AyudaDiagnostica {
-  id          String               @id @default(cuid())
-  tipo        TipoAyudaDiagnostica
-  descripcion String?
-  resultado   String?
-  fecha       DateTime
-  creadoEn    DateTime             @default(now())
-
-  historialMedicoId String
-  historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
-
-  @@index([historialMedicoId])
-  @@map("ayudas_diagnosticas")
 }
 
 model ProgramaDesparasitacion {
@@ -505,17 +477,25 @@ model ProgramaDesparasitacion {
   producto        String
   principioActivo String?
   tipo            TipoDesparasitante
-  fecha           DateTime
+  fecha           DateTime           @map("fechaAplicacion")
   dosis           String?
   via             String?
   observaciones   String?
-  creadoEn        DateTime           @default(now())
 
-  historialMedicoId String
+  historialMedicoId String @map("registro_medico_id")
   historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
 
+  // Referencia opcional al catálogo de medicamentos, cuando el producto usado está catalogado
+  medicamentoId String? @map("medicamento_id")
+  medicamento   Medicamento? @relation(fields: [medicamentoId], references: [id], onDelete: SetNull)
+
+  // Veterinario que aplicó el programa de desparasitación
+  veterinarioId String? @map("veterinario_id")
+  veterinario   Usuario? @relation("DesparasitacionesAplicadas", fields: [veterinarioId], references: [id], onDelete: SetNull)
+
   @@index([historialMedicoId])
-  @@map("programas_desparasitacion")
+  @@index([medicamentoId])
+  @@map("programa_desparasitacion")
 }
 
 // =============================================================
@@ -530,16 +510,13 @@ model CalendarioVacunacion {
   intervaloDias     Int      // Cada cuántos días se debe repetir
   edadMinimasDias   Int?     // Edad mínima en días para aplicar
   aplicaASexo       Sexo?   // null = ambos sexos
-  activo            Boolean  @default(true)
-  creadoEn          DateTime @default(now())
-  actualizadoEn     DateTime @updatedAt
 
-  medicamentoId String?
+  medicamentoId String?  @map("medicamento_id")
   medicamento   Medicamento? @relation(fields: [medicamentoId], references: [id])
 
   registrosVacunacion RegistroVacunacion[]
 
-  @@map("calendarios_vacunacion")
+  @@map("calendario_vacunacion")
 }
 
 // Relación entre HistorialMedico y CalendarioVacunacion fue eliminada
@@ -553,12 +530,11 @@ model RegistroVacunacion {
   lote             String?  // Lote del medicamento
   proximaFecha     DateTime?
   observaciones    String?
-  creadoEn         DateTime @default(now())
 
-  historialMedicoId      String?
-  calendarioVacunacionId String
+  historialMedicoId      String?  @map("registro_medico_id")
+  calendarioVacunacionId String   @map("calendario_vacunacion_id")
   medicamentoId          String?
-  aplicadoPorId          String
+  aplicadoPorId          String   @map("veterinario_id")
 
   historialMedico      HistorialMedico?      @relation(fields: [historialMedicoId], references: [id], onDelete: SetNull)
   calendarioVacunacion CalendarioVacunacion  @relation(fields: [calendarioVacunacionId], references: [id], onDelete: Restrict)
@@ -568,7 +544,7 @@ model RegistroVacunacion {
   @@index([historialMedicoId])
   @@index([calendarioVacunacionId])
   @@index([fechaAplicacion])
-  @@map("registros_vacunacion")
+  @@map("registro_vacunacion")
 }
 
 // =============================================================
@@ -581,11 +557,9 @@ model EventoReproductivo {
   fecha       DateTime
   descripcion String?
   observaciones String?
-  creadoEn    DateTime               @default(now())
-  actualizadoEn DateTime             @updatedAt
 
-  animalId      String
-  registradoPorId String
+  animalId      String @map("animal_id")
+  registradoPorId String @map("usuario_id")
 
   animal         Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
   registradoPor  Usuario @relation("EventosReproductivosRegistrados", fields: [registradoPorId], references: [id], onDelete: Restrict)
@@ -593,11 +567,12 @@ model EventoReproductivo {
   // Datos específicos según tipo de evento
   inseminacion          InseminacionArtificial?
   diagnosticoGestacion  DiagnosticoGestacion?
+  gestacion             Gestacion?
 
   @@index([animalId])
   @@index([tipo])
   @@index([fecha])
-  @@map("eventos_reproductivos")
+  @@map("evento_reproductivo")
 }
 
 model InseminacionArtificial {
@@ -613,15 +588,14 @@ model InseminacionArtificial {
   balanceEnergetico      String?
   temperaturaUterina     Float?
   manejoHato             NivelEstres?
-  creadoEn        DateTime         @default(now())
 
-  eventoReproductivoId String           @unique
-  inventarioSemenId    String?
+  eventoReproductivoId String           @unique @map("evento_reproductivo_id")
+  inventarioSemenId    String?          @map("inventario_semen_id")
 
   eventoReproductivo EventoReproductivo @relation(fields: [eventoReproductivoId], references: [id], onDelete: Cascade)
   inventarioSemen    InventarioSemen?   @relation(fields: [inventarioSemenId], references: [id], onDelete: SetNull)
 
-  @@map("inseminaciones_artificiales")
+  @@map("inseminacion_artificial")
 }
 
 model DiagnosticoGestacion {
@@ -631,15 +605,14 @@ model DiagnosticoGestacion {
   metodoDiagnostico String?                    // Ecografía, palpación rectal, etc.
   semanaGestacion Int?
   observaciones   String?
-  creadoEn        DateTime                      @default(now())
 
   eventoReproductivoId String              @unique
-  gestacionId          String?
+  gestacionId          String?          @map("gestacion_id")
 
   eventoReproductivo EventoReproductivo @relation(fields: [eventoReproductivoId], references: [id], onDelete: Cascade)
   gestacion          Gestacion?         @relation(fields: [gestacionId], references: [id], onDelete: SetNull)
 
-  @@map("diagnosticos_gestacion")
+  @@map("diagnostico_gestacion")
 }
 
 model Gestacion {
@@ -649,11 +622,15 @@ model Gestacion {
   fechaPartoReal      DateTime?
   estadoGestacion     EstadoGestacion @default(EN_CURSO)
   observaciones       String?
-  creadoEn            DateTime        @default(now())
-  actualizadoEn       DateTime        @updatedAt
 
   madreId String
   madre   Animal @relation("GestacionMadre", fields: [madreId], references: [id], onDelete: Restrict)
+
+  // Evento reproductivo (monta natural o inseminación) que originó esta gestación,
+  // cuando quedó registrado formalmente. Queda opcional porque en campo también se
+  // detectan gestaciones sin que exista un evento previo logueado en el sistema.
+  eventoReproductivoId String?             @unique @map("evento_reproductivo_id")
+  eventoReproductivo   EventoReproductivo? @relation(fields: [eventoReproductivoId], references: [id], onDelete: SetNull)
 
   // Relaciones
   diagnosticos DiagnosticoGestacion[]
@@ -662,28 +639,28 @@ model Gestacion {
   @@index([madreId])
   @@index([estadoGestacion])
   @@index([fechaPartoEsperado])
-  @@map("gestaciones")
+  @@map("gestacion")
 }
 
 model Nacimiento {
   id              String     @id @default(cuid())
   fechaNacimiento DateTime
   tipoParto       TipoParto  @default(NORMAL)
-  pesoAlNacer     Float?
+  pesoAlNacer     Float?     @map("pesoCria")
   estadoCria      EstadoCria @default(VIVO)
   sexoCria        Sexo?
   observaciones   String?
   complicaciones  String?
-  creadoEn        DateTime   @default(now())
 
-  gestacionId String
-  criaId      String?  @unique // Animal registrado como producto del parto
+  gestacionId String @map("gestacion_id")
+  criaId      String?  @unique @map("animal_cria_id") // Animal registrado como producto del parto
 
   gestacion Gestacion @relation(fields: [gestacionId], references: [id], onDelete: Restrict)
   cria      Animal?   @relation("NacimientoCria", fields: [criaId], references: [id], onDelete: SetNull)
+  animalOrigen Animal? @relation("NacimientoOrigenAnimal")
 
   @@index([gestacionId])
-  @@map("nacimientos")
+  @@map("nacimiento")
 }
 
 // =============================================================
@@ -695,17 +672,14 @@ model Semental {
   nombre       String
   registro     String?  @unique // Número de registro oficial
   origen       String?
-  activo       Boolean  @default(true)
-  observaciones String?
-  creadoEn     DateTime @default(now())
-  actualizadoEn DateTime @updatedAt
+  observaciones String? @map("descripcion")
 
-  razaId String
+  razaId String @map("raza_id")
   raza   Raza   @relation(fields: [razaId], references: [id], onDelete: Restrict)
 
   inventariosSemen InventarioSemen[]
 
-  @@map("sementales")
+  @@map("semental")
 }
 
 model InventarioSemen {
@@ -721,17 +695,13 @@ model InventarioSemen {
   coloracion      String?
   temperatura     Float?   // Temperatura de almacenamiento/transporte en °C
   observaciones   String?
-  activo          Boolean  @default(true)
-  creadoEn        DateTime @default(now())
-  actualizadoEn   DateTime @updatedAt
 
-  sementalId String
+  sementalId String @map("semental_id")
   semental   Semental @relation(fields: [sementalId], references: [id], onDelete: Restrict)
 
   inseminaciones InseminacionArtificial[]
 
   @@index([sementalId])
-  @@index([activo])
   @@map("inventario_semen")
 }
 
@@ -752,16 +722,13 @@ model DispositivoGPS {
   nivelBateria         Int?                 // Porcentaje de batería
   ultimaConexion       DateTime?
   apiKey               String               @unique // Clave para autenticar el dispositivo
-  activo               Boolean              @default(true)
-  creadoEn             DateTime             @default(now())
-  actualizadoEn        DateTime             @updatedAt
 
-  animalId String  @unique
+  animalId String  @unique @map("animal_id")
   animal   Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
 
   registrosUbicacion RegistroUbicacion[]
 
-  @@map("dispositivos_gps")
+  @@map("dispositivo_gps")
 }
 
 model RegistroUbicacion {
@@ -776,20 +743,57 @@ model RegistroUbicacion {
   esDatoSimulado  Boolean  @default(false) // false cuando venga de GPS real
 
   animalId         String
-  dispositivoGPSId String?
+  dispositivoGPSId String? @map("dispositivo_gps_id")
+  // Finca donde se registró la ubicación, según el modelo lógico del tomo
+  // (hoy se deriva vía animal→lote→finca; este campo la deja explícita)
+  fincaId          String? @map("finca_id")
 
   animal        Animal          @relation(fields: [animalId], references: [id], onDelete: Cascade)
   dispositivoGPS DispositivoGPS? @relation(fields: [dispositivoGPSId], references: [id], onDelete: SetNull)
+  finca          Finca?          @relation(fields: [fincaId], references: [id], onDelete: SetNull)
 
   @@index([animalId])
   @@index([fechaRegistro])
   @@index([animalId, fechaRegistro])
-  @@map("registros_ubicacion")
+  @@map("registro_ubicacion")
 }
 
 // =============================================================
-// MÓDULO 5: SEGURIDAD — USUARIOS Y ROLES
+// MÓDULO 5: SEGURIDAD — USUARIOS, ROLES Y PRIVILEGIOS
 // =============================================================
+
+model Rol {
+  id            String   @id @default(cuid())
+  nombre        String   @unique
+  descripcion   String?
+
+  usuarios    Usuario[]
+  privilegios RolPrivilegio[]
+
+  @@map("rol")
+}
+
+model Privilegio {
+  id          String   @id @default(cuid())
+  // Código único del privilegio (ej. "usuarios.crear", "animales.editar"),
+  // referenciado directamente por los middlewares de autorización del backend.
+  descripcion String   @unique
+
+  roles RolPrivilegio[]
+
+  @@map("privilegio")
+}
+
+model RolPrivilegio {
+  rolId        String @map("rol_id")
+  privilegioId String @map("privilegio_id")
+
+  rol        Rol        @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  privilegio Privilegio @relation(fields: [privilegioId], references: [id], onDelete: Cascade)
+
+  @@id([rolId, privilegioId])
+  @@map("rol_privilegio")
+}
 
 model Usuario {
   id             String        @id @default(cuid())
@@ -797,7 +801,8 @@ model Usuario {
   apellido       String
   correo         String        @unique
   contrasena     String        // Hash bcrypt
-  rol            RolUsuario
+  rolId          String        @map("rol_id")
+  rol            Rol           @relation(fields: [rolId], references: [id], onDelete: Restrict)
   estado         EstadoUsuario @default(ACTIVO)
   telefono       String?
   cedulaIdentidad String?      @unique
@@ -806,8 +811,6 @@ model Usuario {
   intentosFallidos Int         @default(0)
   bloqueadoHasta DateTime?
   tokenRefresh   String?       // Hash del refresh token activo
-  creadoEn       DateTime      @default(now())
-  actualizadoEn  DateTime      @updatedAt
 
   creadoPorId String?
   creadoPor   Usuario?  @relation("UsuariosCreados", fields: [creadoPorId], references: [id])
@@ -817,14 +820,17 @@ model Usuario {
   historialesMedicosCreados    HistorialMedico[]         @relation("HistorialesCreados")
   eventosReproductivosRegistrados EventoReproductivo[]   @relation("EventosReproductivosRegistrados")
   vacunasAplicadas             RegistroVacunacion[]      @relation("VacunasAplicadas")
+  informacionEpidemiologicaRegistrada InformacionEpidemiologica[] @relation("InformacionEpidemiologicaRegistrada")
+  desparasitacionesAplicadas   ProgramaDesparasitacion[] @relation("DesparasitacionesAplicadas")
   notificaciones               Notificacion[]
   registrosAuditoria           RegistroAuditoria[]
   reglasAlertaCreadas          ReglaAlerta[]
+  reglasAlertaNotificado       ReglaAlertaUsuario[]
 
   @@index([correo])
-  @@index([rol])
+  @@index([rolId])
   @@index([estado])
-  @@map("usuarios")
+  @@map("usuario")
 }
 
 // =============================================================
@@ -836,35 +842,46 @@ model ReglaAlerta {
   nombre          String
   descripcion     String?
   tipoAlerta      TipoAlertaRegla
-  activa          Boolean          @default(true)
+  // Estado de la regla ("ACTIVA" | "PAUSADA"), según el modelo lógico del tomo
+  // (columna VARCHAR NOT NULL, sin CHECK). Determina si el motor la evalúa.
+  estado          String           @default("ACTIVA")
   prioridad       PrioridadAlerta  @default(MEDIA)
 
   // Configuración del umbral
   umbralValor     Float?           // Valor numérico del umbral (días, cantidad, etc.)
   umbralUnidad    String?          // Unidad: "dias", "horas", "unidades"
 
-  // Configuración de destinatarios (quién recibe la alerta)
-  notificarAdministrador Boolean  @default(true)
-  notificarVeterinario   Boolean  @default(true)
-  notificarTecnico       Boolean  @default(false)
+  // Configuración de destinatarios (quién recibe la alerta): usuarios específicos,
+  // elegidos de forma independiente de su rol
   enviarCorreo           Boolean  @default(true)
 
   // Configuración de periodicidad
   evaluarCadaHoras Int            @default(24) // Cada cuántas horas se evalúa esta regla
   ultimaEvaluacion DateTime?
 
-  // Mensaje personalizable
-  mensajeAlerta   String?         // Puede contener variables como {animal}, {fecha}
-
-  creadoEn        DateTime        @default(now())
-  actualizadoEn   DateTime        @updatedAt
-
-  creadoPorId String
+  creadoPorId String @map("usuarioCreador_id")
   creadoPor   Usuario @relation(fields: [creadoPorId], references: [id])
 
   notificaciones Notificacion[]
+  usuariosNotificados ReglaAlertaUsuario[]
 
-  @@map("reglas_alerta")
+  @@map("regla_alerta")
+}
+
+// Usuarios destinatarios de cada regla de alerta, elegidos de forma explícita
+// e independiente de su rol (reemplaza la relación regla_alerta_rol).
+model ReglaAlertaUsuario {
+  id            String @id @default(cuid())
+  reglaAlertaId String @map("regla_alerta_id")
+  usuarioId     String @map("usuario_id")
+
+  reglaAlerta ReglaAlerta @relation(fields: [reglaAlertaId], references: [id], onDelete: Cascade)
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  notificaciones Notificacion[]
+
+  @@unique([reglaAlertaId, usuarioId])
+  @@map("regla_usuario")
 }
 
 model Notificacion {
@@ -883,15 +900,20 @@ model Notificacion {
 
   usuarioId   String
   reglaId     String?
+  // Asignación regla-usuario que originó esta notificación, según el modelo
+  // lógico del tomo (REGLA_USUARIO). No reemplaza usuarioId/reglaId, que ya
+  // identifican directamente al destinatario y a la regla.
+  reglaUsuarioId String? @map("regla_usuario_id")
 
   usuario Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   regla   ReglaAlerta? @relation(fields: [reglaId], references: [id], onDelete: SetNull)
+  reglaUsuario ReglaAlertaUsuario? @relation(fields: [reglaUsuarioId], references: [id], onDelete: SetNull)
 
   @@index([usuarioId])
   @@index([estado])
   @@index([leida])
   @@index([creadoEn])
-  @@map("notificaciones")
+  @@map("notificacion")
 }
 
 // =============================================================
@@ -911,14 +933,14 @@ model RegistroAuditoria {
   agenteUsuario String?             // User-agent del navegador
   exitosa       Boolean             @default(true)
   errorMensaje  String?
-  creadoEn      DateTime            @default(now())
+  creadoEn      DateTime            @default(now()) @map("fechaCreacion")
 
-  usuarioId String?
+  usuarioId String? @map("usuario_id")
   usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([usuarioId])
   @@index([modulo])
   @@index([creadoEn])
   @@index([entidadTipo, entidadId])
-  @@map("registros_auditoria")
+  @@map("registro_auditoria")
 }

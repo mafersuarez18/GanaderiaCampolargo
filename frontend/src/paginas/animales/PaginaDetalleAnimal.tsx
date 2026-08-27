@@ -157,7 +157,7 @@ export default function PaginaDetalleAnimal() {
             Ubicación
           </h2>
           <dl className="space-y-3">
-            <CampoDetalle etiqueta="Finca">{animal.finca?.nombre ?? '—'}</CampoDetalle>
+            <CampoDetalle etiqueta="Finca">{animal.lote?.finca?.nombre ?? '—'}</CampoDetalle>
             <CampoDetalle etiqueta="Lote">{animal.lote?.nombre ?? '—'}</CampoDetalle>
             <CampoDetalle etiqueta="Potrero">{animal.potrero?.nombre ?? '—'}</CampoDetalle>
             {animal.latitudActual && animal.longitudActual && (

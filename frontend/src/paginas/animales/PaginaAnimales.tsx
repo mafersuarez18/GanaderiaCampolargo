@@ -20,8 +20,7 @@ interface Animal {
   fechaNacimiento?: string;
   pesoActual?: number;
   raza?: { id: string; nombre: string };
-  finca?: { id: string; nombre: string };
-  lote?: { id: string; nombre: string };
+  lote?: { id: string; nombre: string; finca?: { id: string; nombre: string } };
 }
 
 interface RespuestaAnimales {
@@ -70,7 +69,7 @@ const COLUMNAS: ColumnaTabla<Animal>[] = [
     clave: 'finca',
     encabezado: 'Finca',
     render: (a) => (
-      <span className="text-on-surface-variant text-xs">{a.finca?.nombre ?? '—'}</span>
+      <span className="text-on-surface-variant text-xs">{a.lote?.finca?.nombre ?? '—'}</span>
     ),
   },
   {

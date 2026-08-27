@@ -114,7 +114,7 @@ function guardarEspacio(doc: PDFKit.PDFDocument, px: number): void {
 function tablaPDF(
   doc: PDFKit.PDFDocument,
   cabecera: string[],
-  filas: (string | number)[][][],   // filas[i] = array de celdas; cada celda = [texto, opciones?]
+  filas: string[][],   // filas[i] = array de celdas de esa fila
   anchos: number[],
   alturaFila = 18,
 ): void {
@@ -162,7 +162,7 @@ function tablaPDF(
   dibujarFila(cabecera, true, false);
 
   // Filas de datos
-  (filas as string[][]).forEach((f, idx) => {
+  filas.forEach((f, idx) => {
     dibujarFila(f, false, idx % 2 === 0);
   });
 
@@ -256,15 +256,14 @@ export async function generarInventario(
 ) {
   const animales = await prisma.animal.findMany({
     where: {
-      ...(filtros.fincaId && { fincaId: filtros.fincaId }),
+      ...(filtros.fincaId && { lote: { fincaId: filtros.fincaId } }),
       ...(filtros.estado  && { estado: filtros.estado as any }),
     },
     include: {
-      raza:  { select: { nombre: true } },
-      finca: { select: { nombre: true } },
-      lote:  { select: { nombre: true } },
+      raza: { select: { nombre: true } },
+      lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
     },
-    orderBy: [{ finca: { nombre: 'asc' } }, { numeroArete: 'asc' }],
+    orderBy: [{ lote: { finca: { nombre: 'asc' } } }, { numeroArete: 'asc' }],
   });
 
   const totalMachos  = animales.filter((a) => a.sexo === 'MACHO').length;
@@ -289,7 +288,7 @@ export async function generarInventario(
         a.nombre ?? '—',
         a.sexo === 'MACHO' ? 'Macho' : 'Hembra',
         a.raza?.nombre  ?? '—',
-        a.finca?.nombre ?? '—',
+        a.lote?.finca?.nombre ?? '—',
         a.lote?.nombre  ?? '—',
         a.estado === 'ACTIVO' ? 'Activo' : a.estado === 'VENDIDO' ? 'Vendido' : a.estado === 'MUERTO' ? 'Muerto' : a.estado,
         a.pesoActual != null ? String(a.pesoActual) : '—',
@@ -299,7 +298,7 @@ export async function generarInventario(
 
     // Resumen por finca al final
     const porFinca = animales.reduce<Record<string, { m: number; h: number }>>((acc, a) => {
-      const n = a.finca?.nombre ?? 'Sin finca';
+      const n = a.lote?.finca?.nombre ?? 'Sin finca';
       if (!acc[n]) acc[n] = { m: 0, h: 0 };
       a.sexo === 'MACHO' ? acc[n].m++ : acc[n].h++;
       return acc;
@@ -347,7 +346,7 @@ export async function generarInventario(
         nombre:      a.nombre ?? '',
         sexo:        a.sexo === 'MACHO' ? 'Macho' : 'Hembra',
         raza:        a.raza?.nombre ?? '',
-        finca:       a.finca?.nombre ?? '',
+        finca:       a.lote?.finca?.nombre ?? '',
         lote:        a.lote?.nombre  ?? '',
         estado:      a.estado,
         sanitario:   a.estadoSanitario,
@@ -367,7 +366,7 @@ export async function generarInventario(
     ];
     estiloEncabezadoExcel(wsR.getRow(1));
     const pF = animales.reduce<Record<string, { m: number; h: number }>>((acc, a) => {
-      const n = a.finca?.nombre ?? 'Sin finca';
+      const n = a.lote?.finca?.nombre ?? 'Sin finca';
       if (!acc[n]) acc[n] = { m: 0, h: 0 };
       a.sexo === 'MACHO' ? acc[n].m++ : acc[n].h++;
       return acc;
@@ -401,17 +400,17 @@ export async function generarSanitario(
     prisma.historialMedico.findMany({
       where: {
         fechaConsulta: { gte: desde, lte: hasta },
-        ...(filtros.fincaId ? { animal: { fincaId: filtros.fincaId } } : {}),
+        ...(filtros.fincaId ? { animal: { lote: { fincaId: filtros.fincaId } } } : {}),
       },
       include: {
         animal: {
           select: {
             numeroArete: true, nombre: true,
-            finca: { select: { nombre: true } },
+            lote: { select: { finca: { select: { nombre: true } } } },
           },
         },
         veterinario: { select: { nombre: true, apellido: true } },
-        enfermedades: { select: { nombreEnfermedad: true, activa: true } },
+        enfermedades: { select: { nombreEnfermedad: true, activa: true, diagnostico: true, pronostico: true } },
       },
       orderBy: { fechaConsulta: 'desc' },
     }),
@@ -419,7 +418,7 @@ export async function generarSanitario(
       where: {
         fechaAplicacion: { gte: desde, lte: hasta },
         ...(filtros.fincaId
-          ? { historialMedico: { animal: { fincaId: filtros.fincaId } } }
+          ? { historialMedico: { animal: { lote: { fincaId: filtros.fincaId } } } }
           : {}),
       },
       include: {
@@ -428,7 +427,7 @@ export async function generarSanitario(
             animal: {
               select: {
                 numeroArete: true, nombre: true,
-                finca: { select: { nombre: true } },
+                lote: { select: { finca: { select: { nombre: true } } } },
               },
             },
           },
@@ -462,9 +461,9 @@ export async function generarSanitario(
         consultas.map((c) => [
           fmtFecha(c.fechaConsulta),
           `${c.animal.nombre ? c.animal.nombre + ' ' : ''}#${c.animal.numeroArete}`,
-          c.animal.finca?.nombre ?? '—',
+          c.animal.lote?.finca?.nombre ?? '—',
           c.motivoConsulta,
-          c.diagnostico,
+          c.enfermedades.map((e) => e.diagnostico).filter(Boolean).join('; ') || '—',
           `${c.veterinario.nombre} ${c.veterinario.apellido}`,
         ]),
         [56, 95, 80, 105, 105, 95],
@@ -487,7 +486,7 @@ export async function generarSanitario(
           return [
             fmtFecha(v.fechaAplicacion),
             `${a?.nombre ? a.nombre + ' ' : ''}#${a?.numeroArete ?? ''}`,
-            a?.finca?.nombre ?? '—',
+            a?.lote?.finca?.nombre ?? '—',
             v.calendarioVacunacion.nombreVacuna,
             fmtFecha(v.proximaFecha),
             v.dosis ?? '—',
@@ -523,10 +522,10 @@ export async function generarSanitario(
         fecha:        fmtFecha(c.fechaConsulta),
         arete:        c.animal.numeroArete,
         animal:       c.animal.nombre ?? '',
-        finca:        c.animal.finca?.nombre ?? '',
+        finca:        c.animal.lote?.finca?.nombre ?? '',
         motivo:       c.motivoConsulta,
-        diagnostico:  c.diagnostico,
-        pronostico:   c.pronostico ?? '',
+        diagnostico:  c.enfermedades.map((e) => e.diagnostico).filter(Boolean).join('; '),
+        pronostico:   c.enfermedades.map((e) => e.pronostico).filter(Boolean).join('; '),
         vet:          `${c.veterinario.nombre} ${c.veterinario.apellido}`,
         enfermedades: c.enfermedades.map((e) => e.nombreEnfermedad).join('; '),
       }), i % 2 === 0);
@@ -550,7 +549,7 @@ export async function generarSanitario(
         fecha:   fmtFecha(v.fechaAplicacion),
         arete:   a?.numeroArete ?? '',
         animal:  a?.nombre ?? '',
-        finca:   a?.finca?.nombre ?? '',
+        finca:   a?.lote?.finca?.nombre ?? '',
         vacuna:  v.calendarioVacunacion.nombreVacuna,
         dosis:   v.dosis ?? '',
         proxima: fmtFecha(v.proximaFecha),
@@ -584,7 +583,7 @@ export async function generarVacunacion(
       historialMedico: {
         animal: {
           estado: 'ACTIVO',
-          ...(filtros.fincaId ? { fincaId: filtros.fincaId } : {}),
+          ...(filtros.fincaId ? { lote: { fincaId: filtros.fincaId } } : {}),
         },
       },
     },
@@ -594,7 +593,7 @@ export async function generarVacunacion(
           animal: {
             select: {
               numeroArete: true, nombre: true,
-              finca: { select: { nombre: true } },
+              lote: { select: { finca: { select: { nombre: true } } } },
             },
           },
         },
@@ -616,7 +615,7 @@ export async function generarVacunacion(
   const datos = registros.map((r) => ({
     arete:     r.historialMedico?.animal?.numeroArete ?? '',
     nombre:    r.historialMedico?.animal?.nombre      ?? '—',
-    finca:     r.historialMedico?.animal?.finca?.nombre ?? '—',
+    finca:     r.historialMedico?.animal?.lote?.finca?.nombre ?? '—',
     vacuna:    r.calendarioVacunacion.nombreVacuna,
     intervalo: `${r.calendarioVacunacion.intervaloDias}d`,
     ultima:    fmtFecha(r.fechaAplicacion),
@@ -724,7 +723,7 @@ export async function generarReproductivo(
 ) {
   const desde = new Date(filtros.anio, 0, 1);
   const hasta = new Date(filtros.anio, 11, 31, 23, 59, 59);
-  const dF    = filtros.fincaId ? { fincaId: filtros.fincaId } : {};
+  const dF    = filtros.fincaId ? { lote: { fincaId: filtros.fincaId } } : {};
 
   const [gestaciones, nacimientos, totalHembras] = await Promise.all([
     prisma.gestacion.findMany({
@@ -733,7 +732,7 @@ export async function generarReproductivo(
         madre: {
           select: {
             numeroArete: true, nombre: true,
-            finca: { select: { nombre: true } },
+            lote: { select: { finca: { select: { nombre: true } } } },
           },
         },
       },
@@ -750,7 +749,7 @@ export async function generarReproductivo(
             madre: {
               select: {
                 numeroArete: true, nombre: true,
-                finca: { select: { nombre: true } },
+                lote: { select: { finca: { select: { nombre: true } } } },
               },
             },
           },
@@ -823,7 +822,7 @@ export async function generarReproductivo(
         gestaciones.map((g) => [
           g.madre.numeroArete,
           g.madre.nombre ?? '—',
-          g.madre.finca?.nombre ?? '—',
+          g.madre.lote?.finca?.nombre ?? '—',
           fmtFecha(g.fechaInicio),
           fmtFecha(g.fechaPartoEsperado),
           fmtFecha(g.fechaPartoReal),
@@ -846,7 +845,7 @@ export async function generarReproductivo(
           n.cria?.nombre      ?? '—',
           n.cria?.sexo === 'MACHO' ? 'Macho' : 'Hembra',
           n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
-          n.gestacion.madre.finca?.nombre ?? '—',
+          n.gestacion.madre.lote?.finca?.nombre ?? '—',
           fmtFecha(n.fechaNacimiento),
           n.tipoParto ?? '—',
         ]),
@@ -890,7 +889,7 @@ export async function generarReproductivo(
       estiloFilaExcel(wsG.addRow({
         arete:  g.madre.numeroArete,
         nombre: g.madre.nombre ?? '',
-        finca:  g.madre.finca?.nombre ?? '',
+        finca:  g.madre.lote?.finca?.nombre ?? '',
         inicio: fmtFecha(g.fechaInicio),
         parto:  fmtFecha(g.fechaPartoEsperado),
         partoR: fmtFecha(g.fechaPartoReal),
@@ -916,7 +915,7 @@ export async function generarReproductivo(
         nombre:    n.cria?.nombre ?? '',
         sexo:      n.cria?.sexo === 'MACHO' ? 'Macho' : 'Hembra',
         madre:     n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
-        finca:     n.gestacion.madre.finca?.nombre ?? '',
+        finca:     n.gestacion.madre.lote?.finca?.nombre ?? '',
         fecha:     fmtFecha(n.fechaNacimiento),
         tipo:      n.tipoParto ?? '',
         estadoCria: n.estadoCria ?? '',
@@ -942,9 +941,8 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
     select: {
       numeroArete: true, nombre: true, sexo: true, fechaNacimiento: true,
       pesoActual: true, color: true, estadoSanitario: true,
-      raza:  { select: { nombre: true } },
-      finca: { select: { nombre: true } },
-      lote:  { select: { nombre: true } },
+      raza: { select: { nombre: true } },
+      lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
     },
   });
 
@@ -960,7 +958,6 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
       enfermedades:            true,
       tratamientos:            { include: { medicamento: { select: { nombre: true } } } },
       informacionEpidemiologica: true,
-      ayudasDiagnosticas:      true,
       desparasitaciones:       true,
     },
     orderBy: { fechaConsulta: 'desc' },
@@ -975,7 +972,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
   encabezadoPDF(
     doc,
     `Historial Médico`,
-    `${nombreAnimal}  ·  ${animal.raza?.nombre ?? '—'}  ·  ${animal.finca?.nombre ?? '—'}  ·  ${consultas.length} consulta(s)`,
+    `${nombreAnimal}  ·  ${animal.raza?.nombre ?? '—'}  ·  ${animal.lote?.finca?.nombre ?? '—'}  ·  ${consultas.length} consulta(s)`,
   );
 
   // ── Ficha del animal ──
@@ -985,7 +982,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
     ['Nombre',           animal.nombre ?? '—'],
     ['Sexo',             animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
     ['Raza',             animal.raza?.nombre ?? '—'],
-    ['Finca',            animal.finca?.nombre ?? '—'],
+    ['Finca',            animal.lote?.finca?.nombre ?? '—'],
     ['Lote',             animal.lote?.nombre  ?? '—'],
     ['Fecha nacimiento', fmtFechaLarga(animal.fechaNacimiento)],
     ['Peso actual',      animal.pesoActual != null ? `${animal.pesoActual} kg` : '—'],
@@ -1028,12 +1025,8 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
 
     campo('Motivo de consulta',    c.motivoConsulta);
     campo('Síntomas observados',   c.sintomasObservados);
-    campo('Tiempo de evolución',   c.tiempoEvolucion);
     campo('Tratamientos previos',  c.tratamientosPrevios);
-    campo('Diagnóstico presuntivo', c.diagnostico);
     campo('Diagnóstico definitivo', c.diagnosticoDefinitivo);
-    campo('Plan diagnóstico',      c.planDiagnostico);
-    campo('Pronóstico',            c.pronostico);
     campo('Observaciones',         c.observaciones);
 
     // Signos vitales
@@ -1046,13 +1039,19 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
     if (c.condicionCorporal != null)      vitales.push(`C.C.: ${c.condicionCorporal}/5`);
     if (vitales.length) campo('Signos vitales', vitales.join('   ·   '));
 
-    // Enfermedades
+    // Enfermedades (incluye diagnóstico/pronóstico/plan propios de cada condición)
     if (c.enfermedades.length) {
       campo(
         'Enfermedades',
-        c.enfermedades.map((e) =>
-          `${e.nombreEnfermedad} — ${e.activa ? 'Activa' : 'Resuelta'}${e.fechaResolucion ? ` (${fmtFecha(e.fechaResolucion)})` : ''}`
-        ).join('\n'),
+        c.enfermedades.map((e) => {
+          const linea = `${e.nombreEnfermedad} — ${e.activa ? 'Activa' : 'Resuelta'}${e.fechaResolucion ? ` (${fmtFecha(e.fechaResolucion)})` : ''}`;
+          const detalle = [
+            e.diagnostico && `Dx: ${e.diagnostico}`,
+            e.pronostico && `Pronóstico: ${e.pronostico}`,
+            e.planDiagnostico && `Plan: ${e.planDiagnostico}`,
+          ].filter(Boolean).join(' · ');
+          return detalle ? `${linea}\n  ${detalle}` : linea;
+        }).join('\n'),
       );
     }
 
@@ -1093,23 +1092,6 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
       );
     }
 
-    // Ayudas diagnósticas — tabla
-    if (c.ayudasDiagnosticas.length) {
-      guardarEspacio(doc, 40);
-      doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8)
-         .text('Ayudas Diagnósticas', ML, doc.y).moveDown(0.3);
-      tablaPDF(
-        doc,
-        ['Tipo', 'Fecha', 'Descripción', 'Resultado'],
-        (c.ayudasDiagnosticas as any[]).map((a) => [
-          (a.tipo as string).replace(/_/g, ' '),
-          fmtFecha(a.fecha), a.descripcion ?? '—', a.resultado ?? '—',
-        ]),
-        [96, 58, 180, 152],
-        16,
-      );
-    }
-
     // Info epidemiológica
     if (c.informacionEpidemiologica) {
       const ep = c.informacionEpidemiologica as any;
@@ -1140,16 +1122,14 @@ export async function generarConsulta(res: Response, consultaId: string) {
         select: {
           numeroArete: true, nombre: true, sexo: true, fechaNacimiento: true,
           pesoActual: true, color: true, estadoSanitario: true,
-          raza:  { select: { nombre: true } },
-          finca: { select: { nombre: true } },
-          lote:  { select: { nombre: true } },
+          raza: { select: { nombre: true } },
+          lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
         },
       },
       veterinario:              { select: { nombre: true, apellido: true, cargo: true } },
       enfermedades:             true,
       tratamientos:             { include: { medicamento: { select: { nombre: true } } } },
       informacionEpidemiologica: true,
-      ayudasDiagnosticas:       true,
       desparasitaciones:        true,
     },
   });
@@ -1171,7 +1151,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
   encabezadoPDF(
     doc,
     `Informe de Consulta Veterinaria`,
-    `${fmtFechaLarga(c.fechaConsulta)}  ·  ${nombreAnimal}  ·  ${c.animal.finca?.nombre ?? '—'}`,
+    `${fmtFechaLarga(c.fechaConsulta)}  ·  ${nombreAnimal}  ·  ${c.animal.lote?.finca?.nombre ?? '—'}`,
   );
 
   // ── Datos del animal ──
@@ -1181,7 +1161,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
     ['Nombre',           c.animal.nombre ?? '—'],
     ['Sexo',             c.animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
     ['Raza',             c.animal.raza?.nombre ?? '—'],
-    ['Finca',            c.animal.finca?.nombre ?? '—'],
+    ['Finca',            c.animal.lote?.finca?.nombre ?? '—'],
     ['Lote',             c.animal.lote?.nombre  ?? '—'],
     ['Fecha nacimiento', fmtFechaLarga(c.animal.fechaNacimiento)],
     ['Peso',             c.animal.pesoActual != null ? `${c.animal.pesoActual} kg` : '—'],
@@ -1215,7 +1195,6 @@ export async function generarConsulta(res: Response, consultaId: string) {
   par = 0;
   campo('Motivo de consulta',   c.motivoConsulta);
   campo('Síntomas observados',  c.sintomasObservados);
-  campo('Tiempo de evolución',  c.tiempoEvolucion);
   campo('Tratamientos previos', c.tratamientosPrevios);
   campo('Cirugías previas',     c.cirugias);
 
@@ -1247,10 +1226,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
   doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
      .text('DIAGNÓSTICO Y PLAN', ML, doc.y).moveDown(0.3);
   par = 0;
-  campo('Diagnóstico presuntivo',        c.diagnostico);
   campo('Diagnóstico definitivo',        c.diagnosticoDefinitivo);
-  campo('Plan diagnóstico',              c.planDiagnostico);
-  campo('Pronóstico',                    c.pronostico);
   campo('Obs. diagnósticos oficiales',   c.observacionesDiagnosticosOficiales);
   campo('Observaciones generales',       c.observaciones);
 
@@ -1309,24 +1285,6 @@ export async function generarConsulta(res: Response, consultaId: string) {
         fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
       ]),
       [110, 110, 68, 60, 60, 68],
-      16,
-    );
-  }
-
-  // ── Ayudas diagnósticas ──
-  if (c.ayudasDiagnosticas.length) {
-    doc.moveDown(0.6);
-    guardarEspacio(doc, 50);
-    doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
-       .text('AYUDAS DIAGNÓSTICAS', ML, doc.y).moveDown(0.3);
-    tablaPDF(
-      doc,
-      ['Tipo', 'Fecha', 'Descripción', 'Resultado'],
-      (c.ayudasDiagnosticas as any[]).map((a) => [
-        (a.tipo as string).replace(/_/g, ' '),
-        fmtFecha(a.fecha), a.descripcion ?? '—', a.resultado ?? '—',
-      ]),
-      [96, 58, 180, 152],
       16,
     );
   }

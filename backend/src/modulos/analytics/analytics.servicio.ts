@@ -18,11 +18,11 @@ export async function obtenerResumenDashboard() {
     // Total de animales activos
     prisma.animal.count({ where: { estado: EstadoAnimal.ACTIVO } }),
 
-    // Animales por finca
+    // Animales por finca (se suma a partir de los lotes, ya que Finca no
+    // tiene una relación directa con Animal)
     prisma.finca.findMany({
       select: {
         nombre: true,
-        _count: { select: { animales: { where: { estado: EstadoAnimal.ACTIVO } } } },
         lotes: {
           select: {
             _count: { select: { animales: { where: { estado: EstadoAnimal.ACTIVO } } } },
@@ -60,10 +60,8 @@ export async function obtenerResumenDashboard() {
       },
     }),
 
-    // Calendarios de vacunación activos pendientes de registro en últimos intervaloDias días
-    prisma.calendarioVacunacion.count({
-      where: { activo: true },
-    }),
+    // Calendarios de vacunación pendientes de registro en últimos intervaloDias días
+    prisma.calendarioVacunacion.count(),
 
     // Animales con enfermedades activas
     prisma.animal.count({
@@ -83,12 +81,11 @@ export async function obtenerResumenDashboard() {
     }),
   ]);
 
-  // Construir datos de animales por finca
-  const animalesPorFincaFormateados = animalesPorFinca.map((f) => ({
-    finca: f.nombre,
-    total: f._count.animales,
-    activos: f._count.animales, // Todos los contados ya son activos
-  }));
+  // Construir datos de animales por finca, sumando el conteo de cada lote
+  const animalesPorFincaFormateados = animalesPorFinca.map((f) => {
+    const total = f.lotes.reduce((suma, lote) => suma + lote._count.animales, 0);
+    return { finca: f.nombre, total, activos: total };
+  });
 
   // Calcular indicadores reproductivos
   const hembrasTotales = await prisma.animal.count({
@@ -150,7 +147,7 @@ async function calcularDiasAbiertoPromedio(): Promise<number> {
       madreId: true,
     },
     take: 50,
-    orderBy: { creadoEn: 'desc' },
+    orderBy: { fechaPartoEsperado: 'desc' },
   });
 
   if (gestacionesConParto.length === 0) return 120; // Valor referencia para ganadería bovina

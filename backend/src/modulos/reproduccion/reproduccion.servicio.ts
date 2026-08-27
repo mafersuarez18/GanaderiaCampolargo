@@ -20,7 +20,7 @@ export async function listarPartosProximos(diasHorizonte: number = 30, limite: n
           id: true,
           numeroArete: true,
           nombre: true,
-          finca: { select: { id: true, nombre: true } },
+          lote: { select: { finca: { select: { id: true, nombre: true } } } },
         },
       },
     },
@@ -33,7 +33,7 @@ export async function listarPartosProximos(diasHorizonte: number = 30, limite: n
     madreId: g.madreId,
     madreNumeroArete: g.madre.numeroArete,
     madreNombre: g.madre.nombre,
-    finca: g.madre.finca?.nombre ?? 'Sin finca',
+    finca: g.madre.lote.finca.nombre,
     fechaPartoEsperado: g.fechaPartoEsperado,
     diasRestantes: Math.max(
       0,
@@ -66,7 +66,7 @@ export async function listarEventosReproductivos(filtros: FiltrosEventoReproduct
         ...(hasta && { lte: hasta }),
       },
     }),
-    ...(fincaId && { animal: { fincaId } }),
+    ...(fincaId && { animal: { lote: { fincaId } } }),
   };
 
   const [registros, total] = await prisma.$transaction([
@@ -78,7 +78,7 @@ export async function listarEventosReproductivos(filtros: FiltrosEventoReproduct
             id: true,
             numeroArete: true,
             nombre: true,
-            finca: { select: { nombre: true } },
+            lote: { select: { finca: { select: { nombre: true } } } },
           },
         },
         registradoPor: { select: { nombre: true, apellido: true } },
@@ -183,7 +183,7 @@ export async function listarGestacionesActivas(fincaId?: string) {
   return prisma.gestacion.findMany({
     where: {
       estadoGestacion: EstadoGestacion.EN_CURSO,
-      ...(fincaId && { madre: { fincaId } }),
+      ...(fincaId && { madre: { lote: { fincaId } } }),
     },
     include: {
       madre: {
@@ -191,8 +191,7 @@ export async function listarGestacionesActivas(fincaId?: string) {
           id: true,
           numeroArete: true,
           nombre: true,
-          finca: { select: { nombre: true } },
-          lote:  { select: { nombre: true } },
+          lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
         },
       },
     },
@@ -201,10 +200,13 @@ export async function listarGestacionesActivas(fincaId?: string) {
 }
 
 export interface DatosCrearGestacion {
-  madreId:             string;
-  fechaInicio:         Date;
-  fechaPartoEsperado:  Date;
-  observaciones?:      string;
+  madreId:              string;
+  fechaInicio:          Date;
+  fechaPartoEsperado:   Date;
+  observaciones?:       string;
+  // Evento de monta natural o inseminación que originó esta gestación,
+  // cuando el celo/servicio quedó registrado formalmente (opcional).
+  eventoReproductivoId?: string;
 }
 
 export async function crearGestacion(datos: DatosCrearGestacion) {
@@ -221,6 +223,23 @@ export async function crearGestacion(datos: DatosCrearGestacion) {
   });
   if (gestacionActiva) {
     throw new ErrorValidacionDatos('La hembra ya tiene una gestación activa registrada');
+  }
+
+  if (datos.eventoReproductivoId) {
+    const evento = await prisma.eventoReproductivo.findUnique({
+      where: { id: datos.eventoReproductivoId },
+      select: { animalId: true, tipo: true, gestacion: { select: { id: true } } },
+    });
+    if (!evento) throw new ErrorNoEncontrado('Evento reproductivo no encontrado');
+    if (evento.animalId !== datos.madreId) {
+      throw new ErrorValidacionDatos('El evento reproductivo no corresponde a esta hembra');
+    }
+    if (!['INSEMINACION_ARTIFICIAL', 'MONTA_NATURAL'].includes(evento.tipo)) {
+      throw new ErrorValidacionDatos('El evento debe ser una inseminación artificial o monta natural');
+    }
+    if (evento.gestacion) {
+      throw new ErrorValidacionDatos('Ese evento ya tiene una gestación vinculada');
+    }
   }
 
   return prisma.gestacion.create({
@@ -247,40 +266,40 @@ export async function obtenerIndicadoresReproductivos(anio: number, fincaId?: st
     totalInseminaciones,
   ] = await Promise.all([
     prisma.animal.count({
-      where: { sexo: Sexo.HEMBRA, estado: EstadoAnimal.ACTIVO, ...(fincaId && { fincaId }) },
+      where: { sexo: Sexo.HEMBRA, estado: EstadoAnimal.ACTIVO, ...(fincaId && { lote: { fincaId } }) },
     }),
     prisma.gestacion.count({
-      where: { estadoGestacion: EstadoGestacion.EN_CURSO, ...(fincaId && { madre: { fincaId } }) },
+      where: { estadoGestacion: EstadoGestacion.EN_CURSO, ...(fincaId && { madre: { lote: { fincaId } } }) },
     }),
     prisma.gestacion.count({
-      where: { fechaInicio: { gte: inicioAnio, lte: finAnio }, ...(fincaId && { madre: { fincaId } }) },
+      where: { fechaInicio: { gte: inicioAnio, lte: finAnio }, ...(fincaId && { madre: { lote: { fincaId } } }) },
     }),
     prisma.gestacion.count({
       where: {
         estadoGestacion: EstadoGestacion.FINALIZADA_PARTO,
         fechaPartoReal: { gte: inicioAnio, lte: finAnio },
-        ...(fincaId && { madre: { fincaId } }),
+        ...(fincaId && { madre: { lote: { fincaId } } }),
       },
     }),
     prisma.gestacion.count({
       where: {
         estadoGestacion: EstadoGestacion.FINALIZADA_ABORTO,
         fechaInicio: { gte: inicioAnio, lte: finAnio },
-        ...(fincaId && { madre: { fincaId } }),
+        ...(fincaId && { madre: { lote: { fincaId } } }),
       },
     }),
     prisma.eventoReproductivo.count({
       where: {
         tipo: TipoEventoReproductivo.DETECCION_CELO,
         fecha: { gte: inicioAnio, lte: finAnio },
-        ...(fincaId && { animal: { fincaId } }),
+        ...(fincaId && { animal: { lote: { fincaId } } }),
       },
     }),
     prisma.eventoReproductivo.count({
       where: {
         tipo: { in: [TipoEventoReproductivo.INSEMINACION_ARTIFICIAL, TipoEventoReproductivo.MONTA_NATURAL] },
         fecha: { gte: inicioAnio, lte: finAnio },
-        ...(fincaId && { animal: { fincaId } }),
+        ...(fincaId && { animal: { lote: { fincaId } } }),
       },
     }),
   ]);
@@ -290,7 +309,7 @@ export async function obtenerIndicadoresReproductivos(anio: number, fincaId?: st
     where: {
       tipo: TipoEventoReproductivo.DETECCION_CELO,
       fecha: { gte: inicioAnio, lte: finAnio },
-      ...(fincaId && { animal: { fincaId } }),
+      ...(fincaId && { animal: { lote: { fincaId } } }),
     },
     select: { animalId: true },
   });

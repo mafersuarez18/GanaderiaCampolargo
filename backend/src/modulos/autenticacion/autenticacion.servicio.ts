@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../../compartido/prisma/clientePrisma';
 import { entorno } from '../../config/entorno';
 import { ErrorNoAutorizado, ErrorForbidden } from '../../compartido/tipos/respuesta';
-import { EstadoUsuario, RolUsuario } from '@prisma/client';
+import { EstadoUsuario } from '@prisma/client';
 import { UsuarioToken } from '../../compartido/middlewares/autenticacion';
 
 interface DatosInicioSesion {
@@ -17,7 +17,8 @@ interface RespuestaAutenticacion {
     nombre: string;
     apellido: string;
     correo: string;
-    rol: RolUsuario;
+    rol: { id: string; nombre: string; descripcion: string | null };
+    privilegios: string[];
     cargo: string | null;
   };
   tokenAcceso: string;
@@ -28,9 +29,21 @@ interface RespuestaAutenticacion {
 const MAX_INTENTOS_FALLIDOS = 5;
 const TIEMPO_BLOQUEO_MINUTOS = 30;
 
+// Incluye el rol y la lista de códigos de privilegio asociados, para embeberlos en el JWT
+const incluirRolYPrivilegios = {
+  rol: { include: { privilegios: { include: { privilegio: true } } } },
+} as const;
+
+function extraerCodigosPrivilegios(usuario: {
+  rol: { privilegios: { privilegio: { descripcion: string } }[] };
+}): string[] {
+  return usuario.rol.privilegios.map((rp) => rp.privilegio.descripcion);
+}
+
 export async function iniciarSesion(datos: DatosInicioSesion): Promise<RespuestaAutenticacion> {
   const usuario = await prisma.usuario.findUnique({
     where: { correo: datos.correo.toLowerCase().trim() },
+    include: incluirRolYPrivilegios,
   });
 
   if (!usuario) {
@@ -78,10 +91,13 @@ export async function iniciarSesion(datos: DatosInicioSesion): Promise<Respuesta
   }
 
   // Generar tokens JWT
+  const codigosPrivilegios = extraerCodigosPrivilegios(usuario);
   const payloadToken: Omit<UsuarioToken, 'id'> & { sub: string } = {
     sub: usuario.id,
     correo: usuario.correo,
-    rol: usuario.rol,
+    rolId: usuario.rolId,
+    rolNombre: usuario.rol.nombre,
+    privilegios: codigosPrivilegios,
     nombre: usuario.nombre,
     apellido: usuario.apellido,
   };
@@ -117,7 +133,8 @@ export async function iniciarSesion(datos: DatosInicioSesion): Promise<Respuesta
       nombre: usuario.nombre,
       apellido: usuario.apellido,
       correo: usuario.correo,
-      rol: usuario.rol,
+      rol: { id: usuario.rol.id, nombre: usuario.rol.nombre, descripcion: usuario.rol.descripcion },
+      privilegios: codigosPrivilegios,
       cargo: usuario.cargo,
     },
     tokenAcceso,
@@ -137,6 +154,7 @@ export async function renovarToken(tokenRefreshRecibido: string): Promise<{ toke
 
   const usuario = await prisma.usuario.findUnique({
     where: { id: payload.sub },
+    include: incluirRolYPrivilegios,
   });
 
   if (!usuario?.tokenRefresh) {
@@ -157,7 +175,9 @@ export async function renovarToken(tokenRefreshRecibido: string): Promise<{ toke
     {
       sub: usuario.id,
       correo: usuario.correo,
-      rol: usuario.rol,
+      rolId: usuario.rolId,
+      rolNombre: usuario.rol.nombre,
+      privilegios: extraerCodigosPrivilegios(usuario),
       nombre: usuario.nombre,
       apellido: usuario.apellido,
     },

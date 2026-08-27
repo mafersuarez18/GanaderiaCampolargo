@@ -51,8 +51,7 @@ export interface DatosCrearAnimal {
   observaciones?: string;
   tipoCruce?:     string;
   procedencia?:   string;
-  fincaId:        string;
-  loteId?:        string;
+  loteId:         string;
   razaId:         string;
   padreId?:       string;
   madreId?:       string;
@@ -75,13 +74,12 @@ export async function servicioCrearAnimal(datos: DatosCrearAnimal) {
     if (madre.sexo !== 'HEMBRA') throw new ErrorValidacionDatos('La madre debe ser de sexo HEMBRA');
   }
 
-  const { fincaId, loteId, razaId, padreId, madreId, ...resto } = datos;
+  const { loteId, razaId, padreId, madreId, ...resto } = datos;
 
   return crearAnimal({
     ...resto,
-    finca: { connect: { id: fincaId } },
+    lote:  { connect: { id: loteId } },
     raza:  { connect: { id: razaId } },
-    ...(loteId  && { lote:  { connect: { id: loteId } } }),
     ...(padreId && { padre: { connect: { id: padreId } } }),
     ...(madreId && { madre: { connect: { id: madreId } } }),
   });
@@ -106,13 +104,12 @@ export async function servicioActualizarAnimal(
     }
   }
 
-  const { fincaId, loteId, razaId, padreId, madreId, ...resto } = datos;
+  const { loteId, razaId, padreId, madreId, ...resto } = datos;
 
   return actualizarAnimal(id, {
     ...resto,
-    ...(fincaId !== undefined && { finca: fincaId ? { connect: { id: fincaId } } : undefined }),
-    ...(razaId  !== undefined && { raza:  razaId  ? { connect: { id: razaId } }  : undefined }),
-    ...(loteId  !== undefined && { lote:  loteId  ? { connect: { id: loteId } }  : { disconnect: true } }),
+    ...(razaId  !== undefined && { raza: razaId ? { connect: { id: razaId } } : undefined }),
+    ...(loteId  !== undefined && loteId && { lote: { connect: { id: loteId } } }),
     ...(padreId !== undefined && { padre: padreId ? { connect: { id: padreId } } : { disconnect: true } }),
     ...(madreId !== undefined && { madre: madreId ? { connect: { id: madreId } } : { disconnect: true } }),
   });

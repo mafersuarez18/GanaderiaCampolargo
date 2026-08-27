@@ -29,7 +29,6 @@ const esquemaCalendario = z.object({
   intervaloDias:   z.number().int().positive(),
   edadMinimasDias: z.number().int().min(0).optional(),
   aplicaASexo:     z.nativeEnum(Sexo).nullable().optional(),
-  activo:          z.boolean().default(true),
 });
 
 const esquemaRegistro = z.object({
@@ -59,8 +58,7 @@ export async function controladorListarCalendarios(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const { activos } = z.object({ activos: z.coerce.boolean().optional() }).parse(req.query);
-    const calendarios = await listarCalendarios(activos);
+    const calendarios = await listarCalendarios();
     return respuestaExito(res, calendarios);
   } catch (error) { return next(error); }
 }

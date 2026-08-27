@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { entorno } from '../../config/entorno';
 import { ErrorNoAutorizado, ErrorForbidden } from '../tipos/respuesta';
-import { RolUsuario } from '@prisma/client';
 
 // Extiende el tipo Request de Express para incluir el usuario autenticado
 declare global {
@@ -16,7 +15,9 @@ declare global {
 export interface UsuarioToken {
   id: string;
   correo: string;
-  rol: RolUsuario;
+  rolId: string;
+  rolNombre: string;
+  privilegios: string[];
   nombre: string;
   apellido: string;
 }
@@ -24,7 +25,9 @@ export interface UsuarioToken {
 interface PayloadJWT {
   sub: string;
   correo: string;
-  rol: RolUsuario;
+  rolId: string;
+  rolNombre: string;
+  privilegios: string[];
   nombre: string;
   apellido: string;
   iat: number;
@@ -47,7 +50,9 @@ export function verificarToken(req: Request, _res: Response, siguiente: NextFunc
     req.usuarioActual = {
       id: payload.sub,
       correo: payload.correo,
-      rol: payload.rol,
+      rolId: payload.rolId,
+      rolNombre: payload.rolNombre,
+      privilegios: payload.privilegios,
       nombre: payload.nombre,
       apellido: payload.apellido,
     };
@@ -61,35 +66,33 @@ export function verificarToken(req: Request, _res: Response, siguiente: NextFunc
   }
 }
 
-// Verifica que el usuario tenga al menos uno de los roles requeridos
-export function requerirRol(...rolesPermitidos: RolUsuario[]) {
+// Acceso para cualquier usuario autenticado, sin exigir un privilegio en particular
+// (recursos de auto-servicio como el propio perfil, o listados con alcance por usuario)
+export function autenticado(req: Request, _res: Response, siguiente: NextFunction): void {
+  if (!req.usuarioActual) {
+    throw new ErrorNoAutorizado();
+  }
+  siguiente();
+}
+
+// Verifica que el usuario tenga al menos uno de los privilegios requeridos,
+// según los privilegios asignados a su rol (embebidos en el token de acceso)
+export function requerirPrivilegio(...codigosPermitidos: string[]) {
   return (req: Request, _res: Response, siguiente: NextFunction): void => {
     if (!req.usuarioActual) {
       throw new ErrorNoAutorizado();
     }
 
-    if (!rolesPermitidos.includes(req.usuarioActual.rol)) {
+    const tienePrivilegio = codigosPermitidos.some((codigo) =>
+      req.usuarioActual!.privilegios.includes(codigo)
+    );
+
+    if (!tienePrivilegio) {
       throw new ErrorForbidden(
-        `Acceso denegado. Se requiere rol: ${rolesPermitidos.join(' o ')}`
+        `Acceso denegado. Se requiere el privilegio: ${codigosPermitidos.join(' o ')}`
       );
     }
 
     siguiente();
   };
 }
-
-// Acceso solo para administradores
-export const soloAdministrador = requerirRol(RolUsuario.ADMINISTRADOR);
-
-// Acceso para administradores y veterinarios
-export const administradorOVeterinario = requerirRol(
-  RolUsuario.ADMINISTRADOR,
-  RolUsuario.VETERINARIO
-);
-
-// Acceso para cualquier usuario autenticado
-export const cualquierRol = requerirRol(
-  RolUsuario.ADMINISTRADOR,
-  RolUsuario.VETERINARIO,
-  RolUsuario.TECNICO
-);

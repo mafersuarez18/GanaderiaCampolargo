@@ -44,7 +44,14 @@ export function useAutenticacion() {
 
   function tienePermiso(...roles: string[]): boolean {
     if (!tienda.usuario) return false;
-    return roles.includes(tienda.usuario.rol);
+    return roles.includes(tienda.usuario.rol.nombre);
+  }
+
+  // Verifica si el usuario tiene al menos uno de los privilegios indicados
+  // (ej. tienePrivilegio('animales.crear')), reflejando lo que el backend valida.
+  function tienePrivilegio(...codigos: string[]): boolean {
+    if (!tienda.usuario) return false;
+    return codigos.some((codigo) => tienda.usuario!.privilegios.includes(codigo));
   }
 
   return {
@@ -54,8 +61,9 @@ export function useAutenticacion() {
     iniciarSesion,
     cerrarSesion,
     tienePermiso,
-    esAdministrador: tienda.usuario?.rol === 'ADMINISTRADOR',
-    esVeterinario: tienda.usuario?.rol === 'VETERINARIO',
-    esTecnico: tienda.usuario?.rol === 'TECNICO',
+    tienePrivilegio,
+    esAdministrador: tienda.usuario?.rol.nombre === 'ADMINISTRADOR',
+    esVeterinario: tienda.usuario?.rol.nombre === 'VETERINARIO',
+    esTecnico: tienda.usuario?.rol.nombre === 'TECNICO',
   };
 }

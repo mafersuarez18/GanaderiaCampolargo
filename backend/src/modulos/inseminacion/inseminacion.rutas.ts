@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { ClasificacionIA, TecnicaDeposicionSemen, NivelEstres } from '@prisma/client';
-import { verificarToken, administradorOVeterinario, cualquierRol } from '../../compartido/middlewares/autenticacion';
+import { verificarToken, requerirPrivilegio } from '../../compartido/middlewares/autenticacion';
 import { registrarAuditoria } from '../../compartido/middlewares/auditoria';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { respuestaExito, respuestaCreado, respuestaListado } from '../../compartido/utilidades/respuestaHttp';
@@ -14,7 +14,7 @@ const enrutador = Router();
 enrutador.use(verificarToken);
 
 // GET /api/v1/inseminacion/sementales — listado de sementales
-enrutador.get('/sementales', cualquierRol, async (_req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/sementales', requerirPrivilegio('inseminacion.ver'), async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const sementales = await prisma.semental.findMany({
       include: {
@@ -28,14 +28,13 @@ enrutador.get('/sementales', cualquierRol, async (_req: Request, res: Response, 
 });
 
 // POST /api/v1/inseminacion/sementales — registrar semental
-enrutador.post('/sementales', administradorOVeterinario, registrarAuditoria('Registrar semental', 'Semental'), async (req: Request, res: Response, next: NextFunction) => {
+enrutador.post('/sementales', requerirPrivilegio('inseminacion.crear'), registrarAuditoria('Registrar semental', 'Semental'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({
       nombre:        z.string().min(1).max(200),
       registro:      z.string().max(100).optional(),
       origen:        z.string().max(200).optional(),
       razaId:        z.string().min(1),
-      activo:        z.boolean().default(true),
       observaciones: z.string().max(500).optional(),
     }).parse(req.body);
 
@@ -51,7 +50,7 @@ enrutador.post('/sementales', administradorOVeterinario, registrarAuditoria('Reg
 });
 
 // GET /api/v1/inseminacion/inventario — inventario de semen
-enrutador.get('/inventario', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/inventario', requerirPrivilegio('inseminacion.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { pagina, porPagina } = z.object({
       pagina: z.coerce.number().int().positive().default(1),
@@ -61,7 +60,7 @@ enrutador.get('/inventario', cualquierRol, async (req: Request, res: Response, n
     const [registros, total] = await prisma.$transaction([
       prisma.inventarioSemen.findMany({
         include: { semental: { select: { nombre: true } } },
-        orderBy: { creadoEn: 'desc' },
+        orderBy: { fechaColeccion: 'desc' },
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
@@ -74,7 +73,7 @@ enrutador.get('/inventario', cualquierRol, async (req: Request, res: Response, n
 });
 
 // POST /api/v1/inseminacion/inventario — registrar lote de semen
-enrutador.post('/inventario', administradorOVeterinario, registrarAuditoria('Registrar lote de semen', 'InventarioSemen'), async (req: Request, res: Response, next: NextFunction) => {
+enrutador.post('/inventario', requerirPrivilegio('inseminacion.crear'), registrarAuditoria('Registrar lote de semen', 'InventarioSemen'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({
       sementalId:       z.string().min(1),
@@ -106,7 +105,7 @@ enrutador.post('/inventario', administradorOVeterinario, registrarAuditoria('Reg
 });
 
 // GET /api/v1/inseminacion — listado de inseminaciones (via eventos reproductivos)
-enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/', requerirPrivilegio('inseminacion.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = z.object({
       animalId:  z.string().min(1).optional(),
@@ -118,7 +117,7 @@ enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextF
     const donde = {
       tipo: 'INSEMINACION_ARTIFICIAL' as const,
       ...(filtros.animalId && { animalId: filtros.animalId }),
-      ...(filtros.fincaId  && { animal: { fincaId: filtros.fincaId } }),
+      ...(filtros.fincaId  && { animal: { lote: { fincaId: filtros.fincaId } } }),
     };
 
     const [registros, total] = await prisma.$transaction([
@@ -165,7 +164,7 @@ enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextF
 });
 
 // POST /api/v1/inseminacion — registrar inseminación
-enrutador.post('/', administradorOVeterinario, registrarAuditoria('Registrar inseminación', 'InseminacionArtificial'), async (req: Request, res: Response, next: NextFunction) => {
+enrutador.post('/', requerirPrivilegio('inseminacion.crear'), registrarAuditoria('Registrar inseminación', 'InseminacionArtificial'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({
       receptoraId:         z.string().min(1),

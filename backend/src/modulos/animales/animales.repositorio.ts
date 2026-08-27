@@ -10,7 +10,7 @@ export interface FiltrosAnimal {
   estado?: EstadoAnimal;
   pagina?: number;
   porPagina?: number;
-  ordenPor?: 'numeroArete' | 'nombre' | 'fechaNacimiento' | 'creadoEn';
+  ordenPor?: 'numeroArete' | 'nombre' | 'fechaNacimiento' | 'fechaIngreso';
   direccionOrden?: 'asc' | 'desc';
 }
 
@@ -26,16 +26,14 @@ const seleccionListado = {
   pesoActual: true,
   color: true,
   raza: { select: { id: true, nombre: true } },
-  finca: { select: { id: true, nombre: true } },
-  lote:  { select: { id: true, nombre: true } },
-  creadoEn: true,
+  lote:  { select: { id: true, nombre: true, finca: { select: { id: true, nombre: true } } } },
+  fechaIngreso: true,
 } satisfies Prisma.AnimalSelect;
 
 const seleccionDetalle = {
   ...seleccionListado,
   marcas: true,
   observaciones: true,
-  fechaIngreso: true,
   fechaEgreso: true,
   motivoEgreso: true,
   padre: { select: { id: true, numeroArete: true, nombre: true } },
@@ -65,7 +63,7 @@ export async function listarAnimales(filtros: FiltrosAnimal = {}) {
     estado,
     pagina = 1,
     porPagina = 20,
-    ordenPor = 'creadoEn',
+    ordenPor = 'fechaIngreso',
     direccionOrden = 'desc',
   } = filtros;
 
@@ -77,7 +75,7 @@ export async function listarAnimales(filtros: FiltrosAnimal = {}) {
         { color:       { contains: busqueda, mode: 'insensitive' } },
       ],
     }),
-    ...(fincaId  && { fincaId }),
+    ...(fincaId  && { lote: { fincaId } }),
     ...(loteId   && { loteId }),
     ...(razaId   && { razaId }),
     ...(sexo     && { sexo }),

@@ -39,14 +39,18 @@ interface ReglaAlerta {
   prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
   umbralValor?: number;
   umbralUnidad?: string;
-  mensajeAlerta?: string;
   evaluarCadaHoras: number;
-  activa: boolean;
-  notificarAdministrador: boolean;
-  notificarVeterinario: boolean;
-  notificarTecnico: boolean;
+  estado: 'ACTIVA' | 'PAUSADA';
+  usuarios: { id: string; nombre: string; apellido: string }[];
   enviarCorreo: boolean;
   ultimaEvaluacion?: string;
+}
+
+interface UsuarioOpcion {
+  id: string;
+  nombre: string;
+  apellido: string;
+  rol?: { nombre: string };
 }
 
 interface RespuestaNotificaciones {
@@ -187,8 +191,8 @@ export default function PaginaAlertas() {
   });
 
   const mutToggleRegla = useMutation({
-    mutationFn: ({ id, activa }: { id: string; activa: boolean }) =>
-      clienteHttp.patch(`/alertas/${id}`, { activa }),
+    mutationFn: ({ id, estado }: { id: string; estado: 'ACTIVA' | 'PAUSADA' }) =>
+      clienteHttp.patch(`/alertas/${id}`, { estado }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alertas-reglas'] }),
     onError: () => toast.error('Error al actualizar la regla'),
   });
@@ -601,7 +605,7 @@ export default function PaginaAlertas() {
                   key={regla.id}
                   regla={regla}
                   puedeEditar={esAdministrador}
-                  alToggle={() => mutToggleRegla.mutate({ id: regla.id, activa: !regla.activa })}
+                  alToggle={() => mutToggleRegla.mutate({ id: regla.id, estado: regla.estado === 'ACTIVA' ? 'PAUSADA' : 'ACTIVA' })}
                   alEditar={() => setModalRegla(regla)}
                   alEliminar={() => setReglaEliminar(regla)}
                 />
@@ -660,17 +664,18 @@ function TarjetaRegla({
   alEliminar: () => void;
 }) {
   const cfgPrio = CFG_PRIORIDAD_REGLA[regla.prioridad] ?? CFG_PRIORIDAD_REGLA.MEDIA;
+  const activa = regla.estado === 'ACTIVA';
 
   return (
     <div className={`tarjeta-vidrio rounded-2xl p-4 flex items-start gap-4 transition-all
-      ${!regla.activa ? 'opacity-60' : ''}`}
+      ${!activa ? 'opacity-60' : ''}`}
     >
       {/* Icono estado */}
-      <div className={`p-2.5 rounded-xl flex-shrink-0 ${regla.activa ? 'bg-primary/10' : 'bg-surface-container'}`}>
+      <div className={`p-2.5 rounded-xl flex-shrink-0 ${activa ? 'bg-primary/10' : 'bg-surface-container'}`}>
         <Icono
-          nombre={regla.activa ? 'rule_settings' : 'rule'}
-          relleno={regla.activa}
-          clase={`text-[20px] ${regla.activa ? 'text-primary' : 'text-outline'}`}
+          nombre={activa ? 'rule_settings' : 'rule'}
+          relleno={activa}
+          clase={`text-[20px] ${activa ? 'text-primary' : 'text-outline'}`}
         />
       </div>
 
@@ -680,8 +685,8 @@ function TarjetaRegla({
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-semibold text-sm text-on-surface">{regla.nombre}</p>
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold
-            ${regla.activa ? 'bg-primary/10 text-primary' : 'bg-surface-container text-outline'}`}>
-            {regla.activa ? 'Activa' : 'Desactivada'}
+            ${activa ? 'bg-primary/10 text-primary' : 'bg-surface-container text-outline'}`}>
+            {activa ? 'Activa' : 'Pausada'}
           </span>
           <span className="px-2 py-0.5 bg-surface-container rounded-full text-[10px] text-on-surface-variant">
             {ETIQUETA_TIPO_ALERTA[regla.tipoAlerta] ?? regla.tipoAlerta}
@@ -697,13 +702,6 @@ function TarjetaRegla({
           <p className="text-xs text-on-surface-variant mt-1">{regla.descripcion}</p>
         )}
 
-        {/* Mensaje personalizado */}
-        {regla.mensajeAlerta && (
-          <div className="mt-1.5 flex items-start gap-1.5">
-            <Icono nombre="chat_bubble" clase="text-[12px] text-outline flex-shrink-0 mt-0.5" />
-            <p className="text-[11px] text-outline italic truncate">{regla.mensajeAlerta}</p>
-          </div>
-        )}
 
         {/* Fila de metadatos */}
         <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] text-outline">
@@ -729,21 +727,11 @@ function TarjetaRegla({
 
         {/* Destinatarios + correo */}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {regla.notificarAdministrador && (
-            <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1">
-              <Icono nombre="admin_panel_settings" clase="text-[10px]" />Admin
+          {regla.usuarios.map((usuario) => (
+            <span key={usuario.id} className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1">
+              <Icono nombre="person" clase="text-[10px]" />{usuario.nombre} {usuario.apellido}
             </span>
-          )}
-          {regla.notificarVeterinario && (
-            <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1">
-              <Icono nombre="medical_services" clase="text-[10px]" />Veterinario
-            </span>
-          )}
-          {regla.notificarTecnico && (
-            <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1">
-              <Icono nombre="engineering" clase="text-[10px]" />Técnico
-            </span>
-          )}
+          ))}
           {regla.enviarCorreo && (
             <span className="px-1.5 py-0.5 bg-surface-container rounded text-[10px] flex items-center gap-1 text-primary">
               <Icono nombre="email" clase="text-[10px]" />Correo
@@ -757,14 +745,14 @@ function TarjetaRegla({
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={alToggle}
-            title={regla.activa ? 'Desactivar regla' : 'Activar regla'}
+            title={activa ? 'Pausar regla' : 'Activar regla'}
             className={`p-2 rounded-xl transition-colors ${
-              regla.activa
+              activa
                 ? 'hover:bg-error-container text-primary hover:text-error'
                 : 'hover:bg-primary/10 text-outline hover:text-primary'
             }`}
           >
-            <Icono nombre={regla.activa ? 'toggle_on' : 'toggle_off'} relleno clase="text-[22px]" />
+            <Icono nombre={activa ? 'toggle_on' : 'toggle_off'} relleno clase="text-[22px]" />
           </button>
           <button onClick={alEditar} className="p-2 hover:bg-surface-container rounded-xl transition-colors">
             <Icono nombre="edit" clase="text-[18px] text-on-surface-variant" />
@@ -787,12 +775,9 @@ interface FormRegla {
   prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
   umbralValor: string;
   umbralUnidad: string;
-  mensajeAlerta: string;
   evaluarCadaHoras: string;
-  activa: boolean;
-  notificarAdministrador: boolean;
-  notificarVeterinario: boolean;
-  notificarTecnico: boolean;
+  estado: 'ACTIVA' | 'PAUSADA';
+  usuarioIds: string[];
   enviarCorreo: boolean;
 }
 
@@ -837,15 +822,24 @@ function ModalRegla({
     prioridad:              regla?.prioridad        ?? 'ALTA',
     umbralValor:            regla?.umbralValor != null ? String(regla.umbralValor) : '',
     umbralUnidad:           regla?.umbralUnidad     ?? 'días',
-    mensajeAlerta:          regla?.mensajeAlerta    ?? '',
     evaluarCadaHoras:       regla?.evaluarCadaHoras != null ? String(regla.evaluarCadaHoras) : '24',
-    activa:                 regla?.activa           ?? true,
-    notificarAdministrador: regla?.notificarAdministrador ?? true,
-    notificarVeterinario:   regla?.notificarVeterinario   ?? true,
-    notificarTecnico:       regla?.notificarTecnico       ?? false,
+    estado:                 regla?.estado           ?? 'ACTIVA',
+    usuarioIds:             regla?.usuarios.map((u) => u.id) ?? [],
     enviarCorreo:           regla?.enviarCorreo           ?? true,
   });
   const [error, setError] = useState('');
+
+  const { data: usuariosDisponibles = [] } = useQuery<UsuarioOpcion[]>({
+    queryKey: ['usuarios-catalogo'],
+    queryFn: () => clienteHttp.get('/usuarios').then((r) => r.data.datos),
+  });
+
+  const alternarUsuario = (usuarioId: string) => {
+    setForm((f) => ({
+      ...f,
+      usuarioIds: f.usuarioIds.includes(usuarioId) ? f.usuarioIds.filter((id) => id !== usuarioId) : [...f.usuarioIds, usuarioId],
+    }));
+  };
 
   const infoTipo = INFO_TIPO[form.tipoAlerta] ?? INFO_TIPO.PERSONALIZADA;
 
@@ -868,12 +862,9 @@ function ModalRegla({
         prioridad:              datos.prioridad,
         umbralValor:            datos.umbralValor ? Number(datos.umbralValor) : undefined,
         umbralUnidad:           datos.umbralUnidad.trim() || undefined,
-        mensajeAlerta:          datos.mensajeAlerta.trim() || undefined,
         evaluarCadaHoras:       datos.evaluarCadaHoras ? Number(datos.evaluarCadaHoras) : 24,
-        activa:                 datos.activa,
-        notificarAdministrador: datos.notificarAdministrador,
-        notificarVeterinario:   datos.notificarVeterinario,
-        notificarTecnico:       datos.notificarTecnico,
+        estado:                 datos.estado,
+        usuarioIds:             datos.usuarioIds,
         enviarCorreo:           datos.enviarCorreo,
       };
       return regla
@@ -1038,23 +1029,6 @@ function ModalRegla({
               </div>
             </div>
 
-            {/* ── Mensaje personalizado ── */}
-            <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-                Mensaje personalizado de la alerta
-                <span className="ml-1 font-normal text-outline">(opcional)</span>
-              </label>
-              <input
-                type="text"
-                value={form.mensajeAlerta}
-                onChange={(e) => setForm((f) => ({ ...f, mensajeAlerta: e.target.value }))}
-                placeholder="Ej: Atención: {animal} necesita vacuna {vacuna} el {fecha}"
-                className="campo-entrada"
-              />
-              <p className="mt-1.5 text-[11px] text-outline">
-                Variables disponibles: <span className="font-mono text-primary">{infoTipo.variables}</span>
-              </p>
-            </div>
 
             {/* ── Frecuencia de evaluación ── */}
             <div>
@@ -1092,19 +1066,41 @@ function ModalRegla({
             {/* ── Destinatarios ── */}
             <div>
               <p className="text-xs font-semibold text-on-surface-variant mb-2.5">Destinatarios</p>
-              <div className="grid grid-cols-2 gap-2">
-                {check('Administrador', 'notificarAdministrador', 'admin_panel_settings')}
-                {check('Veterinario',   'notificarVeterinario',   'medical_services')}
-                {check('Técnico',       'notificarTecnico',       'engineering')}
-                {check('Enviar correo', 'enviarCorreo',           'email')}
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                {usuariosDisponibles.map((usuario) => (
+                  <label key={usuario.id} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={form.usuarioIds.includes(usuario.id)}
+                      onChange={() => alternarUsuario(usuario.id)}
+                      className="w-4 h-4 accent-primary rounded"
+                    />
+                    <span className="text-sm text-on-surface flex items-center gap-1">
+                      <Icono nombre="person" clase="text-[14px] text-outline" />
+                      {usuario.nombre} {usuario.apellido}
+                      {usuario.rol && <span className="text-[10px] text-on-surface-variant">({usuario.rol.nombre})</span>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-2">
+                {check('Enviar correo', 'enviarCorreo', 'email')}
               </div>
             </div>
 
-            {/* ── Activa ── */}
+            {/* ── Estado ── */}
             <div className="flex items-center gap-3 py-2 px-4 bg-surface-container rounded-xl">
-              {check('Regla activa', 'activa')}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.estado === 'ACTIVA'}
+                  onChange={(e) => setForm((f) => ({ ...f, estado: e.target.checked ? 'ACTIVA' : 'PAUSADA' }))}
+                  className="w-4 h-4 accent-primary rounded"
+                />
+                <span className="text-sm text-on-surface">Regla activa</span>
+              </label>
               <span className="ml-auto text-xs text-outline">
-                {form.activa ? 'El motor evaluará esta regla periódicamente' : 'Esta regla será ignorada por el motor'}
+                {form.estado === 'ACTIVA' ? 'El motor evaluará esta regla periódicamente' : 'Esta regla será ignorada por el motor'}
               </span>
             </div>
 

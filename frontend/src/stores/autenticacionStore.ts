@@ -1,14 +1,19 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type RolUsuario = 'ADMINISTRADOR' | 'VETERINARIO' | 'TECNICO';
+export interface RolSesion {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+}
 
 export interface UsuarioSesion {
   id: string;
   nombre: string;
   apellido: string;
   correo: string;
-  rol: RolUsuario;
+  rol: RolSesion;
+  privilegios: string[];
   cargo: string | null;
 }
 

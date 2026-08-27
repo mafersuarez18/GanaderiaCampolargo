@@ -42,8 +42,10 @@ export default function BarraLateral({ alCerrar, esMobil = false }: PropiedadesB
 
   const iniciales = `${usuario?.nombre?.charAt(0) ?? ''}${usuario?.apellido?.charAt(0) ?? ''}`;
   const rolEtiqueta =
-    usuario?.rol === 'ADMINISTRADOR' ? 'Administrador' :
-    usuario?.rol === 'VETERINARIO'   ? 'Veterinario'   : 'Técnico de Campo';
+    usuario?.rol.nombre === 'ADMINISTRADOR' ? 'Administrador' :
+    usuario?.rol.nombre === 'VETERINARIO'   ? 'Veterinario'   :
+    usuario?.rol.nombre === 'TECNICO'       ? 'Técnico de Campo' :
+    usuario?.rol.descripcion || usuario?.rol.nombre || '';
 
   return (
     <aside

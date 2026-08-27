@@ -1,8 +1,8 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { EstadoAnimal, TipoAccionAuditoria } from '@prisma/client';
-import { verificarToken, administradorOVeterinario } from '../../compartido/middlewares/autenticacion';
+import { verificarToken, requerirPrivilegio } from '../../compartido/middlewares/autenticacion';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { respuestaExito } from '../../compartido/utilidades/respuestaHttp';
 import { logger } from '../../config/logger';
@@ -32,7 +32,7 @@ function auditarExportacion(req: Request, descripcion: string) {
 
 const enrutador = Router();
 
-enrutador.use(verificarToken, administradorOVeterinario);
+enrutador.use(verificarToken, requerirPrivilegio('reportes.generar'));
 
 const esquemaFiltros = z.object({
   formato:  z.enum(['pdf', 'excel']).default('pdf'),
@@ -102,29 +102,38 @@ enrutador.get('/inventario-animales', async (req: Request, res: Response, next: 
   try {
     const { fincaId } = z.object({ fincaId: z.string().min(1).optional() }).parse(req.query);
 
-    const [porEstado, porRaza, porFinca, porSexo] = await Promise.all([
+    const [porEstado, porRaza, lotesConAnimales, porSexo] = await Promise.all([
       prisma.animal.groupBy({
         by: ['estado'],
         _count: { id: true },
-        where: fincaId ? { fincaId } : {},
+        where: fincaId ? { lote: { fincaId } } : {},
       }),
       prisma.animal.groupBy({
         by: ['razaId'],
         _count: { id: true },
-        where: { estado: EstadoAnimal.ACTIVO, ...(fincaId ? { fincaId } : {}) },
+        where: { estado: EstadoAnimal.ACTIVO, ...(fincaId ? { lote: { fincaId } } : {}) },
       }),
-      prisma.finca.findMany({
+      prisma.lote.findMany({
+        where: fincaId ? { fincaId } : {},
         select: {
-          nombre: true,
+          finca: { select: { nombre: true } },
           _count: { select: { animales: { where: { estado: EstadoAnimal.ACTIVO } } } },
         },
       }),
       prisma.animal.groupBy({
         by: ['sexo'],
         _count: { id: true },
-        where: { estado: EstadoAnimal.ACTIVO, ...(fincaId ? { fincaId } : {}) },
+        where: { estado: EstadoAnimal.ACTIVO, ...(fincaId ? { lote: { fincaId } } : {}) },
       }),
     ]);
+
+    // El conteo por finca ya no es una relación directa de Finca (se alcanza vía
+    // Lote), así que se suma por finca a partir de sus lotes.
+    const porFincaMapa = new Map<string, number>();
+    for (const lote of lotesConAnimales) {
+      porFincaMapa.set(lote.finca.nombre, (porFincaMapa.get(lote.finca.nombre) ?? 0) + lote._count.animales);
+    }
+    const porFinca = Array.from(porFincaMapa, ([nombre, animales]) => ({ nombre, _count: { animales } }));
 
     return respuestaExito(res, { porEstado, porRaza, porFinca, porSexo });
   } catch (error) { return next(error); }

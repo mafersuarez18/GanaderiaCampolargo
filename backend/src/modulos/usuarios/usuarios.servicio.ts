@@ -1,4 +1,4 @@
-import { RolUsuario, EstadoUsuario } from '@prisma/client';
+import { EstadoUsuario } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import {
@@ -12,27 +12,26 @@ const seleccionUsuario = {
   nombre: true,
   apellido: true,
   correo: true,
-  rol: true,
+  rol: { select: { id: true, nombre: true, descripcion: true } },
   estado: true,
   cargo: true,
   telefono: true,
-  creadoEn: true,
-  actualizadoEn: true,
   bloqueadoHasta: true,
   intentosFallidos: true,
 } as const;
 
-export async function listarUsuarios(busqueda?: string) {
+export async function listarUsuarios(busqueda?: string, rolId?: string) {
   return prisma.usuario.findMany({
-    where: busqueda
-      ? {
-          OR: [
-            { nombre:   { contains: busqueda, mode: 'insensitive' } },
-            { apellido: { contains: busqueda, mode: 'insensitive' } },
-            { correo:   { contains: busqueda, mode: 'insensitive' } },
-          ],
-        }
-      : {},
+    where: {
+      ...(rolId && { rolId }),
+      ...(busqueda && {
+        OR: [
+          { nombre:   { contains: busqueda, mode: 'insensitive' } },
+          { apellido: { contains: busqueda, mode: 'insensitive' } },
+          { correo:   { contains: busqueda, mode: 'insensitive' } },
+        ],
+      }),
+    },
     select: seleccionUsuario,
     orderBy: [{ estado: 'asc' }, { nombre: 'asc' }],
   });
@@ -52,7 +51,7 @@ export interface DatosCrearUsuario {
   apellido:   string;
   correo:     string;
   contrasena: string;
-  rol:        RolUsuario;
+  rolId:      string;
 }
 
 export async function crearUsuario(datos: DatosCrearUsuario) {
@@ -61,6 +60,9 @@ export async function crearUsuario(datos: DatosCrearUsuario) {
     select: { id: true },
   });
   if (existente) throw new ErrorConflicto(`Ya existe un usuario con el correo '${datos.correo}'`);
+
+  const rol = await prisma.rol.findUnique({ where: { id: datos.rolId }, select: { id: true } });
+  if (!rol) throw new ErrorNoEncontrado(`Rol con id '${datos.rolId}'`);
 
   if (datos.contrasena.length < 8) {
     throw new ErrorValidacionDatos('La contraseña debe tener al menos 8 caracteres');
@@ -73,7 +75,7 @@ export async function crearUsuario(datos: DatosCrearUsuario) {
       apellido:   datos.apellido,
       correo:     datos.correo,
       contrasena: hashContrasena,
-      rol:        datos.rol,
+      rolId:      datos.rolId,
     },
     select: seleccionUsuario,
   });
@@ -82,7 +84,7 @@ export async function crearUsuario(datos: DatosCrearUsuario) {
 export interface DatosActualizarUsuario {
   nombre?:   string;
   apellido?: string;
-  rol?:      RolUsuario;
+  rolId?:    string;
   estado?:   EstadoUsuario;
   cargo?:    string;
   telefono?: string;
@@ -91,6 +93,12 @@ export interface DatosActualizarUsuario {
 export async function actualizarUsuario(id: string, datos: DatosActualizarUsuario) {
   const usuario = await prisma.usuario.findUnique({ where: { id }, select: { id: true } });
   if (!usuario) throw new ErrorNoEncontrado(`Usuario con id '${id}' no encontrado`);
+
+  if (datos.rolId) {
+    const rol = await prisma.rol.findUnique({ where: { id: datos.rolId }, select: { id: true } });
+    if (!rol) throw new ErrorNoEncontrado(`Rol con id '${datos.rolId}'`);
+  }
+
   return prisma.usuario.update({ where: { id }, data: datos, select: seleccionUsuario });
 }
 

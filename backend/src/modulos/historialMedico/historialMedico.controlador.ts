@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { EstadoSanitario, EstadoReproductivo, TipoAyudaDiagnostica, TipoDesparasitante } from '@prisma/client';
+import { EstadoSanitario, EstadoReproductivo, TipoDesparasitante, NivelGravedad } from '@prisma/client';
 import {
   listarHistorialMedico,
   obtenerHistorialPorId,
@@ -16,16 +16,10 @@ import {
 } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 
-const esquemaAyudaDiagnostica = z.object({
-  tipo:        z.nativeEnum(TipoAyudaDiagnostica),
-  descripcion: z.string().max(500).optional(),
-  resultado:   z.string().max(1000).optional(),
-  fecha:       z.coerce.date(),
-});
-
 const esquemaDesparasitacion = z.object({
   producto:        z.string().min(1).max(200),
   principioActivo: z.string().max(200).optional(),
+  medicamentoId:   z.string().min(1).optional(),
   tipo:            z.nativeEnum(TipoDesparasitante),
   fecha:           z.coerce.date(),
   dosis:           z.string().max(100).optional(),
@@ -43,20 +37,29 @@ const esquemaInformacionEpidemiologica = z.object({
 });
 
 const esquemaTratamiento = z.object({
-  medicamentoId:     z.string().min(1),
-  fechaInicio:       z.coerce.date(),
-  dosis:             z.string().min(1).max(200),
-  viaAdministracion: z.string().min(1).max(100),
-  frecuencia:        z.string().min(1).max(100),
-  duracionDias:      z.number().int().positive().optional(),
-  observaciones:     z.string().max(500).optional(),
+  medicamentoId:             z.string().min(1),
+  enfermedadDiagnosticadaId: z.string().min(1).optional(),
+  fechaInicio:               z.coerce.date(),
+  dosis:                     z.string().min(1).max(200),
+  viaAdministracion:         z.string().min(1).max(100),
+  frecuencia:                z.string().min(1).max(100),
+  duracionDias:              z.number().int().positive().optional(),
+  observaciones:             z.string().max(500).optional(),
+  descripcion:               z.string().max(500).optional(),
 });
 
 const esquemaEnfermedad = z.object({
   nombreEnfermedad:   z.string().min(2).max(200),
+  nivelGravedad:      z.nativeEnum(NivelGravedad).optional(),
   fechaInicio:        z.coerce.date(),
   descripcionClinica: z.string().max(500).optional(),
   observaciones:      z.string().max(500).optional(),
+  // Diagnóstico/plan/pronóstico/síntomas de esta condición específica
+  diagnostico:        z.string().max(1000).optional(),
+  pronostico:         z.string().max(500).optional(),
+  planDiagnostico:    z.string().max(1000).optional(),
+  tiempoEvolucion:    z.string().max(200).optional(),
+  sintomas:           z.string().max(1000).optional(),
 });
 
 const esquemaHistorial = z.object({
@@ -64,14 +67,12 @@ const esquemaHistorial = z.object({
   fechaConsulta:               z.coerce.date(),
   motivoConsulta:              z.string().min(2).max(300),
   sintomasObservados:          z.string().max(1000).optional(),
-  diagnostico:                 z.string().min(2).max(1000),
-  pronostico:                  z.string().max(500).optional(),
   observaciones:               z.string().max(1000).optional(),
   actualizarEstadoSanitario:   z.nativeEnum(EstadoSanitario).optional(),
+  estadoSanitario:             z.nativeEnum(EstadoSanitario).optional(),
   enfermedades:                z.array(esquemaEnfermedad).optional(),
   tratamientos:                z.array(esquemaTratamiento).optional(),
   // Anamnesis
-  tiempoEvolucion:             z.string().max(200).optional(),
   tratamientosPrevios:         z.string().max(1000).optional(),
   cirugias:                    z.string().max(1000).optional(),
   // Exploración física
@@ -85,14 +86,12 @@ const esquemaHistorial = z.object({
   estadoReproductivo:          z.nativeEnum(EstadoReproductivo).optional(),
   litrosLechesDiarios:         z.number().optional(),
   gananciaPeso:                z.number().optional(),
-  // Diagnóstico y plan
+  // Diagnóstico y plan (a nivel de consulta general)
   diagnosticoDefinitivo:       z.string().max(1000).optional(),
-  planDiagnostico:             z.string().max(1000).optional(),
   // Pruebas obligatorias
   observacionesDiagnosticosOficiales: z.string().max(1000).optional(),
   // Relaciones hijas
   informacionEpidemiologica:   esquemaInformacionEpidemiologica.optional(),
-  ayudasDiagnosticas:          z.array(esquemaAyudaDiagnostica).optional(),
   desparasitaciones:           z.array(esquemaDesparasitacion).optional(),
 });
 

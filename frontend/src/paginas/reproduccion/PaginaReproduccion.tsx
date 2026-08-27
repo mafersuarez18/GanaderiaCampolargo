@@ -15,7 +15,7 @@ interface EventoReproductivo {
   tipo: string;
   fecha: string;
   observaciones?: string;
-  animal: { id: string; numeroArete: string; nombre?: string; finca: { nombre: string } };
+  animal: { id: string; numeroArete: string; nombre?: string; lote?: { finca?: { nombre: string } } };
   registradoPor: { nombre: string; apellido: string };
 }
 
@@ -277,7 +277,7 @@ export default function PaginaReproduccion() {
                                 #{ev.animal.numeroArete}
                                 {ev.animal.nombre && ` · ${ev.animal.nombre}`}
                               </span>
-                              <span className="text-xs text-on-surface-variant">{ev.animal.finca.nombre}</span>
+                              <span className="text-xs text-on-surface-variant">{ev.animal.lote?.finca?.nombre}</span>
                             </div>
                             <span className="text-xs text-outline whitespace-nowrap flex-shrink-0">
                               {new Date(ev.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })}

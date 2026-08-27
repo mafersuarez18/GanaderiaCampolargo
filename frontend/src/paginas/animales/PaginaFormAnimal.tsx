@@ -23,8 +23,10 @@ const esquemaAnimal = z.object({
   marcas:           z.string().max(300).optional().or(z.literal('')),
   tipoCruce:        z.string().max(100).optional().or(z.literal('')),
   procedencia:      z.string().max(300).optional().or(z.literal('')),
-  fincaId:          z.string().min(1, 'Seleccione una finca válida'),
-  loteId:           z.string().min(1).optional().or(z.literal('')),
+  // La finca es solo un filtro en pantalla para acortar la lista de lotes;
+  // lo que realmente se envía al backend es el lote (obligatorio).
+  fincaId:          z.string().min(1, 'Seleccione una finca'),
+  loteId:           z.string().min(1, 'Seleccione un lote'),
   razaId:           z.string().min(1).optional().or(z.literal('')),
   padreId:          z.string().min(1).optional().or(z.literal('')),
   madreId:          z.string().min(1).optional().or(z.literal('')),
@@ -110,7 +112,7 @@ export default function PaginaFormAnimal() {
         color:           animalExistente.color ?? '',
         observaciones:   animalExistente.observaciones ?? '',
         marcas:          animalExistente.marcas ?? '',
-        fincaId:         animalExistente.finca?.id ?? '',
+        fincaId:         animalExistente.lote?.finca?.id ?? '',
         loteId:          animalExistente.lote?.id ?? '',
         razaId:          animalExistente.raza?.id ?? '',
         padreId:         animalExistente.padre?.id ?? '',
@@ -123,9 +125,12 @@ export default function PaginaFormAnimal() {
 
   const mutacion = useMutation({
     mutationFn: async (datos: FormularioAnimal) => {
+      // fincaId es solo un filtro de UI para acortar la lista de lotes; el
+      // backend solo recibe loteId (la finca se deriva del lote).
+      const { fincaId: _fincaId, ...datosSinFinca } = datos;
       // Limpiar campos vacíos
       const payload = Object.fromEntries(
-        Object.entries(datos).filter(([, v]) => v !== '' && v !== undefined && v !== null)
+        Object.entries(datosSinFinca).filter(([, v]) => v !== '' && v !== undefined && v !== null)
       );
       if (esEdicion) {
         const { data } = await clienteHttp.patch(`/animales/${id}`, payload);
@@ -295,9 +300,9 @@ export default function PaginaFormAnimal() {
                 ))}
               </select>
             </CampoForm>
-            <CampoForm etiqueta="Lote" error={errors.loteId?.message}>
+            <CampoForm etiqueta="Lote *" error={errors.loteId?.message}>
               <select {...register('loteId')} className="campo-entrada" disabled={!fincaSeleccionada}>
-                <option value="">Sin lote asignado</option>
+                <option value="">{fincaSeleccionada ? 'Seleccionar lote...' : 'Primero seleccione una finca'}</option>
                 {lotes.map((l: any) => (
                   <option key={l.id} value={l.id}>{l.nombre}</option>
                 ))}

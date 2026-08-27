@@ -1,4 +1,4 @@
-import { Prisma, EstadoSanitario, EstadoReproductivo, TipoAyudaDiagnostica, TipoDesparasitante } from '@prisma/client';
+import { Prisma, EstadoSanitario, EstadoReproductivo, TipoDesparasitante, NivelGravedad } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
 
@@ -11,21 +11,27 @@ import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
  *   - calendarios de vacunación activos para saber si hay uno de "desparasitación"
  */
 export async function obtenerPrefillConsulta(animalId: string) {
-  const [ultimaDesparasitacion, calendarios] = await Promise.all([
+  const [ultimaDesparasitacion, calendarios, enfermedadesActivas] = await Promise.all([
     // Última desparasitación del animal (cualquier historial)
     prisma.programaDesparasitacion.findFirst({
       where: { historialMedico: { animalId } },
       orderBy: { fecha: 'desc' },
     }),
-    // Calendarios activos de tipo desparasitación (nombre contiene la palabra)
+    // Calendarios de tipo desparasitación (nombre contiene la palabra)
     prisma.calendarioVacunacion.findMany({
-      where: { activo: true },
       select: { id: true, nombreVacuna: true, intervaloDias: true },
       orderBy: { nombreVacuna: 'asc' },
     }),
+    // Enfermedades activas del animal (de cualquier consulta anterior), para poder
+    // vincular un nuevo tratamiento a la enfermedad que atiende
+    prisma.enfermedadDiagnosticada.findMany({
+      where: { historialMedico: { animalId }, activa: true },
+      select: { id: true, nombreEnfermedad: true, fechaInicio: true },
+      orderBy: { fechaInicio: 'desc' },
+    }),
   ]);
 
-  return { ultimaDesparasitacion, calendarios };
+  return { ultimaDesparasitacion, calendarios, enfermedadesActivas };
 }
 
 export interface FiltrosHistorial {
@@ -42,11 +48,9 @@ const seleccionHistorial = {
   fechaConsulta: true,
   motivoConsulta: true,
   sintomasObservados: true,
-  diagnostico: true,
-  pronostico: true,
   observaciones: true,
+  estadoSanitario: true,
   // Anamnesis
-  tiempoEvolucion: true,
   tratamientosPrevios: true,
   cirugias: true,
   // Exploración física
@@ -62,10 +66,9 @@ const seleccionHistorial = {
   gananciaPeso: true,
   // Diagnóstico y plan
   diagnosticoDefinitivo: true,
-  planDiagnostico: true,
   observacionesDiagnosticosOficiales: true,
   animal: {
-    select: { id: true, numeroArete: true, nombre: true, finca: { select: { nombre: true } } },
+    select: { id: true, numeroArete: true, nombre: true, lote: { select: { finca: { select: { nombre: true } } } } },
   },
   veterinario: { select: { id: true, nombre: true, apellido: true } },
   enfermedades: true,
@@ -77,13 +80,25 @@ const seleccionHistorial = {
       frecuencia: true,
       duracionDias: true,
       estado: true,
+      enfermedadDiagnosticadaId: true,
       medicamento: { select: { nombre: true } },
+      enfermedadDiagnosticada: { select: { nombreEnfermedad: true } },
     },
   },
   informacionEpidemiologica: true,
-  ayudasDiagnosticas: true,
-  desparasitaciones: true,
-  creadoEn: true,
+  desparasitaciones: {
+    select: {
+      id: true,
+      producto: true,
+      principioActivo: true,
+      tipo: true,
+      fecha: true,
+      dosis: true,
+      via: true,
+      medicamentoId: true,
+      medicamento: { select: { nombre: true } },
+    },
+  },
 } satisfies Prisma.HistorialMedicoSelect;
 
 export async function listarHistorialMedico(filtros: FiltrosHistorial = {}) {
@@ -91,7 +106,7 @@ export async function listarHistorialMedico(filtros: FiltrosHistorial = {}) {
 
   const donde: Prisma.HistorialMedicoWhereInput = {
     ...(animalId && { animalId }),
-    ...(fincaId  && { animal: { fincaId } }),
+    ...(fincaId  && { animal: { lote: { fincaId } } }),
     ...((desde || hasta) && {
       fechaConsulta: {
         ...(desde && { gte: desde }),
@@ -128,13 +143,12 @@ export interface DatosCrearHistorial {
   fechaConsulta:         Date;
   motivoConsulta:        string;
   sintomasObservados?:   string;
-  diagnostico:           string;
-  pronostico?:           string;
   observaciones?:        string;
   veterinarioId:         string;
   actualizarEstadoSanitario?: EstadoSanitario;
+  // Estado sanitario evaluado en esta consulta puntual
+  estadoSanitario?:      EstadoSanitario;
   // Anamnesis
-  tiempoEvolucion?:      string;
   tratamientosPrevios?:  string;
   cirugias?:             string;
   // Exploración física
@@ -148,9 +162,8 @@ export interface DatosCrearHistorial {
   estadoReproductivo?:       EstadoReproductivo;
   litrosLechesDiarios?:      number;
   gananciaPeso?:             number;
-  // Diagnóstico y plan
+  // Diagnóstico y plan (a nivel de consulta general)
   diagnosticoDefinitivo?:    string;
-  planDiagnostico?:          string;
   observacionesDiagnosticosOficiales?: string;
   // Relaciones hijas
   informacionEpidemiologica?: {
@@ -161,15 +174,10 @@ export interface DatosCrearHistorial {
     otrosVectores?: string;
     descripcion?:   string;
   };
-  ayudasDiagnosticas?: Array<{
-    tipo:        TipoAyudaDiagnostica;
-    descripcion?: string;
-    resultado?:   string;
-    fecha:        Date;
-  }>;
   desparasitaciones?: Array<{
     producto:        string;
     principioActivo?: string;
+    medicamentoId?:   string;
     tipo:             TipoDesparasitante;
     fecha:            Date;
     dosis?:           string;
@@ -178,18 +186,28 @@ export interface DatosCrearHistorial {
   }>;
   enfermedades?: Array<{
     nombreEnfermedad:    string;
+    nivelGravedad?:      NivelGravedad;
     fechaInicio:         Date;
     descripcionClinica?: string;
     observaciones?:      string;
+    // Diagnóstico/plan/pronóstico/síntomas de esta condición específica,
+    // según el modelo lógico del tomo (DETALLE_DIAGNOSTICO)
+    diagnostico?:        string;
+    pronostico?:         string;
+    planDiagnostico?:    string;
+    tiempoEvolucion?:    string;
+    sintomas?:           string;
   }>;
   tratamientos?: Array<{
-    medicamentoId:     string;
-    fechaInicio:       Date;
-    dosis:             string;
-    viaAdministracion: string;
-    frecuencia:        string;
-    duracionDias?:     number;
-    observaciones?:    string;
+    medicamentoId:             string;
+    enfermedadDiagnosticadaId?: string;
+    fechaInicio:               Date;
+    dosis:                     string;
+    viaAdministracion:         string;
+    frecuencia:                string;
+    duracionDias?:             number;
+    observaciones?:            string;
+    descripcion?:              string;
   }>;
 }
 
@@ -202,7 +220,7 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
 
   const {
     enfermedades, tratamientos, veterinarioId, animalId, actualizarEstadoSanitario,
-    informacionEpidemiologica, ayudasDiagnosticas, desparasitaciones,
+    informacionEpidemiologica, desparasitaciones,
     ...restoHistorial
   } = datos;
 
@@ -223,9 +241,15 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
         ? {
             create: enfermedades.map((enf) => ({
               nombreEnfermedad:  enf.nombreEnfermedad,
+              nivelGravedad:     enf.nivelGravedad,
               fechaInicio:       enf.fechaInicio,
               descripcionClinica: enf.descripcionClinica,
               observaciones:     enf.observaciones,
+              diagnostico:       enf.diagnostico,
+              pronostico:        enf.pronostico,
+              planDiagnostico:   enf.planDiagnostico,
+              tiempoEvolucion:   enf.tiempoEvolucion,
+              sintomas:          enf.sintomas,
             })),
           }
         : undefined,
@@ -238,15 +262,16 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
               duracionDias:      t.duracionDias,
               fechaInicio:       t.fechaInicio,
               observaciones:     t.observaciones,
+              descripcion:       t.descripcion,
               medicamento: { connect: { id: t.medicamentoId } },
+              ...(t.enfermedadDiagnosticadaId && {
+                enfermedadDiagnosticada: { connect: { id: t.enfermedadDiagnosticadaId } },
+              }),
             })),
           }
         : undefined,
       informacionEpidemiologica: informacionEpidemiologica
         ? { create: informacionEpidemiologica }
-        : undefined,
-      ayudasDiagnosticas: ayudasDiagnosticas?.length
-        ? { create: ayudasDiagnosticas }
         : undefined,
       desparasitaciones: desparasitaciones?.length
         ? { create: desparasitaciones }
@@ -259,10 +284,9 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
   // Si se registraron desparasitaciones nuevas, crear RegistroVacunacion en el
   // calendario de desparasitación que corresponda (por nombre del producto).
   if (desparasitaciones?.length) {
-    // Buscar calendarios activos cuyo nombre mencione "desparasitación" o "desparasitacion"
+    // Buscar calendarios cuyo nombre mencione "desparasitación" o "desparasitacion"
     const calendariosDesp = await prisma.calendarioVacunacion.findMany({
       where: {
-        activo: true,
         nombreVacuna: { contains: 'desparasit', mode: 'insensitive' },
       },
       select: { id: true, intervaloDias: true },

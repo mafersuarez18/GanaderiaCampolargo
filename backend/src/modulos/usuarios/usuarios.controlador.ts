@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { RolUsuario, EstadoUsuario } from '@prisma/client';
+import { EstadoUsuario } from '@prisma/client';
 import {
   listarUsuarios,
   obtenerUsuarioPorId,
@@ -21,13 +21,13 @@ const esquemaCrear = z.object({
   apellido:   z.string().min(2).max(100),
   correo:     z.string().email(),
   contrasena: z.string().min(8).max(128),
-  rol:        z.nativeEnum(RolUsuario),
+  rolId:      z.string().min(1),
 });
 
 const esquemaActualizar = z.object({
   nombre:   z.string().min(2).max(100).optional(),
   apellido: z.string().min(2).max(100).optional(),
-  rol:      z.nativeEnum(RolUsuario).optional(),
+  rolId:    z.string().min(1).optional(),
   estado:   z.nativeEnum(EstadoUsuario).optional(),
   cargo:    z.string().max(100).optional(),
   telefono: z.string().max(20).optional(),
@@ -42,8 +42,11 @@ export async function controladorListarUsuarios(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const { busqueda } = z.object({ busqueda: z.string().optional() }).parse(req.query);
-    const usuarios = await listarUsuarios(busqueda);
+    const { busqueda, rolId } = z.object({
+      busqueda: z.string().optional(),
+      rolId: z.string().optional(),
+    }).parse(req.query);
+    const usuarios = await listarUsuarios(busqueda, rolId);
     return respuestaExito(res, usuarios);
   } catch (error) { return next(error); }
 }

@@ -1,7 +1,7 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { verificarToken, cualquierRol, administradorOVeterinario } from '../../compartido/middlewares/autenticacion';
+import { verificarToken, requerirPrivilegio } from '../../compartido/middlewares/autenticacion';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { respuestaExito, respuestaCreado } from '../../compartido/utilidades/respuestaHttp';
 import { ErrorNoAutorizado } from '../../compartido/tipos/respuesta';
@@ -9,37 +9,56 @@ import { ErrorNoAutorizado } from '../../compartido/tipos/respuesta';
 const enrutador = Router();
 
 // GET /api/v1/geolocalizacion/animales — posiciones actuales de todos los animales activos
-enrutador.get('/animales', verificarToken, cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/animales', verificarToken, requerirPrivilegio('geolocalizacion.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { fincaId } = z.object({ fincaId: z.string().min(1).optional() }).parse(req.query);
 
-    const animales = await prisma.animal.findMany({
+    // La posición actual ya no vive en Animal — se deriva del registro de
+    // ubicación más reciente de cada animal (RegistroUbicacion).
+    const ultimasUbicaciones = await prisma.registroUbicacion.findMany({
       where: {
-        estado: 'ACTIVO',
-        latitudActual: { not: null },
-        longitudActual: { not: null },
-        ...(fincaId ? { fincaId } : {}),
+        animal: {
+          estado: 'ACTIVO',
+          ...(fincaId ? { lote: { fincaId } } : {}),
+        },
       },
+      orderBy: [{ animalId: 'asc' }, { fechaRegistro: 'desc' }],
+      distinct: ['animalId'],
       select: {
-        id: true,
-        numeroArete: true,
-        nombre: true,
-        latitudActual: true,
-        longitudActual: true,
-        finca: { select: { nombre: true } },
-        lote:  { select: { nombre: true } },
-        raza:  { select: { nombre: true } },
-        sexo: true,
-        estadoSanitario: true,
+        latitud: true,
+        longitud: true,
+        animal: {
+          select: {
+            id: true,
+            numeroArete: true,
+            nombre: true,
+            lote:  { select: { nombre: true, finca: { select: { nombre: true } } } },
+            raza:  { select: { nombre: true } },
+            sexo: true,
+            estadoSanitario: true,
+          },
+        },
       },
     });
+
+    const animales = ultimasUbicaciones.map((u) => ({
+      id: u.animal.id,
+      numeroArete: u.animal.numeroArete,
+      nombre: u.animal.nombre,
+      latitudActual: u.latitud,
+      longitudActual: u.longitud,
+      lote: u.animal.lote,
+      raza: u.animal.raza,
+      sexo: u.animal.sexo,
+      estadoSanitario: u.animal.estadoSanitario,
+    }));
 
     return respuestaExito(res, animales);
   } catch (error) { return next(error); }
 });
 
 // GET /api/v1/geolocalizacion/historial/:animalId — historial de ubicaciones
-enrutador.get('/historial/:animalId', verificarToken, cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/historial/:animalId', verificarToken, requerirPrivilegio('geolocalizacion.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { limite } = z.object({ limite: z.coerce.number().int().positive().max(500).default(100) }).parse(req.query);
 
@@ -65,7 +84,7 @@ enrutador.post('/dispositivos/:apiKey/ubicacion', async (req: Request, res: Resp
 
     // Autenticar dispositivo por apiKey (comparación directa — el apiKey es un secreto único)
     const dispositivo = await prisma.dispositivoGPS.findUnique({
-      where: { apiKey: req.params['apiKey'] as string, activo: true },
+      where: { apiKey: req.params['apiKey'] as string },
       select: { id: true, animalId: true },
     });
 
@@ -84,18 +103,12 @@ enrutador.post('/dispositivos/:apiKey/ubicacion', async (req: Request, res: Resp
       },
     });
 
-    // Actualizar posición actual del animal
-    await prisma.animal.update({
-      where: { id: dispositivo.animalId },
-      data: { latitudActual: latitud, longitudActual: longitud },
-    });
-
     return respuestaCreado(res, registro);
   } catch (error) { return next(error); }
 });
 
 // GET /api/v1/geolocalizacion/dispositivos — listar dispositivos
-enrutador.get('/dispositivos', verificarToken, administradorOVeterinario, async (_req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/dispositivos', verificarToken, requerirPrivilegio('geolocalizacion.gestionar_dispositivos'), async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const dispositivos = await prisma.dispositivoGPS.findMany({
       include: {

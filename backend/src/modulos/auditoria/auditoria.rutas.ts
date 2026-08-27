@@ -2,14 +2,14 @@ import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { TipoAccionAuditoria } from '@prisma/client';
-import { verificarToken, soloAdministrador } from '../../compartido/middlewares/autenticacion';
+import { verificarToken, requerirPrivilegio } from '../../compartido/middlewares/autenticacion';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { respuestaListado } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 
 const enrutador = Router();
 
-enrutador.use(verificarToken, soloAdministrador);
+enrutador.use(verificarToken, requerirPrivilegio('auditoria.ver'));
 
 enrutador.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {

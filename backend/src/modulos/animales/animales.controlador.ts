@@ -32,8 +32,7 @@ const esquemaCrearAnimal = z.object({
   observaciones:   z.string().max(1000).optional(),
   tipoCruce:       z.string().max(100).optional(),
   procedencia:     z.string().max(300).optional(),
-  fincaId:         z.string().min(1),
-  loteId:          z.string().min(1).optional(),
+  loteId:          z.string().min(1),
   razaId:          z.string().min(1),
   padreId:         z.string().min(1).optional(),
   madreId:         z.string().min(1).optional(),
@@ -48,7 +47,7 @@ const esquemaFiltros = z.object({
   estado:         z.nativeEnum(EstadoAnimal).optional(),
   pagina:         z.coerce.number().int().positive().default(1),
   porPagina:      z.coerce.number().int().positive().max(500).default(20),
-  ordenPor:       z.enum(['numeroArete', 'nombre', 'fechaNacimiento', 'creadoEn']).default('creadoEn'),
+  ordenPor:       z.enum(['numeroArete', 'nombre', 'fechaNacimiento', 'fechaIngreso']).default('fechaIngreso'),
   direccionOrden: z.enum(['asc', 'desc']).default('desc'),
 });
 

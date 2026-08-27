@@ -1,13 +1,12 @@
 import { Prisma, Sexo } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
-import { ErrorNoEncontrado, ErrorValidacionDatos } from '../../compartido/tipos/respuesta';
+import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
 import { resolverNotificacionesDeEntidad } from '../notificaciones/notificaciones.servicio';
 
 // ─── Calendarios ─────────────────────────────────────────────────────────────
 
-export async function listarCalendarios(activos?: boolean) {
+export async function listarCalendarios() {
   return prisma.calendarioVacunacion.findMany({
-    where: activos !== undefined ? { activo: activos } : {},
     include: {
       medicamento: { select: { id: true, nombre: true, principioActivo: true } },
       _count: { select: { registrosVacunacion: true } },
@@ -47,7 +46,6 @@ export interface DatosCalendario {
   intervaloDias:   number;
   edadMinimasDias?: number;
   aplicaASexo?:    Sexo | null;
-  activo?:         boolean;
 }
 
 export async function crearCalendario(datos: DatosCalendario) {
@@ -55,7 +53,6 @@ export async function crearCalendario(datos: DatosCalendario) {
   return prisma.calendarioVacunacion.create({
     data: {
       ...resto,
-      activo: datos.activo ?? true,
       ...(medicamentoId && { medicamento: { connect: { id: medicamentoId } } }),
     },
     include: {
@@ -103,7 +100,7 @@ export async function listarRegistrosVacunacion(filtros: FiltrosRegistroVacunaci
     ...(historialMedicoId     && { historialMedicoId }),
     ...(calendarioVacunacionId && { calendarioVacunacionId }),
     ...(animalId  && { historialMedico: { animalId } }),
-    ...(fincaId   && { historialMedico: { animal: { fincaId } } }),
+    ...(fincaId   && { historialMedico: { animal: { lote: { fincaId } } } }),
     ...((desde || hasta) && {
       fechaAplicacion: {
         ...(desde && { gte: desde }),
@@ -152,10 +149,9 @@ export interface DatosRegistroVacunacion {
 export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
   const calendario = await prisma.calendarioVacunacion.findUnique({
     where: { id: datos.calendarioVacunacionId },
-    select: { id: true, intervaloDias: true, activo: true },
+    select: { id: true, intervaloDias: true },
   });
   if (!calendario) throw new ErrorNoEncontrado('Calendario de vacunación no encontrado');
-  if (!calendario.activo) throw new ErrorValidacionDatos('El calendario de vacunación está inactivo');
 
   if (datos.historialMedicoId) {
     const historial = await prisma.historialMedico.findUnique({
@@ -243,7 +239,6 @@ export async function eliminarRegistroVacunacion(id: string) {
 
 export async function listarMedicamentos() {
   return prisma.medicamento.findMany({
-    where: { activo: true },
     orderBy: { nombre: 'asc' },
   });
 }

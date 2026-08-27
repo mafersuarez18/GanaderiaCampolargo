@@ -188,7 +188,7 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
                           <Icono nombre="pets" clase="text-[14px] text-outline flex-shrink-0" />
                           <span className="text-sm font-medium text-on-surface">#{a.numeroArete}</span>
                           {a.nombre && <span className="text-xs text-on-surface-variant truncate">— {a.nombre}</span>}
-                          {a.finca && <span className="text-[10px] text-outline ml-auto">{a.finca.nombre}</span>}
+                          {a.lote?.finca && <span className="text-[10px] text-outline ml-auto">{a.lote.finca.nombre}</span>}
                         </button>
                       ))}
                     </div>

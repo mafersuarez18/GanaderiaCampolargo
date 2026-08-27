@@ -24,12 +24,7 @@ export async function listarFincas(filtros: FiltrosFinca = {}) {
     prisma.finca.findMany({
       where: donde,
       include: {
-        _count: {
-          select: {
-            lotes:    true,
-            animales: true,
-          },
-        },
+        _count: { select: { lotes: true } },
       },
       orderBy: { nombre: 'asc' },
       skip: (pagina - 1) * porPagina,
@@ -38,11 +33,31 @@ export async function listarFincas(filtros: FiltrosFinca = {}) {
     prisma.finca.count({ where: donde }),
   ]);
 
-  return { registros, total };
+  // El conteo de animales ya no es una relación directa de Finca (se alcanza
+  // vía Lote), así que se suma aparte por finca.
+  const animalesPorFinca = await contarAnimalesPorFinca(registros.map((f) => f.id));
+  const registrosConAnimales = registros.map((f) => ({
+    ...f,
+    _count: { ...f._count, animales: animalesPorFinca.get(f.id) ?? 0 },
+  }));
+
+  return { registros: registrosConAnimales, total };
+}
+
+async function contarAnimalesPorFinca(fincaIds: string[]): Promise<Map<string, number>> {
+  const lotesConConteo = await prisma.lote.findMany({
+    where: { fincaId: { in: fincaIds } },
+    select: { fincaId: true, _count: { select: { animales: true } } },
+  });
+  const animalesPorFinca = new Map<string, number>();
+  for (const lote of lotesConConteo) {
+    animalesPorFinca.set(lote.fincaId, (animalesPorFinca.get(lote.fincaId) ?? 0) + lote._count.animales);
+  }
+  return animalesPorFinca;
 }
 
 export async function obtenerFincaPorId(id: string) {
-  return prisma.finca.findUnique({
+  const finca = await prisma.finca.findUnique({
     where: { id },
     include: {
       lotes: {
@@ -51,11 +66,13 @@ export async function obtenerFincaPorId(id: string) {
         },
         orderBy: { nombre: 'asc' },
       },
-      _count: {
-        select: { lotes: true, animales: true },
-      },
+      _count: { select: { lotes: true } },
     },
   });
+  if (!finca) return null;
+
+  const totalAnimales = finca.lotes.reduce((suma, lote) => suma + lote._count.animales, 0);
+  return { ...finca, _count: { ...finca._count, animales: totalAnimales } };
 }
 
 export async function crearFinca(datos: Prisma.FincaCreateInput) {
@@ -93,7 +110,7 @@ export async function listarAnimalesDeFinca(fincaId: string, filtros: FiltrosAni
   const { busqueda, loteId, estado, pagina = 1, porPagina = 50 } = filtros;
 
   const donde: Prisma.AnimalWhereInput = {
-    fincaId,
+    lote: { fincaId },
     ...(estado ? { estado } : {}),
     ...(loteId ? { loteId } : {}),
     ...(busqueda

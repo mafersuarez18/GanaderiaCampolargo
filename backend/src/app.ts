@@ -11,6 +11,7 @@ import { manejarErrores, rutaNoEncontrada } from './compartido/middlewares/manej
 // Importación de rutas por módulo
 import enrutadorAutenticacion from './modulos/autenticacion/autenticacion.rutas';
 import enrutadorUsuarios from './modulos/usuarios/usuarios.rutas';
+import enrutadorRoles from './modulos/roles/roles.rutas';
 import enrutadorFincas from './modulos/fincas/fincas.rutas';
 import enrutadorAnimales from './modulos/animales/animales.rutas';
 import enrutadorHistorialMedico from './modulos/historialMedico/historialMedico.rutas';
@@ -82,6 +83,7 @@ export function crearApp(): Application {
 
   app.use(`${baseApi}/auth`, limitadorAutenticacion, enrutadorAutenticacion);
   app.use(`${baseApi}/usuarios`, enrutadorUsuarios);
+  app.use(`${baseApi}/roles`, enrutadorRoles);
   app.use(`${baseApi}/fincas`, enrutadorFincas);
   app.use(`${baseApi}/animales`, enrutadorAnimales);
   app.use(`${baseApi}/historial-medico`, enrutadorHistorialMedico);

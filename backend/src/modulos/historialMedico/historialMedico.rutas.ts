@@ -1,9 +1,7 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import {
   verificarToken,
-  soloAdministrador,
-  administradorOVeterinario,
-  cualquierRol,
+  requerirPrivilegio,
 } from '../../compartido/middlewares/autenticacion';
 import { registrarAuditoria } from '../../compartido/middlewares/auditoria';
 import {
@@ -19,21 +17,21 @@ const enrutador = Router();
 enrutador.use(verificarToken);
 
 // GET /api/v1/historial-medico/prefill?animalId=... — datos para pre-rellenar formulario
-enrutador.get('/prefill', cualquierRol, controladorPrefillConsulta);
+enrutador.get('/prefill', requerirPrivilegio('historial_medico.ver'), controladorPrefillConsulta);
 
-enrutador.get('/', cualquierRol, controladorListarHistorial);
-enrutador.get('/:id', cualquierRol, controladorObtenerHistorial);
+enrutador.get('/', requerirPrivilegio('historial_medico.ver'), controladorListarHistorial);
+enrutador.get('/:id', requerirPrivilegio('historial_medico.ver'), controladorObtenerHistorial);
 
 enrutador.post(
   '/',
-  administradorOVeterinario,
+  requerirPrivilegio('historial_medico.crear'),
   registrarAuditoria('Crear historial médico', 'HistorialMedico'),
   controladorCrearHistorial,
 );
 
 enrutador.delete(
   '/:id',
-  soloAdministrador,
+  requerirPrivilegio('historial_medico.eliminar'),
   registrarAuditoria('Eliminar historial médico', 'HistorialMedico'),
   controladorEliminarHistorial,
 );

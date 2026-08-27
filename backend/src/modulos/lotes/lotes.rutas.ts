@@ -1,11 +1,9 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import {
   verificarToken,
-  soloAdministrador,
-  administradorOVeterinario,
-  cualquierRol,
+  requerirPrivilegio,
 } from '../../compartido/middlewares/autenticacion';
 import { registrarAuditoria } from '../../compartido/middlewares/auditoria';
 import { prisma } from '../../compartido/prisma/clientePrisma';
@@ -28,13 +26,12 @@ const esquemaLote = z.object({
 });
 
 // GET /api/v1/lotes?fincaId=xxx — listar lotes (opcionalmente filtrados por finca)
-enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/', requerirPrivilegio('lotes.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { fincaId } = z.object({ fincaId: z.string().cuid().optional() }).parse(req.query);
 
     const lotes = await prisma.lote.findMany({
       where: {
-        activo: true,
         ...(fincaId ? { fincaId } : {}),
       },
       include: {
@@ -49,7 +46,7 @@ enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextF
 });
 
 // GET /api/v1/lotes/:id — obtener lote
-enrutador.get('/:id', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/:id', requerirPrivilegio('lotes.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const lote = await prisma.lote.findUnique({
       where: { id: req.params['id'] as string },
@@ -80,7 +77,7 @@ enrutador.get('/:id', cualquierRol, async (req: Request, res: Response, next: Ne
 // POST /api/v1/lotes — crear lote
 enrutador.post(
   '/',
-  administradorOVeterinario,
+  requerirPrivilegio('lotes.crear'),
   registrarAuditoria('Crear lote', 'Lote'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -95,7 +92,7 @@ enrutador.post(
 
       // Verificar nombre único dentro de la finca
       const existente = await prisma.lote.findFirst({
-        where: { fincaId: datos.fincaId, nombre: datos.nombre, activo: true },
+        where: { fincaId: datos.fincaId, nombre: datos.nombre },
         select: { id: true },
       });
       if (existente) throw new ErrorConflicto(`Ya existe un lote llamado "${datos.nombre}" en esta finca`);
@@ -116,7 +113,7 @@ enrutador.post(
 // PATCH /api/v1/lotes/:id — actualizar lote
 enrutador.patch(
   '/:id',
-  administradorOVeterinario,
+  requerirPrivilegio('lotes.editar'),
   registrarAuditoria('Actualizar lote', 'Lote'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -128,7 +125,7 @@ enrutador.patch(
       // Verificar nombre único dentro de la misma finca
       if (datos.nombre) {
         const duplicado = await prisma.lote.findFirst({
-          where: { fincaId: lote.fincaId, nombre: datos.nombre, activo: true, id: { not: req.params['id'] as string } },
+          where: { fincaId: lote.fincaId, nombre: datos.nombre, id: { not: req.params['id'] as string } },
           select: { id: true },
         });
         if (duplicado) throw new ErrorConflicto(`Ya existe un lote llamado "${datos.nombre}" en esta finca`);
@@ -148,10 +145,10 @@ enrutador.patch(
   }
 );
 
-// DELETE /api/v1/lotes/:id — eliminar lote (soft delete)
+// DELETE /api/v1/lotes/:id — eliminar lote
 enrutador.delete(
   '/:id',
-  soloAdministrador,
+  requerirPrivilegio('lotes.eliminar'),
   registrarAuditoria('Eliminar lote', 'Lote'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -165,7 +162,7 @@ enrutador.delete(
         throw new ErrorConflicto(`No se puede eliminar el lote porque tiene ${lote._count.animales} animal(es) asignado(s)`);
       }
 
-      await prisma.lote.update({ where: { id: req.params['id'] as string }, data: { activo: false } });
+      await prisma.lote.delete({ where: { id: req.params['id'] as string } });
       return respuestaSinContenido(res);
     } catch (error) { return next(error); }
   }

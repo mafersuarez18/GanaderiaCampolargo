@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import {
   verificarToken,
-  soloAdministrador,
-  administradorOVeterinario,
-  cualquierRol,
+  requerirPrivilegio,
 } from '../../compartido/middlewares/autenticacion';
 import { registrarAuditoria } from '../../compartido/middlewares/auditoria';
 import {
@@ -20,18 +18,18 @@ const enrutador = Router();
 enrutador.use(verificarToken);
 
 // GET /api/v1/fincas
-enrutador.get('/', cualquierRol, controladorListarFincas);
+enrutador.get('/', requerirPrivilegio('fincas.ver'), controladorListarFincas);
 
 // GET /api/v1/fincas/:id
-enrutador.get('/:id', cualquierRol, controladorObtenerFinca);
+enrutador.get('/:id', requerirPrivilegio('fincas.ver'), controladorObtenerFinca);
 
 // GET /api/v1/fincas/:id/animales
-enrutador.get('/:id/animales', cualquierRol, controladorAnimalesDeFinca);
+enrutador.get('/:id/animales', requerirPrivilegio('fincas.ver'), controladorAnimalesDeFinca);
 
 // POST /api/v1/fincas
 enrutador.post(
   '/',
-  soloAdministrador,
+  requerirPrivilegio('fincas.crear'),
   registrarAuditoria('Crear finca', 'Finca'),
   controladorCrearFinca,
 );
@@ -39,7 +37,7 @@ enrutador.post(
 // PATCH /api/v1/fincas/:id
 enrutador.patch(
   '/:id',
-  administradorOVeterinario,
+  requerirPrivilegio('fincas.editar'),
   registrarAuditoria('Actualizar finca', 'Finca'),
   controladorActualizarFinca,
 );
@@ -47,7 +45,7 @@ enrutador.patch(
 // DELETE /api/v1/fincas/:id
 enrutador.delete(
   '/:id',
-  soloAdministrador,
+  requerirPrivilegio('fincas.eliminar'),
   registrarAuditoria('Eliminar finca', 'Finca'),
   controladorEliminarFinca,
 );

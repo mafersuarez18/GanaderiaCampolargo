@@ -3,8 +3,8 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import {
   verificarToken,
-  soloAdministrador,
-  cualquierRol,
+  requerirPrivilegio,
+  autenticado,
 } from '../../compartido/middlewares/autenticacion';
 import { registrarAuditoria } from '../../compartido/middlewares/auditoria';
 import {
@@ -26,19 +26,22 @@ enrutador.use(verificarToken);
 // ── Rutas de auto-servicio (deben ir ANTES de /:id para no ser capturadas) ──
 
 // GET /api/v1/usuarios/mi-perfil — perfil del usuario autenticado
-enrutador.get('/mi-perfil', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/mi-perfil', autenticado, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { prisma } = await import('../../compartido/prisma/clientePrisma');
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.usuarioActual!.id },
-      select: { id: true, nombre: true, apellido: true, correo: true, rol: true, cargo: true, telefono: true },
+      select: {
+        id: true, nombre: true, apellido: true, correo: true, cargo: true, telefono: true,
+        rol: { select: { id: true, nombre: true, descripcion: true } },
+      },
     });
     return respuestaExito(res, usuario);
   } catch (error) { return next(error); }
 });
 
 // PATCH /api/v1/usuarios/mi-perfil — actualizar propio perfil
-enrutador.patch('/mi-perfil', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.patch('/mi-perfil', autenticado, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({
       nombre:   z.string().min(2).max(100).optional(),
@@ -53,37 +56,37 @@ enrutador.patch('/mi-perfil', cualquierRol, async (req: Request, res: Response, 
 });
 
 // PATCH /api/v1/usuarios/cambiar-contrasena — cambiar propia contraseña
-enrutador.patch('/cambiar-contrasena', cualquierRol, controladorCambiarContrasena);
+enrutador.patch('/cambiar-contrasena', autenticado, controladorCambiarContrasena);
 
 // ── Rutas de administrador ──────────────────────────────────────────────────
 
-enrutador.get('/', soloAdministrador, controladorListarUsuarios);
-enrutador.get('/:id', soloAdministrador, controladorObtenerUsuario);
+enrutador.get('/', requerirPrivilegio('usuarios.ver'), controladorListarUsuarios);
+enrutador.get('/:id', requerirPrivilegio('usuarios.ver'), controladorObtenerUsuario);
 
 enrutador.post(
   '/',
-  soloAdministrador,
+  requerirPrivilegio('usuarios.crear'),
   registrarAuditoria('Crear usuario', 'Usuario'),
   controladorCrearUsuario,
 );
 
 enrutador.patch(
   '/:id',
-  soloAdministrador,
+  requerirPrivilegio('usuarios.editar'),
   registrarAuditoria('Actualizar usuario', 'Usuario'),
   controladorActualizarUsuario,
 );
 
 enrutador.patch(
   '/:id/desbloquear',
-  soloAdministrador,
+  requerirPrivilegio('usuarios.desbloquear'),
   registrarAuditoria('Desbloquear usuario', 'Usuario'),
   controladorDesbloquearUsuario,
 );
 
 enrutador.delete(
   '/:id',
-  soloAdministrador,
+  requerirPrivilegio('usuarios.eliminar'),
   registrarAuditoria('Eliminar usuario', 'Usuario'),
   controladorEliminarUsuario,
 );

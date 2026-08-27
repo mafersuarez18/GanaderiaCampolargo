@@ -18,7 +18,6 @@ interface Lote {
   nombre: string;
   descripcion?: string;
   capacidad?: number;
-  activo: boolean;
   fincaId: string;
   finca: { nombre: string };
   _count: { animales: number };

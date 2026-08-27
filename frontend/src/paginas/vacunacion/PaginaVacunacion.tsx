@@ -16,7 +16,6 @@ interface CalendarioVacunacion {
   intervaloDias: number;
   edadMinimasDias?: number;
   aplicaASexo?: 'MACHO' | 'HEMBRA' | null;
-  activo: boolean;
   medicamento?: { id: string; nombre: string; principioActivo?: string };
   _count: { registrosVacunacion: number };
 }
@@ -44,7 +43,6 @@ interface FormCalendario {
   intervaloDias: number;
   edadMinimasDias?: number;
   aplicaASexo: '' | 'MACHO' | 'HEMBRA';
-  activo: boolean;
 }
 
 interface FormRegistro {
@@ -77,19 +75,16 @@ export default function PaginaVacunacion() {
   const [calendarioActivo, setCalendarioActivo]         = useState<CalendarioVacunacion | null>(null);
   const [mostrarFormCalendario, setMostrarFormCalendario] = useState(false);
   const [mostrarFormRegistro, setMostrarFormRegistro]   = useState(false);
-  const [filtroActivos, setFiltroActivos]               = useState<boolean | undefined>(true);
   const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroVacunacion | null>(null);
   const [registroEditar, setRegistroEditar]             = useState<RegistroVacunacion | null>(null);
   const [registroEliminar, setRegistroEliminar]         = useState<string | null>(null);
 
   // ── Queries ─────────────────────────────────────────────────────────────────
   const { data: calendarios, isLoading: cargandoCalendarios } = useQuery<CalendarioVacunacion[]>({
-    queryKey: ['calendarios-vacunacion', filtroActivos],
+    queryKey: ['calendarios-vacunacion'],
     queryFn: () =>
       clienteHttp
-        .get('/vacunacion/calendarios', {
-          params: filtroActivos !== undefined ? { activos: filtroActivos } : {},
-        })
+        .get('/vacunacion/calendarios')
         .then((r) => r.data.datos ?? r.data),
     staleTime: 2 * 60 * 1000,   // 2 min — reduce peticiones repetidas
   });
@@ -125,7 +120,6 @@ export default function PaginaVacunacion() {
   // ── KPIs ─────────────────────────────────────────────────────────────────────
   const totalCalendarios   = calendarios?.length ?? 0;
   const totalAplicaciones  = calendarios?.reduce((s, c) => s + c._count.registrosVacunacion, 0) ?? 0;
-  const calendariosActivos = calendarios?.filter((c) => c.activo).length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -140,18 +134,9 @@ export default function PaginaVacunacion() {
             <div className="p-3 bg-error-container rounded-xl">
               <Icono nombre="pending_actions" clase="text-[22px] text-on-error-container" />
             </div>
-            <span className="text-xs text-error font-semibold">
-              {filtroActivos === true ? calendariosActivos : totalCalendarios} activos
-            </span>
           </div>
           <p className="text-3xl font-bold text-on-surface">{cargandoCalendarios ? '—' : totalCalendarios}</p>
           <p className="text-sm text-on-surface-variant mt-1">Calendarios de vacunación</p>
-          <div className="mt-3 h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
-            <div
-              className="bg-error h-full transition-all"
-              style={{ width: `${totalCalendarios ? (calendariosActivos / totalCalendarios) * 100 : 0}%` }}
-            />
-          </div>
         </div>
 
         <div className="tarjeta-vidrio rounded-2xl p-5">
@@ -174,12 +159,10 @@ export default function PaginaVacunacion() {
               <Icono nombre="vaccines" relleno clase="text-[22px] text-tertiary" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-on-surface">{cargandoCalendarios ? '—' : calendariosActivos}</p>
-          <p className="text-sm text-on-surface-variant mt-1">Protocolos activos</p>
-          <div className="mt-3 flex items-center gap-1.5 text-xs text-tertiary">
-            <Icono nombre="check_circle" relleno clase="text-[14px]" />
-            <span>Esquema al día</span>
-          </div>
+          <p className="text-3xl font-bold text-on-surface">
+            {cargandoCalendarios ? '—' : (calendarios?.filter((c) => c.medicamento).length ?? 0)}
+          </p>
+          <p className="text-sm text-on-surface-variant mt-1">Con medicamento asignado</p>
         </div>
       </motion.div>
 
@@ -209,25 +192,6 @@ export default function PaginaVacunacion() {
         <div className="flex items-center gap-2">
           {pestanaActiva === 'calendarios' ? (
             <>
-              <div className="flex gap-1 p-1 bg-surface-container rounded-xl">
-                {[
-                  { val: true,      et: 'Activos' },
-                  { val: false,     et: 'Inactivos' },
-                  { val: undefined, et: 'Todos' },
-                ].map((op) => (
-                  <button
-                    key={String(op.val)}
-                    onClick={() => setFiltroActivos(op.val)}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                      filtroActivos === op.val
-                        ? 'bg-primary text-on-primary'
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    {op.et}
-                  </button>
-                ))}
-              </div>
               {puedeEditar && (
                 <button
                   onClick={() => setMostrarFormCalendario(true)}
@@ -301,26 +265,18 @@ export default function PaginaVacunacion() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     onClick={() => { setCalendarioActivo(cal); setPestanaActiva('registros'); }}
-                    className={`tarjeta-vidrio rounded-2xl p-5 flex flex-col gap-3 cursor-pointer group
-                               ${!cal.activo ? 'opacity-60' : ''}`}
+                    className="tarjeta-vidrio rounded-2xl p-5 flex flex-col gap-3 cursor-pointer group"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className={`p-2.5 rounded-xl ${cal.activo ? 'bg-primary/10' : 'bg-surface-container'}`}>
-                          <Icono
-                            nombre="vaccines"
-                            relleno={cal.activo}
-                            clase={`text-[20px] ${cal.activo ? 'text-primary' : 'text-on-surface-variant'}`}
-                          />
+                        <div className="p-2.5 rounded-xl bg-primary/10">
+                          <Icono nombre="vaccines" relleno clase="text-[20px] text-primary" />
                         </div>
                         <div>
                           <h3 className="font-semibold text-on-surface text-sm leading-tight">{cal.nombreVacuna}</h3>
                           {cal.fabricante && <p className="text-xs text-on-surface-variant">{cal.fabricante}</p>}
                         </div>
                       </div>
-                      <Badge variante={cal.activo ? 'verde' : 'gris'} tamano="xs" punto={cal.activo}>
-                        {cal.activo ? 'Activo' : 'Inactivo'}
-                      </Badge>
                     </div>
 
                     {cal.descripcion && (
@@ -912,7 +868,7 @@ export default function PaginaVacunacion() {
 
 function FormularioCalendario({ onCerrar, onExito }: { onCerrar: () => void; onExito: () => void }) {
   const [form, setForm] = useState<FormCalendario>({
-    nombreVacuna: '', descripcion: '', fabricante: '', intervaloDias: 365, aplicaASexo: '', activo: true,
+    nombreVacuna: '', descripcion: '', fabricante: '', intervaloDias: 365, aplicaASexo: '',
   });
   const [error, setError] = useState('');
 
@@ -1083,7 +1039,6 @@ function FormularioRegistro({
     onError: (err: any) => setError(err?.response?.data?.mensaje ?? 'Error al registrar la vacunación'),
   });
 
-  const calendariosActivos = todosCalendarios.filter((c) => c.activo);
 
   return (
     <>
@@ -1134,7 +1089,7 @@ function FormularioRegistro({
                 className="campo-entrada"
               >
                 <option value="">Seleccionar protocolo...</option>
-                {calendariosActivos.map((c) => (
+                {todosCalendarios.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nombreVacuna}{c.fabricante ? ` — ${c.fabricante}` : ''}
                   </option>

@@ -19,7 +19,7 @@ export default function RutaProtegida({
     return <Navigate to={redirigirA} replace />;
   }
 
-  if (roles && tienda.usuario && !roles.includes(tienda.usuario.rol)) {
+  if (roles && tienda.usuario && !roles.includes(tienda.usuario.rol.nombre)) {
     return <Navigate to="/dashboard" replace />;
   }
 

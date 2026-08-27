@@ -45,10 +45,11 @@ const esquemaEvento = z.object({
 });
 
 const esquemaGestacion = z.object({
-  madreId:             z.string().min(1),
-  fechaInicio:         z.coerce.date(),
-  fechaPartoEsperado:  z.coerce.date(),
-  observaciones:       z.string().max(500).optional(),
+  madreId:              z.string().min(1),
+  fechaInicio:          z.coerce.date(),
+  fechaPartoEsperado:   z.coerce.date(),
+  observaciones:        z.string().max(500).optional(),
+  eventoReproductivoId: z.string().min(1).optional(),
 });
 
 export async function controladorPartosProximos(

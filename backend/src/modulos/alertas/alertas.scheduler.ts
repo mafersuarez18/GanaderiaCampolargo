@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import prisma from '../../compartido/prisma/clientePrisma';
 import { logger } from '../../config/logger';
-import { TipoAlertaRegla, EstadoNotificacion, PrioridadAlerta, RolUsuario } from '@prisma/client';
+import { TipoAlertaRegla, EstadoNotificacion, PrioridadAlerta } from '@prisma/client';
 import { enviarCorreoAlerta } from '../notificaciones/correo.servicio';
 
 // ── Inicio del motor de alertas ───────────────────────────────────────────────
@@ -16,14 +16,21 @@ export function iniciarMotorAlertas(): void {
 }
 
 /**
- * Ejecuta todas las reglas activas de forma programática.
+ * Ejecuta todas las reglas activas (estado === 'ACTIVA') de forma programática.
  * Respeta evaluarCadaHoras — no re-evalúa si aún no ha pasado el tiempo configurado.
  * Útil para el endpoint de disparo manual (en ese caso skipThrottle = true).
  */
 export async function evaluarTodasLasReglas(
   skipThrottle = false,
 ): Promise<{ evaluadas: number; errores: string[] }> {
-  const reglas = await prisma.reglaAlerta.findMany({ where: { activa: true } });
+  const reglas = await prisma.reglaAlerta.findMany({
+    where: { estado: 'ACTIVA' },
+    include: {
+      usuariosNotificados: {
+        select: { usuario: { select: { id: true, correo: true, nombre: true, estado: true } } },
+      },
+    },
+  });
   const errores: string[] = [];
   let evaluadas = 0;
 
@@ -108,10 +115,7 @@ function defaultUmbral(tipo: TipoAlertaRegla): number {
 type ReglaDb = {
   id: string;
   nombre: string;
-  mensajeAlerta: string | null;
-  notificarAdministrador: boolean;
-  notificarVeterinario: boolean;
-  notificarTecnico: boolean;
+  usuariosNotificados: { usuario: { id: string; correo: string; nombre: string; estado: string } }[];
 };
 
 // ── Evaluadores individuales ──────────────────────────────────────────────────
@@ -133,7 +137,7 @@ async function evaluarVacunas(
     include: {
       historialMedico: {
         include: {
-          animal: { select: { id: true, numeroArete: true, nombre: true, fincaId: true } },
+          animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
         },
       },
       calendarioVacunacion: true,
@@ -147,10 +151,9 @@ async function evaluarVacunas(
     const yaVencida = vacuna.proximaFecha != null && vacuna.proximaFecha < hoy;
 
     const titulo = interpolar(
-      regla.mensajeAlerta ??
-        (yaVencida
-          ? 'Vacuna VENCIDA — {vacuna}'
-          : 'Vacuna próxima — {vacuna}'),
+      yaVencida
+        ? 'Vacuna VENCIDA — {vacuna}'
+        : 'Vacuna próxima — {vacuna}',
       {
         animal: animal.nombre ?? animal.numeroArete,
         vacuna: vacuna.calendarioVacunacion.nombreVacuna,
@@ -167,7 +170,7 @@ async function evaluarVacunas(
       prioridad,
       'RegistroVacunacion',
       vacuna.id,
-      animal.fincaId,
+      animal.lote.fincaId,
       regla,
     );
   }
@@ -187,7 +190,7 @@ async function evaluarDesparasitaciones(
     include: {
       historialMedico: {
         include: {
-          animal: { select: { id: true, numeroArete: true, nombre: true, fincaId: true } },
+          animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
         },
       },
     },
@@ -209,16 +212,9 @@ async function evaluarDesparasitaciones(
 
     const yaVencida = proximaFecha < hoy;
 
-    const titulo = regla?.mensajeAlerta
-      ? interpolar(regla.mensajeAlerta, {
-          animal: animal.nombre ?? animal.numeroArete,
-          vacuna: desp.producto,
-          fecha:  proximaFecha.toLocaleDateString('es-VE'),
-          dias:   diasUmbral.toString(),
-        })
-      : yaVencida
-        ? `Desparasitación VENCIDA — ${animal.nombre ?? animal.numeroArete}`
-        : `Desparasitación próxima — ${animal.nombre ?? animal.numeroArete}`;
+    const titulo = yaVencida
+      ? `Desparasitación VENCIDA — ${animal.nombre ?? animal.numeroArete}`
+      : `Desparasitación próxima — ${animal.nombre ?? animal.numeroArete}`;
 
     await crearNotificacionSiNoExiste(
       titulo,
@@ -226,7 +222,7 @@ async function evaluarDesparasitaciones(
       prioridad,
       'ProgramaDesparasitacion',
       desp.id,
-      animal.fincaId,
+      animal.lote.fincaId,
       regla,
     );
   }
@@ -247,7 +243,7 @@ async function evaluarPartosProximos(
       fechaPartoEsperado: { gte: hoy, lte: limite },
     },
     include: {
-      madre: { select: { id: true, numeroArete: true, nombre: true, fincaId: true } },
+      madre: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
     },
   });
 
@@ -257,7 +253,7 @@ async function evaluarPartosProximos(
     );
 
     const titulo = interpolar(
-      regla.mensajeAlerta ?? 'Parto próximo — {animal}',
+      'Parto próximo — {animal}',
       {
         animal: gestacion.madre.nombre ?? gestacion.madre.numeroArete,
         dias:   diasRestantes.toString(),
@@ -271,7 +267,7 @@ async function evaluarPartosProximos(
       prioridad,
       'Gestacion',
       gestacion.id,
-      gestacion.madre.fincaId,
+      gestacion.madre.lote.fincaId,
       regla,
     );
   }
@@ -296,7 +292,7 @@ async function evaluarDiasAbiertos(
     include: {
       gestacion: {
         include: {
-          madre: { select: { id: true, numeroArete: true, nombre: true, fincaId: true } },
+          madre: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
         },
       },
     },
@@ -309,7 +305,7 @@ async function evaluarDiasAbiertos(
     );
 
     const titulo = interpolar(
-      regla.mensajeAlerta ?? 'Días abiertos excedidos — {animal}',
+      'Días abiertos excedidos — {animal}',
       { animal: madre.nombre ?? madre.numeroArete, dias: diasAbiertos.toString() },
     );
 
@@ -319,7 +315,7 @@ async function evaluarDiasAbiertos(
       prioridad,
       'Animal',
       madre.id,
-      madre.fincaId,
+      madre.lote.fincaId,
       regla,
     );
   }
@@ -342,7 +338,7 @@ async function evaluarEnfermedadesActivas(
     include: {
       historialMedico: {
         include: {
-          animal: { select: { id: true, numeroArete: true, nombre: true, fincaId: true } },
+          animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
         },
       },
     },
@@ -353,7 +349,7 @@ async function evaluarEnfermedadesActivas(
     const dias   = Math.floor((Date.now() - enfermedad.fechaInicio.getTime()) / 86_400_000);
 
     const titulo = interpolar(
-      regla.mensajeAlerta ?? 'Enfermedad sin resolución — {animal}',
+      'Enfermedad sin resolución — {animal}',
       {
         animal:     animal.nombre ?? animal.numeroArete,
         enfermedad: enfermedad.nombreEnfermedad,
@@ -367,7 +363,7 @@ async function evaluarEnfermedadesActivas(
       prioridad,
       'EnfermedadDiagnosticada',
       enfermedad.id,
-      animal.fincaId,
+      animal.lote.fincaId,
       regla,
     );
   }
@@ -393,7 +389,7 @@ async function evaluarAusenciaControlVeterinario(
       id: true,
       numeroArete: true,
       nombre: true,
-      fincaId: true,
+      lote: { select: { fincaId: true } },
       historialesMedicos: {
         orderBy: { fechaConsulta: 'desc' },
         take: 1,
@@ -409,7 +405,7 @@ async function evaluarAusenciaControlVeterinario(
       : null;
 
     const titulo = interpolar(
-      regla.mensajeAlerta ?? 'Sin control veterinario — {animal}',
+      'Sin control veterinario — {animal}',
       {
         animal: animal.nombre ?? animal.numeroArete,
         dias:   (diasSinControl ?? umbralDias).toString(),
@@ -426,7 +422,7 @@ async function evaluarAusenciaControlVeterinario(
       prioridad,
       'Animal',
       animal.id,
-      animal.fincaId,
+      animal.lote.fincaId,
       regla,
     );
   }
@@ -440,7 +436,7 @@ async function evaluarControlPesoPendiente(
 ): Promise<void> {
   const animalesSinPeso = await prisma.animal.findMany({
     where: { estado: 'ACTIVO', pesoActual: null },
-    select: { id: true, numeroArete: true, nombre: true, fincaId: true, fechaIngreso: true },
+    select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } }, fechaIngreso: true },
   });
 
   for (const animal of animalesSinPeso) {
@@ -450,7 +446,7 @@ async function evaluarControlPesoPendiente(
     if (diasDesdeIngreso < umbralDias) continue;
 
     const titulo = interpolar(
-      regla.mensajeAlerta ?? 'Control de peso pendiente — {animal}',
+      'Control de peso pendiente — {animal}',
       { animal: animal.nombre ?? animal.numeroArete, dias: diasDesdeIngreso.toString() },
     );
 
@@ -460,7 +456,7 @@ async function evaluarControlPesoPendiente(
       prioridad,
       'Animal',
       animal.id,
-      animal.fincaId,
+      animal.lote.fincaId,
       regla,
     );
   }
@@ -481,7 +477,7 @@ async function evaluarIntervaloParto(
       madre: { estado: 'ACTIVO', sexo: 'HEMBRA' },
     },
     include: {
-      madre:       { select: { id: true, numeroArete: true, nombre: true, fincaId: true } },
+      madre:       { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
       nacimientos: { select: { fechaNacimiento: true }, orderBy: { fechaNacimiento: 'desc' }, take: 1 },
     },
   });
@@ -494,7 +490,7 @@ async function evaluarIntervaloParto(
     );
 
     const titulo = interpolar(
-      regla.mensajeAlerta ?? 'Intervalo reproductivo prolongado — {animal}',
+      'Intervalo reproductivo prolongado — {animal}',
       { animal: gestacion.madre.nombre ?? gestacion.madre.numeroArete, dias: dias.toString() },
     );
 
@@ -504,7 +500,7 @@ async function evaluarIntervaloParto(
       prioridad,
       'Gestacion',
       gestacion.id,
-      gestacion.madre.fincaId,
+      gestacion.madre.lote.fincaId,
       regla,
     );
   }
@@ -517,7 +513,7 @@ async function evaluarInventarioSemen(
   regla: ReglaDb,
 ): Promise<void> {
   const inventariosBajos = await prisma.inventarioSemen.findMany({
-    where: { activo: true, cantidadDosis: { gt: 0 } },
+    where: { cantidadDosis: { gt: 0 } },
     include: { semental: true },
   });
 
@@ -526,7 +522,7 @@ async function evaluarInventarioSemen(
     if (disponibles > umbralUnidades) continue;
 
     const titulo = interpolar(
-      regla.mensajeAlerta ?? 'Inventario de semen bajo — {semental}',
+      'Inventario de semen bajo — {semental}',
       {
         semental:  inventario.semental.nombre,
         cantidad:  disponibles.toString(),
@@ -546,7 +542,7 @@ async function evaluarInventarioSemen(
   }
 }
 
-// ── Helper: interpolación de variables en mensajeAlerta ──────────────────────
+// ── Helper: interpolación de variables en el título de la notificación ───────
 
 /**
  * Reemplaza variables como {animal}, {vacuna}, {dias}, {fecha}, {enfermedad},
@@ -579,19 +575,17 @@ async function crearNotificacionSiNoExiste(
   });
   if (yaExiste) return;
 
-  // Filtrar usuarios según la configuración de destinatarios de la regla
-  const rolFiltros: RolUsuario[] = [];
-  if (!regla || regla.notificarAdministrador) rolFiltros.push(RolUsuario.ADMINISTRADOR);
-  if (!regla || regla.notificarVeterinario)   rolFiltros.push(RolUsuario.VETERINARIO);
-  if (regla?.notificarTecnico)                rolFiltros.push(RolUsuario.TECNICO);
-
-  const usuarios = await prisma.usuario.findMany({
-    where: {
-      estado: 'ACTIVO',
-      rol: rolFiltros.length > 0 ? { in: rolFiltros } : undefined,
-    },
-    select: { id: true, correo: true, nombre: true, rol: true },
-  });
+  // Notificar a los usuarios específicos configurados como destinatarios de la
+  // regla, independientemente de su rol. Sin regla (disparo del sistema sin
+  // regla asociada), se notifica a administradores y veterinarios por defecto.
+  const usuarios = regla
+    ? regla.usuariosNotificados
+        .map((ru) => ru.usuario)
+        .filter((u) => u.estado === 'ACTIVO')
+    : await prisma.usuario.findMany({
+        where: { estado: 'ACTIVO', rol: { nombre: { in: ['ADMINISTRADOR', 'VETERINARIO'] } } },
+        select: { id: true, correo: true, nombre: true, estado: true },
+      });
 
   for (const usuario of usuarios) {
     await prisma.notificacion.create({

@@ -1,12 +1,10 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { TipoAlertaRegla, PrioridadAlerta } from '@prisma/client';
 import {
   verificarToken,
-  soloAdministrador,
-  administradorOVeterinario,
-  cualquierRol,
+  requerirPrivilegio,
 } from '../../compartido/middlewares/autenticacion';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import {
@@ -22,17 +20,26 @@ const enrutador = Router();
 enrutador.use(verificarToken);
 
 // ── GET /api/v1/alertas — listar reglas de alerta ────────────────────────────
-enrutador.get('/', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/', requerirPrivilegio('alertas.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const reglas = await prisma.reglaAlerta.findMany({
-      orderBy: [{ activa: 'desc' }, { tipoAlerta: 'asc' }],
+      orderBy: [{ estado: 'asc' }, { tipoAlerta: 'asc' }, { nombre: 'asc' }],
+      include: {
+        usuariosNotificados: {
+          select: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+        },
+      },
     });
-    return respuestaExito(res, reglas);
+    const reglasConUsuarios = reglas.map(({ usuariosNotificados, ...regla }) => ({
+      ...regla,
+      usuarios: usuariosNotificados.map((ru) => ru.usuario),
+    }));
+    return respuestaExito(res, reglasConUsuarios);
   } catch (error) { return next(error); }
 });
 
 // ── GET /api/v1/alertas/resumen — resumen de notificaciones por categoría ─────
-enrutador.get('/resumen', cualquierRol, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.get('/resumen', requerirPrivilegio('alertas.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const usuarioId = req.usuarioActual!.id;
 
@@ -77,7 +84,7 @@ enrutador.get('/resumen', cualquierRol, async (req: Request, res: Response, next
 });
 
 // ── POST /api/v1/alertas/evaluar — disparo manual del motor ──────────────────
-enrutador.post('/evaluar', administradorOVeterinario, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.post('/evaluar', requerirPrivilegio('alertas.evaluar'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const resultado = await evaluarTodasLasReglas(true); // skipThrottle = true en disparo manual
     return respuestaExito(res, {
@@ -94,40 +101,58 @@ const esquemaRegla = z.object({
   prioridad:              z.nativeEnum(PrioridadAlerta).optional(),
   umbralValor:            z.number().optional(),
   umbralUnidad:           z.string().max(50).optional(),
-  mensajeAlerta:          z.string().max(500).optional(),
   evaluarCadaHoras:       z.number().int().min(1).max(720).optional(),
-  activa:                 z.boolean().default(true),
-  notificarAdministrador: z.boolean().default(true),
-  notificarVeterinario:   z.boolean().default(true),
-  notificarTecnico:       z.boolean().default(false),
+  estado:                 z.enum(['ACTIVA', 'PAUSADA']).default('ACTIVA'),
   enviarCorreo:           z.boolean().default(true),
+  // IDs de los usuarios específicos que deben recibir esta alerta
+  usuarioIds:             z.array(z.string().min(1)).default([]),
 });
 
 // ── POST /api/v1/alertas — crear regla de alerta ─────────────────────────────
-enrutador.post('/', soloAdministrador, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.post('/', requerirPrivilegio('alertas.gestionar_reglas'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const datos = esquemaRegla.parse(req.body);
+    const { usuarioIds, ...datos } = esquemaRegla.parse(req.body);
     const regla = await prisma.reglaAlerta.create({
-      data: { ...datos, creadoPorId: req.usuarioActual!.id },
+      data: {
+        ...datos,
+        creadoPorId: req.usuarioActual!.id,
+        usuariosNotificados: { create: usuarioIds.map((usuarioId) => ({ usuarioId })) },
+      },
+      include: {
+        usuariosNotificados: {
+          select: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+        },
+      },
     });
     return respuestaCreado(res, regla);
   } catch (error) { return next(error); }
 });
 
 // ── PATCH /api/v1/alertas/:id — actualizar regla ─────────────────────────────
-enrutador.patch('/:id', soloAdministrador, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.patch('/:id', requerirPrivilegio('alertas.gestionar_reglas'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const datos = esquemaRegla.partial().parse(req.body);
+    const { usuarioIds, ...datos } = esquemaRegla.partial().parse(req.body);
+    if (usuarioIds) {
+      await prisma.reglaAlertaUsuario.deleteMany({ where: { reglaAlertaId: req.params['id'] as string } });
+    }
     const regla = await prisma.reglaAlerta.update({
       where: { id: req.params['id'] as string },
-      data: datos,
+      data: {
+        ...datos,
+        ...(usuarioIds && { usuariosNotificados: { create: usuarioIds.map((usuarioId) => ({ usuarioId })) } }),
+      },
+      include: {
+        usuariosNotificados: {
+          select: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+        },
+      },
     });
     return respuestaExito(res, regla);
   } catch (error) { return next(error); }
 });
 
 // ── DELETE /api/v1/alertas/:id — eliminar regla ───────────────────────────────
-enrutador.delete('/:id', soloAdministrador, async (req: Request, res: Response, next: NextFunction) => {
+enrutador.delete('/:id', requerirPrivilegio('alertas.gestionar_reglas'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     await prisma.reglaAlerta.delete({
       where: { id: req.params['id'] as string },

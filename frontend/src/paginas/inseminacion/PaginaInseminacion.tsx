@@ -18,7 +18,6 @@ interface Semental {
   nombre: string;
   registro: string | null;
   origen: string | null;
-  activo: boolean;
   observaciones: string | null;
   motivilidad?: number | null;
   raza: { nombre: string };
@@ -34,8 +33,6 @@ interface LoteSemen {
   concentracion: number | null;
   temperatura: number | null;
   fechaVencimiento: string | null;
-  activo: boolean;
-  creadoEn: string;
   semental: { nombre: string };
 }
 
@@ -60,7 +57,7 @@ interface Inseminacion {
   } | null;
 }
 
-interface Animal { id: string; numeroArete: string; nombre: string | null; finca?: { nombre: string } }
+interface Animal { id: string; numeroArete: string; nombre: string | null; lote?: { finca?: { nombre: string } } }
 
 // ── Fetchers ──────────────────────────────────────────────────────────────────
 const api = {
@@ -112,7 +109,7 @@ export default function PaginaInseminacion() {
 
   const lotes: LoteSemen[]        = dataInv?.datos ?? [];
   const inseminaciones: Inseminacion[] = dataIns?.datos ?? [];
-  const lotesDisponibles = lotes.filter((l) => l.activo && (l.cantidadDosis - l.cantidadUsada) > 0);
+  const lotesDisponibles = lotes.filter((l) => (l.cantidadDosis - l.cantidadUsada) > 0);
 
   // KPIs
   const dosisDisponibles = lotes.reduce((s, l) => s + Math.max(0, l.cantidadDosis - l.cantidadUsada), 0);
@@ -172,7 +169,7 @@ export default function PaginaInseminacion() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { et: 'Inseminaciones totales', val: dataIns?.meta?.total ?? 0,    ico: 'biotech',   col: 'text-primary',   fondo: 'bg-primary/10' },
-          { et: 'Sementales activos',     val: sementales.filter((s) => s.activo).length, ico: 'pets', col: 'text-secondary', fondo: 'bg-secondary/10' },
+          { et: 'Sementales registrados', val: sementales.length, ico: 'pets', col: 'text-secondary', fondo: 'bg-secondary/10' },
           { et: 'Lotes de semen',         val: lotes.length,                  ico: 'inventory', col: 'text-tertiary',  fondo: 'bg-tertiary/10' },
           { et: 'Dosis disponibles',      val: dosisDisponibles,              ico: dosisDisponibles < 10 ? 'warning' : 'check_circle', col: dosisDisponibles < 10 ? 'text-error' : 'text-primary', fondo: dosisDisponibles < 10 ? 'bg-error-container' : 'bg-primary/10' },
         ].map((k) => (
@@ -411,9 +408,7 @@ export default function PaginaInseminacion() {
                     </div>
 
                     <div>
-                      {!lote.activo ? (
-                        <Badge variante="gris"     tamano="xs">Inactivo</Badge>
-                      ) : vencido ? (
+                      {vencido ? (
                         <Badge variante="rojo"     tamano="xs">Vencido</Badge>
                       ) : disponibles === 0 ? (
                         <Badge variante="rojo"     tamano="xs">Agotado</Badge>
@@ -557,9 +552,6 @@ function TarjetaSemental({ semental }: { semental: Semental }) {
             <p className="text-[10px] text-outline font-mono mt-0.5">{semental.registro}</p>
           )}
         </div>
-        <Badge variante={semental.activo ? 'verde' : 'gris'} tamano="xs" punto={semental.activo}>
-          {semental.activo ? 'Activo' : 'Inactivo'}
-        </Badge>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -618,7 +610,7 @@ function FormularioInseminacion({ hembras, lotes, onSubmit }: PropsFormInseminac
           <option value="">Seleccionar hembra...</option>
           {hembras.map((h) => (
             <option key={h.id} value={h.id}>
-              #{h.numeroArete}{h.nombre ? ` — ${h.nombre}` : ''}{h.finca ? ` (${h.finca.nombre})` : ''}
+              #{h.numeroArete}{h.nombre ? ` — ${h.nombre}` : ''}{h.lote?.finca ? ` (${h.lote.finca.nombre})` : ''}
             </option>
           ))}
         </select>
@@ -829,7 +821,7 @@ function ModalLoteSemen({
                 className="campo-entrada"
               >
                 <option value="">Seleccionar semental...</option>
-                {sementales.filter((s) => s.activo).map((s) => (
+                {sementales.map((s) => (
                   <option key={s.id} value={s.id}>{s.nombre} — {s.raza.nombre}</option>
                 ))}
               </select>

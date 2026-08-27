@@ -19,10 +19,8 @@ interface Finca {
   hectareas?: number;
   descripcion?: string;
   direccion?: string;
-  activa?: boolean;
   latitudCentro?: number;
   longitudCentro?: number;
-  creadoEn?: string;
   _count: { lotes: number; potreros?: number; animales: number };
   lotes?: { id: string; nombre: string; _count: { animales: number } }[];
 }
@@ -554,11 +552,6 @@ function PanelDetalleFinca({
             {finca.latitudCentro != null && finca.longitudCentro != null && (
               <DetalleItem icono="my_location" etiqueta="Coordenadas GPS">
                 {finca.latitudCentro.toFixed(6)}, {finca.longitudCentro.toFixed(6)}
-              </DetalleItem>
-            )}
-            {finca.creadoEn && (
-              <DetalleItem icono="calendar_today" etiqueta="Registrada el">
-                {new Date(finca.creadoEn).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })}
               </DetalleItem>
             )}
             {finca.descripcion && (
