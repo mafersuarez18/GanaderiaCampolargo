@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,7 +28,7 @@ interface HistorialMedico {
   litrosLechesDiarios?: number;
   gananciaPeso?: number;
   diagnosticoDefinitivo?: string;
-  observacionesDiagnosticosOficiales?: string;
+  resultadosPruebas?: string;
   animal: {
     id: string;
     numeroArete: string;
@@ -48,6 +48,7 @@ interface HistorialMedico {
     planDiagnostico?: string;
     tiempoEvolucion?: string;
     sintomas?: string;
+    pruebasDiagnostico?: string;
   }>;
   tratamientos: Array<{
     id: string;
@@ -70,14 +71,12 @@ interface HistorialMedico {
   };
   desparasitaciones: Array<{
     id: string;
-    producto: string;
-    principioActivo?: string;
     tipo: string;
     fecha: string;
     dosis?: string;
     via?: string;
-    medicamentoId?: string;
-    medicamento?: { nombre: string };
+    medicamentoId: string;
+    medicamento: { nombre: string; principioActivo?: string };
   }>;
 }
 
@@ -87,9 +86,9 @@ interface RespuestaHistorial {
 }
 
 interface DesparasitacionForm {
-  producto: string;
-  principioActivo: string;
   medicamentoId: string;
+  medicamentoNombreNuevo: string;
+  medicamentoPrincipioActivoNuevo: string;
   tipo: string;
   fecha: string;
   dosis: string;
@@ -106,6 +105,7 @@ interface EnfermedadForm {
   planDiagnostico: string;
   tiempoEvolucion: string;
   sintomas: string;
+  pruebasDiagnostico: string;
 }
 
 interface TratamientoForm {
@@ -149,7 +149,7 @@ interface FormHistorial {
   litrosLechesDiarios: string;
   gananciaPeso: string;
   diagnosticoDefinitivo: string;
-  observacionesDiagnosticosOficiales: string;
+  resultadosPruebas: string;
   epidGarrapatas: boolean;
   epidMosquitos: boolean;
   epidMurcielagos: boolean;
@@ -665,10 +665,10 @@ export default function PaginaHistorialMedico() {
                   </section>
                 )}
 
-                {historialSeleccionado.observacionesDiagnosticosOficiales && (
+                {historialSeleccionado.resultadosPruebas && (
                   <section>
-                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Observaciones diagnóstico</p>
-                    <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">{historialSeleccionado.observacionesDiagnosticosOficiales}</p>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Resultados de pruebas</p>
+                    <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">{historialSeleccionado.resultadosPruebas}</p>
                   </section>
                 )}
 
@@ -691,7 +691,7 @@ export default function PaginaHistorialMedico() {
                         return (
                           <>
                             {vectores && <p className="text-on-surface-variant">Vectores: <span className="text-on-surface font-medium">{vectores}</span></p>}
-                            {ep.descripcion && <p className="text-on-surface-variant">{ep.descripcion}</p>}
+                            {ep.descripcionEntorno && <p className="text-on-surface-variant">{ep.descripcionEntorno}</p>}
                           </>
                         );
                       })()}
@@ -748,6 +748,9 @@ export default function PaginaHistorialMedico() {
                           {e.pronostico && (
                             <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Pronóstico:</span> {e.pronostico}</p>
                           )}
+                          {e.pruebasDiagnostico && (
+                            <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Pruebas:</span> {e.pruebasDiagnostico}</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -800,15 +803,14 @@ export default function PaginaHistorialMedico() {
                       {historialSeleccionado.desparasitaciones.map((d: any) => (
                         <div key={d.id} className="p-3 rounded-xl bg-surface-container border border-outline-variant/20">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-semibold text-on-surface">{d.producto}</span>
+                            <span className="text-sm font-semibold text-on-surface">{d.medicamento?.nombre}</span>
                             <span className="text-[10px] text-on-surface-variant">{new Date(d.fecha).toLocaleDateString('es-VE')}</span>
                           </div>
                           <div className="grid grid-cols-2 gap-x-4 text-xs text-on-surface-variant">
-                            {d.principioActivo && <span>P. activo: <strong className="text-on-surface">{d.principioActivo}</strong></span>}
+                            {d.medicamento?.principioActivo && <span>P. activo: <strong className="text-on-surface">{d.medicamento.principioActivo}</strong></span>}
                             {d.tipo && <span>Tipo: <strong className="text-on-surface">{(d.tipo as string).replace(/_/g, ' ')}</strong></span>}
                             {d.dosis && <span>Dosis: <strong className="text-on-surface">{d.dosis}</strong></span>}
                             {d.via && <span>Vía: <strong className="text-on-surface">{d.via}</strong></span>}
-                            {d.medicamento && <span>Catálogo: <strong className="text-on-surface">{d.medicamento.nombre}</strong></span>}
                           </div>
                         </div>
                       ))}
@@ -883,7 +885,7 @@ const FORM_VACIO: FormHistorial = {
   temperatura: '', frecuenciaCardiaca: '', frecuenciaRespiratoria: '',
   tiempoLlenadoCapilar: '', movimientosRuminales: '', condicionCorporal: '',
   estadoReproductivo: '', litrosLechesDiarios: '', gananciaPeso: '',
-  diagnosticoDefinitivo: '', observacionesDiagnosticosOficiales: '',
+  diagnosticoDefinitivo: '', resultadosPruebas: '',
   epidGarrapatas: false, epidMosquitos: false, epidMurcielagos: false, epidMoscas: false,
   epidOtros: '', epidDescripcion: '',
   desparasitaciones: [],
@@ -912,6 +914,74 @@ function SeccionClinica({ titulo, icono, children }: { titulo: string; icono: st
   );
 }
 
+function SelectorMedicamento({
+  medicamentos, medicamentoId, medicamentoNombreNuevo, onSeleccionar, onEscribir,
+}: {
+  medicamentos: MedicamentoOpcion[];
+  medicamentoId: string;
+  medicamentoNombreNuevo: string;
+  onSeleccionar: (id: string, nombre: string) => void;
+  onEscribir: (texto: string) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const refContenedor = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const manejador = (e: MouseEvent) => {
+      if (refContenedor.current && !refContenedor.current.contains(e.target as Node)) setAbierto(false);
+    };
+    document.addEventListener('mousedown', manejador);
+    return () => document.removeEventListener('mousedown', manejador);
+  }, []);
+
+  const seleccionado = medicamentos.find((m) => m.id === medicamentoId);
+  const texto = seleccionado ? seleccionado.nombre : medicamentoNombreNuevo;
+  const textoNorm = texto.trim().toLowerCase();
+  const coincidencias = textoNorm
+    ? medicamentos.filter((m) => m.nombre.toLowerCase().includes(textoNorm))
+    : medicamentos;
+  const coincideExacta = medicamentos.some((m) => m.nombre.toLowerCase() === textoNorm);
+
+  return (
+    <div ref={refContenedor} className="relative">
+      <input
+        type="text"
+        value={texto}
+        onChange={(e) => { onEscribir(e.target.value); setAbierto(true); }}
+        onFocus={() => setAbierto(true)}
+        placeholder="Seleccione o escriba un medicamento..."
+        className="campo-entrada text-sm"
+        autoComplete="off"
+      />
+      {abierto && (
+        <div
+          className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-xl shadow-xl
+                     border border-outline-variant/30 z-50 overflow-hidden max-h-48 overflow-y-auto"
+        >
+          {coincidencias.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => { onSeleccionar(m.id, m.nombre); setAbierto(false); }}
+              className="w-full text-left px-3 py-2 hover:bg-surface-container-low transition-colors
+                         border-b border-outline-variant/10 last:border-0 flex items-center gap-2 text-sm"
+            >
+              <Icono nombre="medication" clase="text-[13px] text-outline flex-shrink-0" />
+              {m.nombre}
+            </button>
+          ))}
+          {!!textoNorm && !coincideExacta && (
+            <div className="px-3 py-2 flex items-center gap-2 text-primary text-xs bg-primary/5">
+              <Icono nombre="add_circle" clase="text-[13px] flex-shrink-0" />
+              Se creará un medicamento nuevo: "{texto.trim()}"
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CampoLabel({ etiqueta, req, children }: { etiqueta: string; req?: boolean; children: React.ReactNode }) {
   return (
     <div>
@@ -924,6 +994,7 @@ function CampoLabel({ etiqueta, req, children }: { etiqueta: string; req?: boole
 }
 
 function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: PropiedadesFormulario) {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<FormHistorial>({
     ...FORM_VACIO,
     animalId: animalIdPredeterminado ?? '',
@@ -951,7 +1022,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
       });
       const { ultimaDesparasitacion, enfermedadesActivas: activas } = data.datos as {
         ultimaDesparasitacion: {
-          producto: string; principioActivo?: string; tipo: string;
+          medicamentoId: string; tipo: string;
           fecha: string; dosis?: string; via?: string;
         } | null;
         enfermedadesActivas: EnfermedadActivaOpcion[];
@@ -969,9 +1040,9 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
           animalId,
           desparasitaciones: [
             {
-              producto:        ultimaDesparasitacion.producto,
-              principioActivo: ultimaDesparasitacion.principioActivo ?? '',
-              medicamentoId:   '',
+              medicamentoId:   ultimaDesparasitacion.medicamentoId,
+              medicamentoNombreNuevo: '',
+              medicamentoPrincipioActivoNuevo: '',
               tipo:            ultimaDesparasitacion.tipo,
               fecha:           fechaOriginal,
               dosis:           ultimaDesparasitacion.dosis ?? '',
@@ -992,7 +1063,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
   };
 
   const mutacion = useMutation({
-    mutationFn: (datos: FormHistorial) => {
+    mutationFn: async (datos: FormHistorial) => {
       const payload: any = {
         animalId:      datos.animalId,
         fechaConsulta: new Date(datos.fechaConsulta).toISOString(),
@@ -1012,24 +1083,35 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
       if (datos.litrosLechesDiarios)    payload.litrosLechesDiarios    = parseFloat(datos.litrosLechesDiarios);
       if (datos.gananciaPeso)           payload.gananciaPeso           = parseFloat(datos.gananciaPeso);
       if (datos.diagnosticoDefinitivo)  payload.diagnosticoDefinitivo  = datos.diagnosticoDefinitivo;
-      if (datos.observacionesDiagnosticosOficiales) payload.observacionesDiagnosticosOficiales = datos.observacionesDiagnosticosOficiales;
+      if (datos.resultadosPruebas) payload.resultadosPruebas = datos.resultadosPruebas;
       const tieneEpid = datos.epidGarrapatas || datos.epidMosquitos || datos.epidMurcielagos || datos.epidMoscas || datos.epidOtros || datos.epidDescripcion;
       if (tieneEpid) {
         payload.informacionEpidemiologica = {
           garrapatas: datos.epidGarrapatas, mosquitos: datos.epidMosquitos,
           murcielagos: datos.epidMurcielagos, moscas: datos.epidMoscas,
           otrosVectores: datos.epidOtros || undefined,
-          descripcion: datos.epidDescripcion || undefined,
+          descripcionEntorno: datos.epidDescripcion || undefined,
         };
       }
       if (datos.desparasitaciones.length) {
-        payload.desparasitaciones = datos.desparasitaciones.map((d) => ({
-          producto: d.producto, tipo: d.tipo,
-          principioActivo: d.principioActivo || undefined,
-          medicamentoId: d.medicamentoId || undefined,
-          fecha: new Date(d.fecha).toISOString(),
-          dosis: d.dosis || undefined,
-          via: d.via || undefined,
+        payload.desparasitaciones = await Promise.all(datos.desparasitaciones.map(async (d) => {
+          let medicamentoId = d.medicamentoId;
+          // Si se escribió un medicamento que no existe en el catálogo, se crea primero
+          if (!medicamentoId && d.medicamentoNombreNuevo) {
+            const { data: dataMed } = await clienteHttp.post('/vacunacion/medicamentos', {
+              nombre: d.medicamentoNombreNuevo,
+              ...(d.medicamentoPrincipioActivoNuevo && { principioActivo: d.medicamentoPrincipioActivoNuevo }),
+            });
+            medicamentoId = dataMed.datos.id;
+            queryClient.invalidateQueries({ queryKey: ['medicamentos-catalogo'] });
+          }
+          return {
+            tipo: d.tipo,
+            medicamentoId,
+            fecha: new Date(d.fecha).toISOString(),
+            dosis: d.dosis || undefined,
+            via: d.via || undefined,
+          };
         }));
       }
       if (datos.enfermedades.length) {
@@ -1043,6 +1125,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
           planDiagnostico: en.planDiagnostico || undefined,
           tiempoEvolucion: en.tiempoEvolucion || undefined,
           sintomas: en.sintomas || undefined,
+          pruebasDiagnostico: en.pruebasDiagnostico || undefined,
         }));
       }
       if (datos.tratamientos.length) {
@@ -1068,7 +1151,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
       ...f,
       enfermedades: [...f.enfermedades, {
         nombreEnfermedad: '', nivelGravedad: '', fechaInicio: new Date().toISOString().split('T')[0], descripcionClinica: '',
-        diagnostico: '', pronostico: '', planDiagnostico: '', tiempoEvolucion: '', sintomas: '',
+        diagnostico: '', pronostico: '', planDiagnostico: '', tiempoEvolucion: '', sintomas: '', pruebasDiagnostico: '',
       }],
     }));
 
@@ -1219,7 +1302,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
               <div className="flex flex-wrap gap-3 mb-3">
                 {[
                   { campo: 'epidGarrapatas', et: 'Garrapatas', ico: 'bug_report' },
-                  { campo: 'epidMosquitos',  et: 'Mosquitos',  ico: 'mosquito' },
+                  { campo: 'epidMosquitos',  et: 'Mosquitos',  ico: 'coronavirus' },
                   { campo: 'epidMurcielagos',et: 'Murciélagos',ico: 'cruelty_free' },
                   { campo: 'epidMoscas',     et: 'Moscas',     ico: 'pest_control' },
                 ].map(({ campo, et, ico }) => (
@@ -1249,16 +1332,16 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
             {/* ── 6. Diagnóstico y plan ── */}
             <SeccionClinica titulo="Diagnóstico y Plan" icono="lab_panel">
               <p className="text-xs text-on-surface-variant -mt-1">
-                El diagnóstico, pronóstico y plan de cada condición se registran en "Enfermedades Diagnosticadas" más abajo.
+                El diagnóstico, pronóstico, plan y pruebas de cada condición se registran en "Enfermedades Diagnosticadas" más abajo.
               </p>
               <CampoLabel etiqueta="Diagnóstico definitivo">
                 <input type="text" value={form.diagnosticoDefinitivo}
                   onChange={(e) => set('diagnosticoDefinitivo', e.target.value)}
                   placeholder="Confirmado post ayudas diagnósticas..." className="campo-entrada" />
               </CampoLabel>
-              <CampoLabel etiqueta="Tuberculosis / Brucelosis (pruebas oficiales)">
-                <textarea rows={2} value={form.observacionesDiagnosticosOficiales}
-                  onChange={(e) => set('observacionesDiagnosticosOficiales', e.target.value)}
+              <CampoLabel etiqueta="Resultados de pruebas (Tuberculosis / Brucelosis, control de rutina)">
+                <textarea rows={2} value={form.resultadosPruebas}
+                  onChange={(e) => set('resultadosPruebas', e.target.value)}
                   placeholder="Resultados de pruebas obligatorias, fechas, estado..." className="campo-entrada resize-none" />
               </CampoLabel>
               <CampoLabel etiqueta="Observaciones generales">
@@ -1325,6 +1408,11 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                       <input type="text" value={enf.planDiagnostico}
                         onChange={(e) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].planDiagnostico = e.target.value; return { ...f, enfermedades: arr }; })}
                         placeholder="Pruebas a solicitar..." className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Pruebas diagnóstico">
+                      <input type="text" value={enf.pruebasDiagnostico}
+                        onChange={(e) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].pruebasDiagnostico = e.target.value; return { ...f, enfermedades: arr }; })}
+                        placeholder="Resultados de exámenes de esta condición..." className="campo-entrada text-sm" />
                     </CampoLabel>
                   </div>
                 </div>
@@ -1442,16 +1530,32 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                     <Icono nombre="close" clase="text-[14px]" />
                   </button>
                   <div className={`grid grid-cols-3 gap-2 ${despPrecargadas.has(idx) ? 'mt-5' : ''}`}>
-                    <CampoLabel etiqueta="Producto *">
-                      <input type="text" value={desp.producto}
-                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].producto = e.target.value; return { ...f, desparasitaciones: arr }; })}
-                        placeholder="Ej: Ivomec" className="campo-entrada text-sm" />
-                    </CampoLabel>
-                    <CampoLabel etiqueta="Principio activo">
-                      <input type="text" value={desp.principioActivo}
-                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].principioActivo = e.target.value; return { ...f, desparasitaciones: arr }; })}
-                        placeholder="Ej: Ivermectina" className="campo-entrada text-sm" />
-                    </CampoLabel>
+                    <div className="col-span-3 sm:col-span-1">
+                      <CampoLabel etiqueta="Medicamento *">
+                        <SelectorMedicamento
+                          medicamentos={medicamentos}
+                          medicamentoId={desp.medicamentoId}
+                          medicamentoNombreNuevo={desp.medicamentoNombreNuevo}
+                          onSeleccionar={(id) => setForm((f) => {
+                            const arr = [...f.desparasitaciones];
+                            arr[idx] = { ...arr[idx], medicamentoId: id, medicamentoNombreNuevo: '', medicamentoPrincipioActivoNuevo: '' };
+                            return { ...f, desparasitaciones: arr };
+                          })}
+                          onEscribir={(texto) => setForm((f) => {
+                            const arr = [...f.desparasitaciones];
+                            arr[idx] = { ...arr[idx], medicamentoId: '', medicamentoNombreNuevo: texto };
+                            return { ...f, desparasitaciones: arr };
+                          })}
+                        />
+                      </CampoLabel>
+                    </div>
+                    {!desp.medicamentoId && desp.medicamentoNombreNuevo && (
+                      <CampoLabel etiqueta="Principio activo (medicamento nuevo)">
+                        <input type="text" value={desp.medicamentoPrincipioActivoNuevo}
+                          onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].medicamentoPrincipioActivoNuevo = e.target.value; return { ...f, desparasitaciones: arr }; })}
+                          placeholder="Ej: Ivermectina" className="campo-entrada text-sm" />
+                      </CampoLabel>
+                    )}
                     <CampoLabel etiqueta="Tipo">
                       <select value={desp.tipo}
                         onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].tipo = e.target.value; return { ...f, desparasitaciones: arr }; })}
@@ -1476,21 +1580,13 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                         onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].via = e.target.value; return { ...f, desparasitaciones: arr }; })}
                         placeholder="Subcutánea, oral, pour-on" className="campo-entrada text-sm" />
                     </CampoLabel>
-                    <CampoLabel etiqueta="Medicamento (catálogo)">
-                      <select value={desp.medicamentoId}
-                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].medicamentoId = e.target.value; return { ...f, desparasitaciones: arr }; })}
-                        className="campo-entrada text-sm">
-                        <option value="">Sin vincular</option>
-                        {medicamentos.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                      </select>
-                    </CampoLabel>
                   </div>
                 </div>
               ))}
               <button type="button" onClick={() => {
                   setForm((f) => ({
                     ...f,
-                    desparasitaciones: [...f.desparasitaciones, { producto: '', principioActivo: '', medicamentoId: '', tipo: 'AMBOS', fecha: new Date().toISOString().split('T')[0], dosis: '', via: '' }],
+                    desparasitaciones: [...f.desparasitaciones, { medicamentoId: '', medicamentoNombreNuevo: '', medicamentoPrincipioActivoNuevo: '', tipo: 'AMBOS', fecha: new Date().toISOString().split('T')[0], dosis: '', via: '' }],
                   }));
                 }}
                 className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-primary/40 rounded-xl text-sm text-primary hover:bg-primary/5 transition-colors">

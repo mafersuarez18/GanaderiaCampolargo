@@ -17,9 +17,7 @@ import {
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 
 const esquemaDesparasitacion = z.object({
-  producto:        z.string().min(1).max(200),
-  principioActivo: z.string().max(200).optional(),
-  medicamentoId:   z.string().min(1).optional(),
+  medicamentoId:   z.string().min(1, 'El medicamento es requerido'),
   tipo:            z.nativeEnum(TipoDesparasitante),
   fecha:           z.coerce.date(),
   dosis:           z.string().max(100).optional(),
@@ -33,7 +31,7 @@ const esquemaInformacionEpidemiologica = z.object({
   murcielagos:   z.boolean().optional(),
   moscas:        z.boolean().optional(),
   otrosVectores: z.string().max(200).optional(),
-  descripcion:   z.string().max(500).optional(),
+  descripcionEntorno: z.string().max(500).optional(),
 });
 
 const esquemaTratamiento = z.object({
@@ -60,6 +58,7 @@ const esquemaEnfermedad = z.object({
   planDiagnostico:    z.string().max(1000).optional(),
   tiempoEvolucion:    z.string().max(200).optional(),
   sintomas:           z.string().max(1000).optional(),
+  pruebasDiagnostico: z.string().max(1000).optional(),
 });
 
 const esquemaHistorial = z.object({
@@ -88,8 +87,8 @@ const esquemaHistorial = z.object({
   gananciaPeso:                z.number().optional(),
   // Diagnóstico y plan (a nivel de consulta general)
   diagnosticoDefinitivo:       z.string().max(1000).optional(),
-  // Pruebas obligatorias
-  observacionesDiagnosticosOficiales: z.string().max(1000).optional(),
+  // Pruebas de rutina/obligatorias no ligadas a una enfermedad diagnosticada
+  resultadosPruebas: z.string().max(1000).optional(),
   // Relaciones hijas
   informacionEpidemiologica:   esquemaInformacionEpidemiologica.optional(),
   desparasitaciones:           z.array(esquemaDesparasitacion).optional(),

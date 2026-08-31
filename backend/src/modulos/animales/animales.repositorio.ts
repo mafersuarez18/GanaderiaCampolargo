@@ -136,3 +136,15 @@ export async function existeAreteRegistrado(numeroArete: string, excluirId?: str
 export async function listarRazas() {
   return prisma.raza.findMany({ orderBy: { nombre: 'asc' } });
 }
+
+export async function existeRazaRegistrada(nombre: string): Promise<boolean> {
+  const raza = await prisma.raza.findFirst({
+    where: { nombre: { equals: nombre, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  return !!raza;
+}
+
+export async function crearRaza(datos: Prisma.RazaCreateInput) {
+  return prisma.raza.create({ data: datos });
+}

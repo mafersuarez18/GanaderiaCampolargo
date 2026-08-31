@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,21 +15,32 @@ const esquemaAnimal = z.object({
   sexo:             z.enum(['MACHO', 'HEMBRA'], { required_error: 'Seleccione el sexo' }),
   estado:           z.enum(['ACTIVO', 'VENDIDO', 'MUERTO', 'ROBADO', 'TRANSFERIDO']).default('ACTIVO'),
   estadoSanitario:  z.enum(['SANO', 'ENFERMO', 'EN_TRATAMIENTO', 'EN_OBSERVACION', 'CUARENTENA']).default('SANO'),
-  proposito:        z.enum(['CARNE', 'LECHE', 'CARNE_LECHE', 'REPRODUCCION', 'TAUROMAQUIA']).optional().or(z.literal('')),
+  proposito:        z.enum(['CARNE', 'LECHE', 'CARNE_LECHE', 'REPRODUCCION', 'TAUROMAQUIA'], { required_error: 'Seleccione el propósito' }),
   fechaNacimiento:  z.string().optional().or(z.literal('')),
   pesoActual:       z.coerce.number().positive().optional().or(z.literal('')),
   color:            z.string().max(100).optional().or(z.literal('')),
   observaciones:    z.string().max(1000).optional().or(z.literal('')),
   marcas:           z.string().max(300).optional().or(z.literal('')),
-  tipoCruce:        z.string().max(100).optional().or(z.literal('')),
   procedencia:      z.string().max(300).optional().or(z.literal('')),
   // La finca es solo un filtro en pantalla para acortar la lista de lotes;
   // lo que realmente se envía al backend es el lote (obligatorio).
   fincaId:          z.string().min(1, 'Seleccione una finca'),
   loteId:           z.string().min(1, 'Seleccione un lote'),
-  razaId:           z.string().min(1).optional().or(z.literal('')),
+  // Raza: se selecciona una existente (razaId) o se escribe una nueva
+  // (razaNombreNueva), caso en el cual tipoCruce pasa a ser obligatorio.
+  razaId:           z.string().optional().or(z.literal('')),
+  razaNombreNueva:  z.string().max(100).optional().or(z.literal('')),
+  razaTipoCruce:    z.string().max(100).optional().or(z.literal('')),
+  razaOrigen:       z.string().max(200).optional().or(z.literal('')),
   padreId:          z.string().min(1).optional().or(z.literal('')),
   madreId:          z.string().min(1).optional().or(z.literal('')),
+}).superRefine((datos, ctx) => {
+  if (!datos.razaId && !datos.razaNombreNueva) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['razaId'], message: 'Seleccione o escriba una raza' });
+  }
+  if (!datos.razaId && datos.razaNombreNueva && !datos.razaTipoCruce) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['razaTipoCruce'], message: 'Indique el tipo de cruce de la nueva raza' });
+  }
 });
 
 type FormularioAnimal = z.infer<typeof esquemaAnimal>;
@@ -80,6 +91,7 @@ export default function PaginaFormAnimal() {
     control,
     watch,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormularioAnimal>({
     resolver: zodResolver(esquemaAnimal),
@@ -90,6 +102,9 @@ export default function PaginaFormAnimal() {
   });
 
   const fincaSeleccionada = watch('fincaId');
+  const razaIdActual = watch('razaId');
+  const razaNombreNuevaActual = watch('razaNombreNueva');
+  const esRazaNueva = !razaIdActual && !!razaNombreNuevaActual;
 
   const { data: lotes = [] } = useQuery({
     queryKey: ['lotes-finca', fincaSeleccionada],
@@ -117,7 +132,6 @@ export default function PaginaFormAnimal() {
         razaId:          animalExistente.raza?.id ?? '',
         padreId:         animalExistente.padre?.id ?? '',
         madreId:         animalExistente.madre?.id ?? '',
-        tipoCruce:       animalExistente.tipoCruce ?? '',
         procedencia:     animalExistente.procedencia ?? '',
       });
     }
@@ -127,10 +141,23 @@ export default function PaginaFormAnimal() {
     mutationFn: async (datos: FormularioAnimal) => {
       // fincaId es solo un filtro de UI para acortar la lista de lotes; el
       // backend solo recibe loteId (la finca se deriva del lote).
-      const { fincaId: _fincaId, ...datosSinFinca } = datos;
+      const { fincaId: _fincaId, razaNombreNueva, razaTipoCruce, razaOrigen, ...resto } = datos;
+
+      // Si se escribió una raza que no existe en el catálogo, se crea primero
+      let razaId = resto.razaId;
+      if (!razaId && razaNombreNueva) {
+        const { data: dataRaza } = await clienteHttp.post('/animales/razas', {
+          nombre: razaNombreNueva,
+          tipoCruce: razaTipoCruce,
+          ...(razaOrigen && { origen: razaOrigen }),
+        });
+        razaId = dataRaza.datos.id;
+        cliente.invalidateQueries({ queryKey: ['razas-select'] });
+      }
+
       // Limpiar campos vacíos
       const payload = Object.fromEntries(
-        Object.entries(datosSinFinca).filter(([, v]) => v !== '' && v !== undefined && v !== null)
+        Object.entries({ ...resto, razaId }).filter(([, v]) => v !== '' && v !== undefined && v !== null)
       );
       if (esEdicion) {
         const { data } = await clienteHttp.patch(`/animales/${id}`, payload);
@@ -206,26 +233,45 @@ export default function PaginaFormAnimal() {
                 <option value="HEMBRA">Hembra</option>
               </select>
             </CampoForm>
-            <CampoForm etiqueta="Raza" error={errors.razaId?.message}>
-              <select {...register('razaId')} className="campo-entrada">
-                <option value="">Sin raza específica</option>
-                {razas.map((r: any) => (
-                  <option key={r.id} value={r.id}>{r.nombre}</option>
-                ))}
-              </select>
-            </CampoForm>
+            <SelectorRaza
+              razas={razas}
+              razaId={razaIdActual ?? ''}
+              razaNombreNueva={razaNombreNuevaActual ?? ''}
+              error={errors.razaId?.message ?? errors.razaNombreNueva?.message}
+              onSeleccionar={(idRaza) => {
+                setValue('razaId', idRaza, { shouldValidate: true });
+                setValue('razaNombreNueva', '');
+                setValue('razaTipoCruce', '');
+                setValue('razaOrigen', '');
+              }}
+              onEscribir={(texto) => {
+                setValue('razaId', '');
+                setValue('razaNombreNueva', texto, { shouldValidate: true });
+              }}
+            />
+            {esRazaNueva && (
+              <>
+                <CampoForm etiqueta="Tipo de cruce (raza nueva) *" error={errors.razaTipoCruce?.message}>
+                  <input
+                    {...register('razaTipoCruce')}
+                    placeholder="Ej: F1, F2, Sangre pura, Brahman x Holstein"
+                    className="campo-entrada"
+                  />
+                </CampoForm>
+                <CampoForm etiqueta="Origen de la raza" error={errors.razaOrigen?.message}>
+                  <input
+                    {...register('razaOrigen')}
+                    placeholder="Ej: India, Europa..."
+                    className="campo-entrada"
+                  />
+                </CampoForm>
+              </>
+            )}
             <CampoForm etiqueta="Color / Pelaje">
               <input {...register('color')} placeholder="Ej: Pardo oscuro" className="campo-entrada" />
             </CampoForm>
             <CampoForm etiqueta="Marcas distintivas">
               <input {...register('marcas')} placeholder="Ej: Mancha blanca en frente" className="campo-entrada" />
-            </CampoForm>
-            <CampoForm etiqueta="Tipo de cruce" error={errors.tipoCruce?.message}>
-              <input
-                {...register('tipoCruce')}
-                placeholder="Ej: F1, F2, Sangre pura, Brahman x Holstein"
-                className="campo-entrada"
-              />
             </CampoForm>
             <CampoForm etiqueta="Procedencia" error={errors.procedencia?.message}>
               <input
@@ -258,9 +304,9 @@ export default function PaginaFormAnimal() {
                 <option value="CUARENTENA">En cuarentena</option>
               </select>
             </CampoForm>
-            <CampoForm etiqueta="Propósito">
+            <CampoForm etiqueta="Propósito *" error={errors.proposito?.message}>
               <select {...register('proposito')} className="campo-entrada">
-                <option value="">No definido</option>
+                <option value="">Seleccionar...</option>
                 <option value="CARNE">Carne</option>
                 <option value="LECHE">Leche</option>
                 <option value="CARNE_LECHE">Carne y Leche</option>
@@ -392,6 +438,97 @@ function SeccionFormulario({ titulo, children }: { titulo: string; children: Rea
         {titulo}
       </h2>
       {children}
+    </div>
+  );
+}
+
+interface RazaOpcion { id: string; nombre: string; }
+
+function SelectorRaza({
+  razas, razaId, razaNombreNueva, onSeleccionar, onEscribir, error,
+}: {
+  razas: RazaOpcion[];
+  razaId: string;
+  razaNombreNueva: string;
+  onSeleccionar: (id: string, nombre: string) => void;
+  onEscribir: (texto: string) => void;
+  error?: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const refContenedor = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const manejador = (e: MouseEvent) => {
+      if (refContenedor.current && !refContenedor.current.contains(e.target as Node)) {
+        setAbierto(false);
+      }
+    };
+    document.addEventListener('mousedown', manejador);
+    return () => document.removeEventListener('mousedown', manejador);
+  }, []);
+
+  const razaSeleccionada = razas.find((r) => r.id === razaId);
+  const texto = razaSeleccionada ? razaSeleccionada.nombre : razaNombreNueva;
+  const textoNormalizado = texto.trim().toLowerCase();
+
+  const coincidencias = textoNormalizado
+    ? razas.filter((r) => r.nombre.toLowerCase().includes(textoNormalizado))
+    : razas;
+  const coincideExacta = razas.some((r) => r.nombre.toLowerCase() === textoNormalizado);
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-[var(--color-piedra-600)] mb-1.5">Raza *</label>
+      <div ref={refContenedor} className="relative">
+        <input
+          type="text"
+          value={texto}
+          onChange={(e) => { onEscribir(e.target.value); setAbierto(true); }}
+          onFocus={() => setAbierto(true)}
+          placeholder="Seleccione o escriba una raza..."
+          className="campo-entrada"
+          autoComplete="off"
+        />
+        {abierto && (
+          <div
+            className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-xl shadow-xl
+                       border border-outline-variant/30 z-50 overflow-hidden max-h-52 overflow-y-auto"
+          >
+            {coincidencias.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => { onSeleccionar(r.id, r.nombre); setAbierto(false); }}
+                className="w-full text-left px-4 py-2.5 hover:bg-surface-container-low transition-colors
+                           border-b border-outline-variant/10 last:border-0 flex items-center gap-2"
+              >
+                <Icono nombre="pets" clase="text-[14px] text-outline flex-shrink-0" />
+                <span className="text-sm text-on-surface">{r.nombre}</span>
+              </button>
+            ))}
+            {!!textoNormalizado && !coincideExacta && (
+              <div className="w-full text-left px-4 py-2.5 flex items-center gap-2 text-primary text-sm bg-primary/5">
+                <Icono nombre="add_circle" clase="text-[14px] flex-shrink-0" />
+                Se creará una raza nueva: "{texto.trim()}"
+              </div>
+            )}
+            {!coincidencias.length && !textoNormalizado && (
+              <div className="px-4 py-3 text-xs text-on-surface-variant">
+                Escriba para buscar o registrar una raza nueva
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {error && (
+        <motion.p
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-500 text-xs mt-1"
+        >
+          {error}
+        </motion.p>
+      )}
     </div>
   );
 }

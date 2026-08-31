@@ -8,6 +8,8 @@ import {
   eliminarAnimal,
   existeAreteRegistrado,
   listarRazas,
+  existeRazaRegistrada,
+  crearRaza,
   contarVacunacionesPorAnimal,
   FiltrosAnimal,
 } from './animales.repositorio';
@@ -49,7 +51,6 @@ export interface DatosCrearAnimal {
   color?:         string;
   marcas?:        string;
   observaciones?: string;
-  tipoCruce?:     string;
   procedencia?:   string;
   loteId:         string;
   razaId:         string;
@@ -135,4 +136,17 @@ export async function servicioEliminarAnimal(id: string) {
 
 export async function servicioListarRazas() {
   return listarRazas();
+}
+
+export interface DatosCrearRaza {
+  nombre:    string;
+  tipoCruce: string;
+  origen?:   string;
+}
+
+export async function servicioCrearRaza(datos: DatosCrearRaza) {
+  if (await existeRazaRegistrada(datos.nombre)) {
+    throw new ErrorConflicto(`Ya existe una raza llamada '${datos.nombre}'`);
+  }
+  return crearRaza(datos);
 }

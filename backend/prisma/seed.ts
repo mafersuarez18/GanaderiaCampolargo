@@ -21,8 +21,7 @@ async function main() {
     create: {
       nombre: 'Brahman',
       origen: 'India / Estados Unidos',
-      proposito: TipoPropositoAnimal.CARNE,
-      descripcion: 'Raza cebuína adaptada al trópico, resistente al calor y parásitos. Principal raza de carne en la empresa.',
+      tipoCruce: 'Sangre pura',
     },
   });
 
@@ -32,8 +31,7 @@ async function main() {
     create: {
       nombre: 'Senepol',
       origen: 'Islas Vírgenes de EE.UU.',
-      proposito: TipoPropositoAnimal.CARNE_LECHE,
-      descripcion: 'Raza sin cuernos, polled. Alta adaptabilidad al calor y buena producción de carne y leche.',
+      tipoCruce: 'Sangre pura',
     },
   });
 
@@ -43,8 +41,7 @@ async function main() {
     create: {
       nombre: 'Casta de Lidia',
       origen: 'España',
-      proposito: TipoPropositoAnimal.TAUROMAQUIA,
-      descripcion: 'Ganado de casta para espectáculos taurinos. Bravura y nobleza características.',
+      tipoCruce: 'Sangre pura',
     },
   });
 
@@ -54,8 +51,7 @@ async function main() {
     create: {
       nombre: 'Cebú',
       origen: 'India',
-      proposito: TipoPropositoAnimal.CARNE,
-      descripcion: 'Raza base del cruce ganadero venezolano, excelente adaptación al trópico.',
+      tipoCruce: 'Sangre pura',
     },
   });
 

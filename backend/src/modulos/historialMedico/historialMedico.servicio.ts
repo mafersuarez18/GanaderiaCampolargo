@@ -66,7 +66,7 @@ const seleccionHistorial = {
   gananciaPeso: true,
   // Diagnóstico y plan
   diagnosticoDefinitivo: true,
-  observacionesDiagnosticosOficiales: true,
+  resultadosPruebas: true,
   animal: {
     select: { id: true, numeroArete: true, nombre: true, lote: { select: { finca: { select: { nombre: true } } } } },
   },
@@ -89,14 +89,12 @@ const seleccionHistorial = {
   desparasitaciones: {
     select: {
       id: true,
-      producto: true,
-      principioActivo: true,
       tipo: true,
       fecha: true,
       dosis: true,
       via: true,
       medicamentoId: true,
-      medicamento: { select: { nombre: true } },
+      medicamento: { select: { nombre: true, principioActivo: true } },
     },
   },
 } satisfies Prisma.HistorialMedicoSelect;
@@ -164,7 +162,7 @@ export interface DatosCrearHistorial {
   gananciaPeso?:             number;
   // Diagnóstico y plan (a nivel de consulta general)
   diagnosticoDefinitivo?:    string;
-  observacionesDiagnosticosOficiales?: string;
+  resultadosPruebas?: string;
   // Relaciones hijas
   informacionEpidemiologica?: {
     garrapatas?:    boolean;
@@ -172,12 +170,10 @@ export interface DatosCrearHistorial {
     murcielagos?:   boolean;
     moscas?:        boolean;
     otrosVectores?: string;
-    descripcion?:   string;
+    descripcionEntorno?: string;
   };
   desparasitaciones?: Array<{
-    producto:        string;
-    principioActivo?: string;
-    medicamentoId?:   string;
+    medicamentoId:   string;
     tipo:             TipoDesparasitante;
     fecha:            Date;
     dosis?:           string;
@@ -197,6 +193,7 @@ export interface DatosCrearHistorial {
     planDiagnostico?:    string;
     tiempoEvolucion?:    string;
     sintomas?:           string;
+    pruebasDiagnostico?: string;
   }>;
   tratamientos?: Array<{
     medicamentoId:             string;
@@ -250,6 +247,7 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
               planDiagnostico:   enf.planDiagnostico,
               tiempoEvolucion:   enf.tiempoEvolucion,
               sintomas:          enf.sintomas,
+              pruebasDiagnostico: enf.pruebasDiagnostico,
             })),
           }
         : undefined,
@@ -297,18 +295,20 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
       const calendario = calendariosDesp[0];
 
       // Crear un RegistroVacunacion por cada desparasitación registrada
+      const desparasitacionesCreadas = historial.desparasitaciones;
       await Promise.all(
-        desparasitaciones.map((d) => {
+        desparasitaciones.map((d, i) => {
           const proximaFecha = new Date(
             d.fecha.getTime() + calendario.intervaloDias * 24 * 60 * 60 * 1000,
           );
+          const nombreMedicamento = desparasitacionesCreadas[i]?.medicamento?.nombre;
           return prisma.registroVacunacion.create({
             data: {
               fechaAplicacion:      d.fecha,
               proximaFecha,
               dosis:                d.dosis,
               viaAdministracion:    d.via,
-              observaciones:        d.observaciones ?? `Auto-registrado desde consulta: ${d.producto}${d.principioActivo ? ` (${d.principioActivo})` : ''}`,
+              observaciones:        d.observaciones ?? `Auto-registrado desde consulta${nombreMedicamento ? `: ${nombreMedicamento}` : ''}`,
               historialMedico:      { connect: { id: historial.id } },
               calendarioVacunacion: { connect: { id: calendario.id } },
               aplicadoPor:          { connect: { id: veterinarioId } },

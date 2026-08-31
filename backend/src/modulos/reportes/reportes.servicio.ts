@@ -958,7 +958,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
       enfermedades:            true,
       tratamientos:            { include: { medicamento: { select: { nombre: true } } } },
       informacionEpidemiologica: true,
-      desparasitaciones:       true,
+      desparasitaciones:       { include: { medicamento: { select: { nombre: true, principioActivo: true } } } },
     },
     orderBy: { fechaConsulta: 'desc' },
   });
@@ -1049,6 +1049,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
             e.diagnostico && `Dx: ${e.diagnostico}`,
             e.pronostico && `Pronóstico: ${e.pronostico}`,
             e.planDiagnostico && `Plan: ${e.planDiagnostico}`,
+            e.pruebasDiagnostico && `Pruebas: ${e.pruebasDiagnostico}`,
           ].filter(Boolean).join(' · ');
           return detalle ? `${linea}\n  ${detalle}` : linea;
         }).join('\n'),
@@ -1083,7 +1084,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
         doc,
         ['Producto', 'Principio activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'],
         (c.desparasitaciones as any[]).map((d) => [
-          d.producto, d.principioActivo ?? '—',
+          d.medicamento?.nombre ?? '—', d.medicamento?.principioActivo ?? '—',
           (d.tipo as string).replace(/_/g, ' '),
           fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
         ]),
@@ -1101,7 +1102,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
         ep.otrosVectores,
       ].filter(Boolean).join(', ');
       if (vecs) campo('Vectores epidemiológicos', vecs);
-      if (ep.descripcion) campo('Descripción epidemiológica', ep.descripcion);
+      if (ep.descripcionEntorno) campo('Descripción epidemiológica', ep.descripcionEntorno);
     }
 
     doc.moveDown(0.8);
@@ -1130,7 +1131,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
       enfermedades:             true,
       tratamientos:             { include: { medicamento: { select: { nombre: true } } } },
       informacionEpidemiologica: true,
-      desparasitaciones:        true,
+      desparasitaciones:        { include: { medicamento: { select: { nombre: true, principioActivo: true } } } },
     },
   });
 
@@ -1227,7 +1228,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
      .text('DIAGNÓSTICO Y PLAN', ML, doc.y).moveDown(0.3);
   par = 0;
   campo('Diagnóstico definitivo',        c.diagnosticoDefinitivo);
-  campo('Obs. diagnósticos oficiales',   c.observacionesDiagnosticosOficiales);
+  campo('Resultados de pruebas',         c.resultadosPruebas);
   campo('Observaciones generales',       c.observaciones);
 
   // ── Enfermedades ──
@@ -1280,7 +1281,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
       doc,
       ['Producto', 'Principio activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'],
       (c.desparasitaciones as any[]).map((d) => [
-        d.producto, d.principioActivo ?? '—',
+        d.medicamento?.nombre ?? '—', d.medicamento?.principioActivo ?? '—',
         (d.tipo as string).replace(/_/g, ' '),
         fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
       ]),
@@ -1297,14 +1298,14 @@ export async function generarConsulta(res: Response, consultaId: string) {
       ep.murcielagos && 'Murciélagos', ep.moscas && 'Moscas',
       ep.otrosVectores,
     ].filter(Boolean).join(', ');
-    if (vecs || ep.descripcion) {
+    if (vecs || ep.descripcionEntorno) {
       doc.moveDown(0.6);
       guardarEspacio(doc, 30);
       doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
          .text('INFORMACIÓN EPIDEMIOLÓGICA', ML, doc.y).moveDown(0.3);
       par = 0;
       if (vecs) campo('Vectores', vecs);
-      if (ep.descripcion) campo('Descripción', ep.descripcion);
+      if (ep.descripcionEntorno) campo('Descripción', ep.descripcionEntorno);
     }
   }
 

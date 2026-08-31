@@ -9,6 +9,7 @@ import {
   servicioActualizarAnimal,
   servicioEliminarAnimal,
   servicioListarRazas,
+  servicioCrearRaza,
 } from './animales.servicio';
 import {
   respuestaExito,
@@ -30,7 +31,6 @@ const esquemaCrearAnimal = z.object({
   color:           z.string().max(100).optional(),
   marcas:          z.string().max(300).optional(),
   observaciones:   z.string().max(1000).optional(),
-  tipoCruce:       z.string().max(100).optional(),
   procedencia:     z.string().max(300).optional(),
   loteId:          z.string().min(1),
   razaId:          z.string().min(1),
@@ -114,5 +114,21 @@ export async function controladorListarRazas(
   try {
     const razas = await servicioListarRazas();
     return respuestaExito(res, razas);
+  } catch (error) { return next(error); }
+}
+
+const esquemaCrearRaza = z.object({
+  nombre:    z.string().min(1, 'El nombre es requerido').max(100),
+  tipoCruce: z.string().min(1, 'El tipo de cruce es requerido').max(100),
+  origen:    z.string().max(200).optional(),
+});
+
+export async function controladorCrearRaza(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const datos = esquemaCrearRaza.parse(req.body);
+    const raza = await servicioCrearRaza(datos);
+    return respuestaCreado(res, raza);
   } catch (error) { return next(error); }
 }

@@ -12,6 +12,7 @@ import {
   controladorActualizarAnimal,
   controladorEliminarAnimal,
   controladorListarRazas,
+  controladorCrearRaza,
 } from './animales.controlador';
 
 const enrutador = Router();
@@ -20,6 +21,15 @@ enrutador.use(verificarToken);
 
 // GET /api/v1/animales/razas — debe ir antes que /:id para no confundirse con el param
 enrutador.get('/razas', requerirPrivilegio('animales.ver'), controladorListarRazas);
+
+// POST /api/v1/animales/razas — registrar una raza nueva (usado desde el
+// formulario de animal cuando la raza escrita no existe en el catálogo)
+enrutador.post(
+  '/razas',
+  requerirPrivilegio('animales.crear'),
+  registrarAuditoria('Registrar raza', 'Raza'),
+  controladorCrearRaza,
+);
 
 // GET /api/v1/animales/arete/:arete
 enrutador.get('/arete/:arete', requerirPrivilegio('animales.ver'), controladorBuscarPorArete);

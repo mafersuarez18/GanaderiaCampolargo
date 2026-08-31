@@ -193,6 +193,7 @@ async function evaluarDesparasitaciones(
           animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
         },
       },
+      medicamento: { select: { nombre: true } },
     },
     orderBy: { fecha: 'desc' },
   });
@@ -218,7 +219,7 @@ async function evaluarDesparasitaciones(
 
     await crearNotificacionSiNoExiste(
       titulo,
-      `Producto anterior: ${desp.producto} (${desp.fecha.toLocaleDateString('es-VE')}) | Próxima: ${proximaFecha.toLocaleDateString('es-VE')}`,
+      `Producto anterior: ${desp.medicamento.nombre} (${desp.fecha.toLocaleDateString('es-VE')}) | Próxima: ${proximaFecha.toLocaleDateString('es-VE')}`,
       prioridad,
       'ProgramaDesparasitacion',
       desp.id,

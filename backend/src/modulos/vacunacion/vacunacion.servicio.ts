@@ -1,6 +1,6 @@
 import { Prisma, Sexo } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
-import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
+import { ErrorNoEncontrado, ErrorConflicto } from '../../compartido/tipos/respuesta';
 import { resolverNotificacionesDeEntidad } from '../notificaciones/notificaciones.servicio';
 
 // ─── Calendarios ─────────────────────────────────────────────────────────────
@@ -241,4 +241,19 @@ export async function listarMedicamentos() {
   return prisma.medicamento.findMany({
     orderBy: { nombre: 'asc' },
   });
+}
+
+export interface DatosCrearMedicamento {
+  nombre: string;
+  principioActivo?: string;
+}
+
+export async function crearMedicamento(datos: DatosCrearMedicamento) {
+  const existente = await prisma.medicamento.findFirst({
+    where: { nombre: { equals: datos.nombre, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  if (existente) throw new ErrorConflicto(`Ya existe un medicamento llamado '${datos.nombre}'`);
+
+  return prisma.medicamento.create({ data: datos });
 }

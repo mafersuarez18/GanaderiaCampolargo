@@ -11,6 +11,7 @@ import {
   actualizarRegistroVacunacion,
   eliminarRegistroVacunacion,
   listarMedicamentos,
+  crearMedicamento,
 } from './vacunacion.servicio';
 import {
   respuestaExito,
@@ -171,5 +172,20 @@ export async function controladorListarMedicamentos(
   try {
     const medicamentos = await listarMedicamentos();
     return respuestaExito(res, medicamentos);
+  } catch (error) { return next(error); }
+}
+
+const esquemaCrearMedicamento = z.object({
+  nombre:          z.string().min(1, 'El nombre es requerido').max(200),
+  principioActivo: z.string().max(200).optional(),
+});
+
+export async function controladorCrearMedicamento(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const datos = esquemaCrearMedicamento.parse(req.body);
+    const medicamento = await crearMedicamento(datos);
+    return respuestaCreado(res, medicamento);
   } catch (error) { return next(error); }
 }

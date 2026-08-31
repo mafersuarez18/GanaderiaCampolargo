@@ -14,6 +14,7 @@ import {
   controladorActualizarRegistro,
   controladorEliminarRegistro,
   controladorListarMedicamentos,
+  controladorCrearMedicamento,
 } from './vacunacion.controlador';
 
 const enrutador = Router();
@@ -22,6 +23,9 @@ enrutador.use(verificarToken);
 
 // Medicamentos (catálogo)
 enrutador.get('/medicamentos', requerirPrivilegio('vacunacion.ver'), controladorListarMedicamentos);
+// Registrar un medicamento nuevo al vuelo (usado desde el formulario de
+// desparasitación cuando el producto escrito no existe en el catálogo)
+enrutador.post('/medicamentos', requerirPrivilegio('vacunacion.registrar'), registrarAuditoria('Registrar medicamento', 'Medicamento'), controladorCrearMedicamento);
 
 // Calendarios de vacunación
 enrutador.get('/calendarios', requerirPrivilegio('vacunacion.ver'), controladorListarCalendarios);

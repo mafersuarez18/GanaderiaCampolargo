@@ -245,11 +245,10 @@ model Potrero {
 // =============================================================
 
 model Raza {
-  id          String              @id @default(cuid())
-  nombre      String              @unique
-  origen      String?
-  proposito   TipoPropositoAnimal
-  descripcion String?
+  id        String  @id @default(cuid())
+  nombre    String  @unique
+  origen    String?
+  tipoCruce String? // Tipo de cruce genético (F1, F2, sangre pura, etc.)
 
   animales  Animal[]
   sementales Semental[]
@@ -288,12 +287,11 @@ model Animal {
   pesoNacimiento  Float?
   pesoActual      Float?
   color           String?
-  marcas          String?             // Marcas distintivas
+  marcas          String?             @map("marcadistintiva")
   proposito       TipoPropositoAnimal
   estado          EstadoAnimal        @default(ACTIVO)
   estadoSanitario EstadoSanitario     @default(SANO)
-  observaciones   String?
-  tipoCruce       String?             // Tipo de cruce genético (F1, F2, sangre pura, etc.)
+  observaciones   String?             @map("descripcion")
   procedencia     String?             // Origen si fue adquirido externamente
   fechaIngreso    DateTime            @default(now())
   fechaEgreso     DateTime?
@@ -371,8 +369,9 @@ model HistorialMedico {
   // diagnosticada vive en EnfermedadDiagnosticada, según el modelo lógico)
   diagnosticoDefinitivo              String?
 
-  // Pruebas obligatorias
-  observacionesDiagnosticosOficiales String?
+  // Pruebas de rutina/obligatorias no ligadas a una enfermedad diagnosticada
+  // específica (p. ej. control periódico de Tuberculosis/Brucelosis)
+  resultadosPruebas String?
 
   animalId       String @map("animal_id")
   veterinarioId  String @map("usuario_id")
@@ -410,6 +409,8 @@ model EnfermedadDiagnosticada {
   planDiagnostico String?
   tiempoEvolucion String?
   sintomas        String?
+  // Resultados de pruebas/exámenes específicos de esta condición diagnosticada
+  pruebasDiagnostico String?
 
   historialMedicoId String @map("registro_medico_id")
   historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
@@ -459,7 +460,7 @@ model InformacionEpidemiologica {
   murcielagos   Boolean @default(false)
   moscas        Boolean @default(false)
   otrosVectores String?
-  descripcion   String?
+  descripcionEntorno String? @map("descripcionentorno")
 
   historialMedicoId String          @unique @map("registro_medico_id")
   historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
@@ -474,8 +475,6 @@ model InformacionEpidemiologica {
 
 model ProgramaDesparasitacion {
   id              String             @id @default(cuid())
-  producto        String
-  principioActivo String?
   tipo            TipoDesparasitante
   fecha           DateTime           @map("fechaAplicacion")
   dosis           String?
@@ -485,9 +484,10 @@ model ProgramaDesparasitacion {
   historialMedicoId String @map("registro_medico_id")
   historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
 
-  // Referencia opcional al catálogo de medicamentos, cuando el producto usado está catalogado
-  medicamentoId String? @map("medicamento_id")
-  medicamento   Medicamento? @relation(fields: [medicamentoId], references: [id], onDelete: SetNull)
+  // El producto usado siempre es un medicamento del catálogo (se crea al vuelo
+  // si el veterinario escribe uno que aún no existe)
+  medicamentoId String @map("medicamento_id")
+  medicamento   Medicamento @relation(fields: [medicamentoId], references: [id], onDelete: Restrict)
 
   // Veterinario que aplicó el programa de desparasitación
   veterinarioId String? @map("veterinario_id")
@@ -856,7 +856,7 @@ model ReglaAlerta {
   enviarCorreo           Boolean  @default(true)
 
   // Configuración de periodicidad
-  evaluarCadaHoras Int            @default(24) // Cada cuántas horas se evalúa esta regla
+  evaluarCadaHoras Int            @default(24) @map("evaluarCadaHora") // Cada cuántas horas se evalúa esta regla
   ultimaEvaluacion DateTime?
 
   creadoPorId String @map("usuarioCreador_id")
