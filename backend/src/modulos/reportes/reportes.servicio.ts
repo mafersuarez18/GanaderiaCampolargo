@@ -421,19 +421,13 @@ export async function generarSanitario(
     prisma.registroVacunacion.findMany({
       where: {
         fechaAplicacion: { gte: desde, lte: hasta },
-        ...(filtros.fincaId
-          ? { historialMedico: { animal: { lote: { fincaId: filtros.fincaId } } } }
-          : {}),
+        ...(filtros.fincaId ? { animal: { lote: { fincaId: filtros.fincaId } } } : {}),
       },
       include: {
-        historialMedico: {
-          include: {
-            animal: {
-              select: {
-                numeroArete: true, nombre: true,
-                lote: { select: { finca: { select: { nombre: true } } } },
-              },
-            },
+        animal: {
+          select: {
+            numeroArete: true, nombre: true,
+            lote: { select: { finca: { select: { nombre: true } } } },
           },
         },
         calendarioVacunacion: { select: { nombreVacuna: true } },
@@ -486,7 +480,7 @@ export async function generarSanitario(
         doc,
         ['Fecha', 'Animal', 'Finca', 'Vacuna / Protocolo', 'Próxima cita', 'Dosis', 'Aplicó'],
         vacunaciones.map((v) => {
-          const a = v.historialMedico?.animal;
+          const a = v.animal;
           return [
             fmtFecha(v.fechaAplicacion),
             `${a?.nombre ? a.nombre + ' ' : ''}#${a?.numeroArete ?? ''}`,
@@ -548,7 +542,7 @@ export async function generarSanitario(
     ];
     estiloEncabezadoExcel(wsV.getRow(1));
     vacunaciones.forEach((v, i) => {
-      const a = v.historialMedico?.animal;
+      const a = v.animal;
       estiloFilaExcel(wsV.addRow({
         fecha:   fmtFecha(v.fechaAplicacion),
         arete:   a?.numeroArete ?? '',
@@ -584,22 +578,16 @@ export async function generarVacunacion(
 
   const registros = await prisma.registroVacunacion.findMany({
     where: {
-      historialMedico: {
-        animal: {
-          estado: 'ACTIVO',
-          ...(filtros.fincaId ? { lote: { fincaId: filtros.fincaId } } : {}),
-        },
+      animal: {
+        estado: 'ACTIVO',
+        ...(filtros.fincaId ? { lote: { fincaId: filtros.fincaId } } : {}),
       },
     },
     include: {
-      historialMedico: {
-        include: {
-          animal: {
-            select: {
-              numeroArete: true, nombre: true,
-              lote: { select: { finca: { select: { nombre: true } } } },
-            },
-          },
+      animal: {
+        select: {
+          numeroArete: true, nombre: true,
+          lote: { select: { finca: { select: { nombre: true } } } },
         },
       },
       calendarioVacunacion: { select: { nombreVacuna: true, intervaloDias: true } },
@@ -617,9 +605,9 @@ export async function generarVacunacion(
   };
 
   const datos = registros.map((r) => ({
-    arete:     r.historialMedico?.animal?.numeroArete ?? '',
-    nombre:    r.historialMedico?.animal?.nombre      ?? '—',
-    finca:     r.historialMedico?.animal?.lote?.finca?.nombre ?? '—',
+    arete:     r.animal.numeroArete,
+    nombre:    r.animal.nombre ?? '—',
+    finca:     r.animal.lote?.finca?.nombre ?? '—',
     vacuna:    r.calendarioVacunacion.nombreVacuna,
     intervalo: `${r.calendarioVacunacion.intervaloDias}d`,
     ultima:    fmtFecha(r.fechaAplicacion),

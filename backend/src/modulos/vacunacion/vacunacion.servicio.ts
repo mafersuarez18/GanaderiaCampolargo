@@ -26,11 +26,7 @@ export async function obtenerCalendario(id: string) {
       medicamento: true,
       registrosVacunacion: {
         include: {
-          historialMedico: {
-            select: {
-              animal: { select: { id: true, numeroArete: true, nombre: true } },
-            },
-          },
+          animal: { select: { id: true, numeroArete: true, nombre: true } },
           aplicadoPor: { select: { nombre: true, apellido: true } },
         },
         orderBy: { fechaAplicacion: 'desc' },
@@ -103,8 +99,8 @@ export async function listarRegistrosVacunacion(filtros: FiltrosRegistroVacunaci
   const donde: Prisma.RegistroVacunacionWhereInput = {
     ...(historialMedicoId     && { historialMedicoId }),
     ...(calendarioVacunacionId && { calendarioVacunacionId }),
-    ...(animalId  && { historialMedico: { animalId } }),
-    ...(fincaId   && { historialMedico: { animal: { lote: { fincaId } } } }),
+    ...(animalId  && { animalId }),
+    ...(fincaId   && { animal: { lote: { fincaId } } }),
     ...((desde || hasta) && {
       fechaAplicacion: {
         ...(desde && { gte: desde }),
@@ -117,11 +113,7 @@ export async function listarRegistrosVacunacion(filtros: FiltrosRegistroVacunaci
     prisma.registroVacunacion.findMany({
       where: donde,
       include: {
-        historialMedico: {
-          select: {
-            animal: { select: { id: true, numeroArete: true, nombre: true } },
-          },
-        },
+        animal: { select: { id: true, numeroArete: true, nombre: true } },
         calendarioVacunacion: {
           select: { id: true, nombreVacuna: true, intervaloDias: true },
         },
@@ -139,6 +131,7 @@ export async function listarRegistrosVacunacion(filtros: FiltrosRegistroVacunaci
 }
 
 export interface DatosRegistroVacunacion {
+  animalId:               string;
   calendarioVacunacionId: string;
   historialMedicoId?:     string;
   medicamentoId?:         string;
@@ -157,6 +150,9 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
   });
   if (!calendario) throw new ErrorNoEncontrado('Calendario de vacunación no encontrado');
 
+  const animal = await prisma.animal.findUnique({ where: { id: datos.animalId }, select: { id: true } });
+  if (!animal) throw new ErrorNoEncontrado('Animal no encontrado');
+
   if (datos.historialMedicoId) {
     const historial = await prisma.historialMedico.findUnique({
       where: { id: datos.historialMedicoId },
@@ -170,21 +166,20 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
     datos.fechaAplicacion.getTime() + calendario.intervaloDias * 24 * 60 * 60 * 1000,
   );
 
-  const { aplicadoPorId, historialMedicoId, medicamentoId, calendarioVacunacionId, ...resto } = datos;
+  const { aplicadoPorId, animalId, historialMedicoId, medicamentoId, calendarioVacunacionId, ...resto } = datos;
 
   const registro = await prisma.registroVacunacion.create({
     data: {
       ...resto,
       proximaFecha,
+      animal: { connect: { id: animalId } },
       aplicadoPor: { connect: { id: aplicadoPorId } },
       calendarioVacunacion: { connect: { id: datos.calendarioVacunacionId } },
       ...(historialMedicoId && { historialMedico: { connect: { id: historialMedicoId } } }),
       ...(medicamentoId && { medicamento: { connect: { id: medicamentoId } } }),
     },
     include: {
-      historialMedico: {
-        select: { animal: { select: { id: true, numeroArete: true } } },
-      },
+      animal: { select: { id: true, numeroArete: true } },
       calendarioVacunacion: { select: { nombreVacuna: true } },
       aplicadoPor: { select: { nombre: true, apellido: true } },
     },
@@ -225,9 +220,7 @@ export async function actualizarRegistroVacunacion(
       ...(proximaFecha && { proximaFecha }),
     },
     include: {
-      historialMedico: {
-        select: { animal: { select: { id: true, numeroArete: true, nombre: true } } },
-      },
+      animal: { select: { id: true, numeroArete: true, nombre: true } },
       calendarioVacunacion: { select: { id: true, nombreVacuna: true, intervaloDias: true } },
       medicamento: { select: { id: true, nombre: true } },
       aplicadoPor: { select: { id: true, nombre: true, apellido: true } },
@@ -286,12 +279,7 @@ export async function obtenerCumplimientoVacunacionPorLote() {
   ]);
 
   const registros = await prisma.registroVacunacion.findMany({
-    where: { historialMedico: { isNot: null } },
-    select: {
-      calendarioVacunacionId: true,
-      proximaFecha: true,
-      historialMedico: { select: { animalId: true } },
-    },
+    select: { calendarioVacunacionId: true, proximaFecha: true, animalId: true },
     orderBy: { fechaAplicacion: 'desc' },
   });
 
@@ -299,9 +287,7 @@ export async function obtenerCumplimientoVacunacionPorLote() {
   // el orderBy fechaAplicacion desc: la primera vez que se ve una clave es la más reciente.
   const ultimaProximaFecha = new Map<string, Date | null>();
   for (const r of registros) {
-    const animalId = r.historialMedico?.animalId;
-    if (!animalId) continue;
-    const clave = `${animalId}::${r.calendarioVacunacionId}`;
+    const clave = `${r.animalId}::${r.calendarioVacunacionId}`;
     if (!ultimaProximaFecha.has(clave)) {
       ultimaProximaFecha.set(clave, r.proximaFecha);
     }

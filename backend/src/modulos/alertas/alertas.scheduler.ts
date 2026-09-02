@@ -134,21 +134,16 @@ async function evaluarVacunas(
   const vacunasProximas = await prisma.registroVacunacion.findMany({
     where: {
       proximaFecha: { lte: limite },
-      historialMedico: { animal: { estado: 'ACTIVO' } },
+      animal: { estado: 'ACTIVO' },
     },
     include: {
-      historialMedico: {
-        include: {
-          animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
-        },
-      },
+      animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
       calendarioVacunacion: true,
     },
   });
 
   for (const vacuna of vacunasProximas) {
-    const animal = vacuna.historialMedico?.animal;
-    if (!animal) continue;
+    const animal = vacuna.animal;
 
     const yaVencida = vacuna.proximaFecha != null && vacuna.proximaFecha < hoy;
 

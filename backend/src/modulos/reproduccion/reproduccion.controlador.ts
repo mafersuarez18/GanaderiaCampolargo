@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { TipoEventoReproductivo, ClasificacionIA, TecnicaDeposicionSemen, NivelEstres } from '@prisma/client';
+import { TipoEventoReproductivo, ClasificacionIA, TecnicaDeposicionSemen, NivelEstres, TipoParto, Sexo, EstadoCria } from '@prisma/client';
 import {
   listarPartosProximos,
   listarEventosReproductivos,
@@ -150,11 +150,20 @@ export async function controladorCerrarGestacion(
   req: Request, res: Response, next: NextFunction,
 ) {
   try {
-    const { resultado, fechaPartoReal } = z.object({
+    const { resultado, fechaPartoReal, nacimiento } = z.object({
       resultado:     z.enum(['PARTO', 'ABORTO', 'PERDIDA']),
       fechaPartoReal: z.coerce.date().optional(),
+      // Solo tiene sentido cuando resultado === 'PARTO'; se ignora en aborto/pérdida.
+      nacimiento: z.object({
+        tipoParto:      z.nativeEnum(TipoParto).optional(),
+        pesoAlNacer:    z.number().positive().optional(),
+        sexoCria:       z.nativeEnum(Sexo).optional(),
+        estadoCria:     z.nativeEnum(EstadoCria).optional(),
+        observaciones:  z.string().max(500).optional(),
+        complicaciones: z.string().max(500).optional(),
+      }).optional(),
     }).parse(req.body);
-    const gestacion = await cerrarGestacion(req.params['id'] as string, resultado, fechaPartoReal);
+    const gestacion = await cerrarGestacion(req.params['id'] as string, resultado, fechaPartoReal, nacimiento);
     return respuestaExito(res, gestacion);
   } catch (error) { return next(error); }
 }

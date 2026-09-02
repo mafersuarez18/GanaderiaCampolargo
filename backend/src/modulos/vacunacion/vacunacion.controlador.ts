@@ -39,9 +39,9 @@ const esquemaCalendario = z.object({
 });
 
 const esquemaRegistro = z.object({
+  animalId:               z.string().min(1, 'El animal es requerido'),
   calendarioVacunacionId: z.string().min(1),
   historialMedicoId:      z.string().min(1).optional(),
-  animalId:               z.string().min(1).optional(),
   medicamentoId:          z.string().min(1).optional(),
   fechaAplicacion:        z.coerce.date(),
   dosis:                  z.string().max(100).optional(),
@@ -118,8 +118,10 @@ export async function controladorRegistrarVacunacion(
 
     let historialMedicoId = datos.historialMedicoId;
 
-    // Si el usuario pasó animalId sin historialMedicoId, resolver automáticamente
-    if (datos.animalId && !historialMedicoId) {
+    // Si no se indicó una consulta explícita, se enlaza como contexto la más
+    // reciente del animal (si existe) — es solo informativo: el vínculo real
+    // con el animal ya no depende de esto, viaja en animalId.
+    if (!historialMedicoId) {
       const historial = await prisma.historialMedico.findFirst({
         where:   { animalId: datos.animalId },
         orderBy: { fechaConsulta: 'desc' },
@@ -131,6 +133,7 @@ export async function controladorRegistrarVacunacion(
     }
 
     const registro = await registrarVacunacion({
+      animalId: datos.animalId,
       calendarioVacunacionId: datos.calendarioVacunacionId,
       historialMedicoId,
       medicamentoId:    datos.medicamentoId,

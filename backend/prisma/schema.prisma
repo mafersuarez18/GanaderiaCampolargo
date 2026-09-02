@@ -323,6 +323,7 @@ model Animal {
 
   // Relaciones con otros módulos
   historialesMedicos     HistorialMedico[]
+  registrosVacunacion    RegistroVacunacion[]
   eventosReproductivos   EventoReproductivo[]
   gestacionesComoMadre   Gestacion[]          @relation("GestacionMadre")
   nacimientosComoCria    Nacimiento?          @relation("NacimientoCria")
@@ -535,16 +536,24 @@ model RegistroVacunacion {
   proximaFecha     DateTime?
   observaciones    String?
 
+  // Vínculo directo al animal: una aplicación de vacuna no siempre nace de
+  // una consulta médica (p. ej. una jornada de vacunación en campo), así
+  // que no puede depender únicamente de historialMedico para saber a quién
+  // se le aplicó — de lo contrario el registro queda "huérfano" y el motor
+  // de alertas nunca puede evaluarlo.
+  animalId               String   @map("animal_id")
   historialMedicoId      String?  @map("registro_medico_id")
   calendarioVacunacionId String   @map("calendario_vacunacion_id")
   medicamentoId          String?
   aplicadoPorId          String   @map("veterinario_id")
 
+  animal               Animal                @relation(fields: [animalId], references: [id], onDelete: Cascade)
   historialMedico      HistorialMedico?      @relation(fields: [historialMedicoId], references: [id], onDelete: SetNull)
   calendarioVacunacion CalendarioVacunacion  @relation(fields: [calendarioVacunacionId], references: [id], onDelete: Restrict)
   medicamento          Medicamento?          @relation(fields: [medicamentoId], references: [id], onDelete: SetNull)
   aplicadoPor          Usuario              @relation("VacunasAplicadas", fields: [aplicadoPorId], references: [id], onDelete: Restrict)
 
+  @@index([animalId])
   @@index([historialMedicoId])
   @@index([calendarioVacunacionId])
   @@index([fechaAplicacion])

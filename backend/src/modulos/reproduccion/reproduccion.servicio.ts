@@ -1,4 +1,4 @@
-import { Prisma, TipoEventoReproductivo, EstadoGestacion, EstadoAnimal, Sexo, ClasificacionIA, TecnicaDeposicionSemen, NivelEstres } from '@prisma/client';
+import { Prisma, TipoEventoReproductivo, EstadoGestacion, EstadoAnimal, Sexo, ClasificacionIA, TecnicaDeposicionSemen, NivelEstres, TipoParto, EstadoCria } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado, ErrorValidacionDatos } from '../../compartido/tipos/respuesta';
 import { resolverNotificacionesDeEntidad } from '../notificaciones/notificaciones.servicio';
@@ -461,10 +461,20 @@ export async function obtenerEfectividadInseminacion(fincaId?: string) {
     .sort((a, b) => b.totalInseminaciones - a.totalInseminaciones);
 }
 
+export interface DatosNacimiento {
+  tipoParto?:      TipoParto;
+  pesoAlNacer?:    number;
+  sexoCria?:       Sexo;
+  estadoCria?:     EstadoCria;
+  observaciones?:  string;
+  complicaciones?: string;
+}
+
 export async function cerrarGestacion(
   id: string,
   resultado: 'PARTO' | 'ABORTO' | 'PERDIDA',
   fechaPartoReal?: Date,
+  datosNacimiento?: DatosNacimiento,
 ) {
   const gestacion = await prisma.gestacion.findUnique({
     where: { id },
@@ -481,13 +491,33 @@ export async function cerrarGestacion(
     PERDIDA: EstadoGestacion.PERDIDA,
   };
 
-  const gestacionActualizada = await prisma.gestacion.update({
-    where: { id },
-    data: {
-      estadoGestacion: estadoFinal[resultado],
-      ...(fechaPartoReal && { fechaPartoReal }),
-    },
-  });
+  // Un parto deja, además del cambio de estado de la gestación, el registro
+  // de Nacimiento del que dependen los indicadores de días abiertos e
+  // intervalo entre partos — ambas escrituras van en una sola transacción
+  // para no dejar una gestación "parida" sin su nacimiento asociado.
+  const [gestacionActualizada] = await prisma.$transaction([
+    prisma.gestacion.update({
+      where: { id },
+      data: {
+        estadoGestacion: estadoFinal[resultado],
+        ...(fechaPartoReal && { fechaPartoReal }),
+      },
+    }),
+    ...(resultado === 'PARTO'
+      ? [prisma.nacimiento.create({
+          data: {
+            gestacionId: id,
+            fechaNacimiento: fechaPartoReal ?? new Date(),
+            tipoParto: datosNacimiento?.tipoParto,
+            pesoAlNacer: datosNacimiento?.pesoAlNacer,
+            sexoCria: datosNacimiento?.sexoCria,
+            estadoCria: datosNacimiento?.estadoCria,
+            observaciones: datosNacimiento?.observaciones,
+            complicaciones: datosNacimiento?.complicaciones,
+          },
+        })]
+      : []),
+  ]);
 
   // Auto-resolver alertas de parto próximo asociadas a esta gestación
   await resolverNotificacionesDeEntidad('Gestacion', id).catch(() => {});

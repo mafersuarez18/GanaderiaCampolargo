@@ -30,9 +30,7 @@ interface RegistroVacunacion {
   lote?: string;
   proximaFecha?: string;
   observaciones?: string;
-  historialMedico?: {
-    animal: { id: string; numeroArete: string; nombre?: string | null };
-  };
+  animal: { id: string; numeroArete: string; nombre?: string | null };
   calendarioVacunacion: { id: string; nombreVacuna: string; intervaloDias: number };
   medicamento?: { id: string; nombre: string };
   aplicadoPor: { id: string; nombre: string; apellido: string };
@@ -374,10 +372,10 @@ export default function PaginaVacunacion() {
                             <span className="text-sm font-semibold text-on-surface">
                               {reg.calendarioVacunacion.nombreVacuna}
                             </span>
-                            {reg.historialMedico?.animal && (
+                            {reg.animal && (
                               <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                                #{reg.historialMedico.animal.numeroArete}
-                                {reg.historialMedico.animal.nombre && ` · ${reg.historialMedico.animal.nombre}`}
+                                #{reg.animal.numeroArete}
+                                {reg.animal.nombre && ` · ${reg.animal.nombre}`}
                               </span>
                             )}
                           </div>
@@ -757,16 +755,16 @@ export default function PaginaVacunacion() {
                 {/* Animal */}
                 <section>
                   <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2">Animal vacunado</p>
-                  {registroSeleccionado.historialMedico?.animal ? (
+                  {registroSeleccionado.animal ? (
                     <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/15 rounded-xl">
                       <div className="p-2 bg-primary/10 rounded-lg">
                         <Icono nombre="pets" relleno clase="text-[18px] text-primary" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-on-surface">
-                          #{registroSeleccionado.historialMedico.animal.numeroArete}
-                          {registroSeleccionado.historialMedico.animal.nombre &&
-                            ` · ${registroSeleccionado.historialMedico.animal.nombre}`}
+                          #{registroSeleccionado.animal.numeroArete}
+                          {registroSeleccionado.animal.nombre &&
+                            ` · ${registroSeleccionado.animal.nombre}`}
                         </p>
                         <p className="text-xs text-on-surface-variant">Animal identificado</p>
                       </div>
@@ -1094,7 +1092,7 @@ function FormularioRegistro({
     mutationFn: (datos: FormRegistro) =>
       clienteHttp.post('/vacunacion', {
         calendarioVacunacionId: datos.calendarioVacunacionId,
-        ...(datos.animalId         && { animalId: datos.animalId }),
+        animalId: datos.animalId,
         fechaAplicacion:   new Date(datos.fechaAplicacion).toISOString(),
         ...(datos.dosis             && { dosis: datos.dosis }),
         ...(datos.viaAdministracion && { viaAdministracion: datos.viaAdministracion }),
@@ -1133,6 +1131,7 @@ function FormularioRegistro({
             onSubmit={(e) => {
               e.preventDefault();
               if (!form.calendarioVacunacionId) { setError('Seleccione el protocolo de vacunación'); return; }
+              if (!form.animalId) { setError('Seleccione el animal vacunado'); return; }
               setError('');
               mutacion.mutate(form);
             }}
@@ -1165,9 +1164,10 @@ function FormularioRegistro({
 
             <BuscadorAnimal
               etiqueta="Animal vacunado"
+              requerido
               valor={form.animalId}
               alSeleccionar={(id) => setForm((f) => ({ ...f, animalId: id }))}
-              placeholder="Buscar por arete o nombre (opcional)..."
+              placeholder="Buscar por arete o nombre..."
             />
 
             <div>
@@ -1286,10 +1286,10 @@ function FormularioEditarRegistro({
               <Icono nombre="vaccines" clase="text-[18px] text-primary" />
               <div>
                 <p className="text-sm font-semibold text-on-surface">{registro.calendarioVacunacion.nombreVacuna}</p>
-                {registro.historialMedico?.animal && (
+                {registro.animal && (
                   <p className="text-xs text-on-surface-variant">
-                    Animal #{registro.historialMedico.animal.numeroArete}
-                    {registro.historialMedico.animal.nombre && ` · ${registro.historialMedico.animal.nombre}`}
+                    Animal #{registro.animal.numeroArete}
+                    {registro.animal.nombre && ` · ${registro.animal.nombre}`}
                   </p>
                 )}
               </div>

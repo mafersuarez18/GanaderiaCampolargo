@@ -314,6 +314,7 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
               dosis:                d.dosis,
               viaAdministracion:    d.via,
               observaciones:        d.observaciones ?? `Auto-registrado desde consulta${nombreMedicamento ? `: ${nombreMedicamento}` : ''}`,
+              animal:               { connect: { id: animalId } },
               historialMedico:      { connect: { id: historial.id } },
               calendarioVacunacion: { connect: { id: calendario.id } },
               aplicadoPor:          { connect: { id: veterinarioId } },
