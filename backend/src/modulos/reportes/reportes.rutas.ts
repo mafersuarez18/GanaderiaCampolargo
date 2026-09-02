@@ -15,6 +15,9 @@ import {
   generarConsulta,
 } from './reportes.servicio';
 
+// Cada descarga de reporte queda registrada en la auditoría (a diferencia
+// del resto de la API, aquí se hace a mano porque son GET, y el middleware
+// registrarAuditoria genérico solo audita mutaciones).
 function auditarExportacion(req: Request, descripcion: string) {
   prisma.registroAuditoria.create({
     data: {
@@ -43,7 +46,7 @@ const esquemaFiltros = z.object({
 
 // ── Endpoints de archivo (PDF / Excel) ────────────────────────────────────────
 
-// GET /api/v1/reportes/inventario?formato=pdf&anio=2025&fincaId=...&estado=...
+// GET /api/reportes/inventario?formato=pdf&anio=2025&fincaId=...&estado=...
 enrutador.get('/inventario', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = esquemaFiltros.parse(req.query);
@@ -52,7 +55,7 @@ enrutador.get('/inventario', async (req: Request, res: Response, next: NextFunct
   } catch (error) { return next(error); }
 });
 
-// GET /api/v1/reportes/sanitario?formato=pdf&anio=2025&fincaId=...
+// GET /api/reportes/sanitario?formato=pdf&anio=2025&fincaId=...
 enrutador.get('/sanitario', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = esquemaFiltros.parse(req.query);
@@ -61,7 +64,7 @@ enrutador.get('/sanitario', async (req: Request, res: Response, next: NextFuncti
   } catch (error) { return next(error); }
 });
 
-// GET /api/v1/reportes/vacunacion?formato=pdf&anio=2025&fincaId=...
+// GET /api/reportes/vacunacion?formato=pdf&anio=2025&fincaId=...
 enrutador.get('/vacunacion', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = esquemaFiltros.parse(req.query);
@@ -70,7 +73,7 @@ enrutador.get('/vacunacion', async (req: Request, res: Response, next: NextFunct
   } catch (error) { return next(error); }
 });
 
-// GET /api/v1/reportes/reproductivo?formato=pdf&anio=2025&fincaId=...
+// GET /api/reportes/reproductivo?formato=pdf&anio=2025&fincaId=...
 enrutador.get('/reproductivo', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = esquemaFiltros.parse(req.query);
@@ -79,7 +82,7 @@ enrutador.get('/reproductivo', async (req: Request, res: Response, next: NextFun
   } catch (error) { return next(error); }
 });
 
-// GET /api/v1/reportes/historial-animal/:animalId?formato=pdf
+// GET /api/reportes/historial-animal/:animalId?formato=pdf
 enrutador.get('/historial-animal/:animalId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     auditarExportacion(req, `Exportación historial animal ID: ${req.params['animalId']}`);
@@ -87,7 +90,7 @@ enrutador.get('/historial-animal/:animalId', async (req: Request, res: Response,
   } catch (error) { return next(error); }
 });
 
-// GET /api/v1/reportes/consulta/:consultaId?formato=pdf
+// GET /api/reportes/consulta/:consultaId?formato=pdf
 enrutador.get('/consulta/:consultaId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     auditarExportacion(req, `Exportación consulta médica ID: ${req.params['consultaId']}`);
@@ -97,7 +100,7 @@ enrutador.get('/consulta/:consultaId', async (req: Request, res: Response, next:
 
 // ── Endpoints JSON de resumen (usados por el dashboard) ───────────────────────
 
-// GET /api/v1/reportes/inventario-animales
+// GET /api/reportes/inventario-animales
 enrutador.get('/inventario-animales', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { fincaId } = z.object({ fincaId: z.string().min(1).optional() }).parse(req.query);

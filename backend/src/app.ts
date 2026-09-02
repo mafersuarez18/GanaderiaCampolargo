@@ -8,7 +8,8 @@ import { entorno, esProduccion } from './config/entorno';
 import { logger } from './config/logger';
 import { manejarErrores, rutaNoEncontrada } from './compartido/middlewares/manejarErrores';
 
-// Importación de rutas por módulo
+// Cada módulo de negocio expone su propio enrutador de Express; aquí solo
+// se importan y se montan bajo su prefijo correspondiente.
 import enrutadorAutenticacion from './modulos/autenticacion/autenticacion.rutas';
 import enrutadorUsuarios from './modulos/usuarios/usuarios.rutas';
 import enrutadorRoles from './modulos/roles/roles.rutas';
@@ -55,7 +56,8 @@ export function crearApp(): Application {
     stream: { write: (mensaje: string) => logger.http(mensaje.trim()) },
   }));
 
-  // ----- Limitador de tasa global (100 req/15 min por IP) -----
+  // Tope general por IP para toda la API, como primera línea de defensa
+  // contra abuso o bots.
   const limitadorGlobal = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -64,7 +66,8 @@ export function crearApp(): Application {
     legacyHeaders: false,
   });
 
-  // Limitador más estricto para autenticación
+  // El login es un blanco típico de fuerza bruta, así que tiene un límite
+  // mucho más ajustado que el resto de la API.
   const limitadorAutenticacion = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
@@ -73,13 +76,14 @@ export function crearApp(): Application {
 
   app.use('/api/', limitadorGlobal);
 
-  // ----- Verificación de salud -----
+  // Endpoint simple para que herramientas de monitoreo (o el propio
+  // frontend) comprueben que el backend está arriba, sin pasar por
+  // autenticación ni tocar la base de datos.
   app.get('/health', (_req, res) => {
     res.json({ estado: 'activo', version: '1.0.0', timestamp: new Date().toISOString() });
   });
 
-  // ----- RUTAS DE LA API -----
-  const baseApi = '/api/v1';
+  const baseApi = '/api';
 
   app.use(`${baseApi}/auth`, limitadorAutenticacion, enrutadorAutenticacion);
   app.use(`${baseApi}/usuarios`, enrutadorUsuarios);

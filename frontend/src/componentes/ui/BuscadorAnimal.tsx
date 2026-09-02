@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { clienteHttp } from '../../servicios/clienteAxios';
 import Icono from './Icono';
 
+// Campo de búsqueda con autocompletado de animales (por arete o nombre),
+// reutilizado en los formularios que necesitan referenciar un animal
+// existente (historial médico, reproducción, vacunación...).
 export interface AnimalResumen {
   id: string;
   numeroArete: string;

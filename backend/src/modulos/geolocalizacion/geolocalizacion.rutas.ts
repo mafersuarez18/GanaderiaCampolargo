@@ -1,123 +1,47 @@
-﻿import { Router } from 'express';
-import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import { Router } from 'express';
+import multer from 'multer';
 import { verificarToken, requerirPrivilegio } from '../../compartido/middlewares/autenticacion';
-import { prisma } from '../../compartido/prisma/clientePrisma';
-import { respuestaExito, respuestaCreado } from '../../compartido/utilidades/respuestaHttp';
-import { ErrorNoAutorizado } from '../../compartido/tipos/respuesta';
+import {
+  controladorListarAnimales,
+  controladorHistorial,
+  controladorMovilidad,
+  controladorRegistrarUbicacion,
+  controladorListarDispositivos,
+  controladorImportarUbicaciones,
+} from './geolocalizacion.controlador';
 
 const enrutador = Router();
 
-// GET /api/v1/geolocalizacion/animales — posiciones actuales de todos los animales activos
-enrutador.get('/animales', verificarToken, requerirPrivilegio('geolocalizacion.ver'), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { fincaId } = z.object({ fincaId: z.string().min(1).optional() }).parse(req.query);
+// Archivos en memoria (no se guardan en disco): se parsean y descartan al
+// vuelo. 10 MB cubre de sobra un reporte de varios meses de un collar.
+const subidaArchivo = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-    // La posición actual ya no vive en Animal — se deriva del registro de
-    // ubicación más reciente de cada animal (RegistroUbicacion).
-    const ultimasUbicaciones = await prisma.registroUbicacion.findMany({
-      where: {
-        animal: {
-          estado: 'ACTIVO',
-          ...(fincaId ? { lote: { fincaId } } : {}),
-        },
-      },
-      orderBy: [{ animalId: 'asc' }, { fechaRegistro: 'desc' }],
-      distinct: ['animalId'],
-      select: {
-        latitud: true,
-        longitud: true,
-        animal: {
-          select: {
-            id: true,
-            numeroArete: true,
-            nombre: true,
-            lote:  { select: { nombre: true, finca: { select: { nombre: true } } } },
-            raza:  { select: { nombre: true } },
-            sexo: true,
-            estadoSanitario: true,
-          },
-        },
-      },
-    });
+// GET /api/geolocalizacion/animales?fincaId=&loteId= — posiciones actuales
+enrutador.get('/animales', verificarToken, requerirPrivilegio('geolocalizacion.ver'), controladorListarAnimales);
 
-    const animales = ultimasUbicaciones.map((u) => ({
-      id: u.animal.id,
-      numeroArete: u.animal.numeroArete,
-      nombre: u.animal.nombre,
-      latitudActual: u.latitud,
-      longitudActual: u.longitud,
-      lote: u.animal.lote,
-      raza: u.animal.raza,
-      sexo: u.animal.sexo,
-      estadoSanitario: u.animal.estadoSanitario,
-    }));
+// GET /api/geolocalizacion/historial/:animalId — historial crudo de ubicaciones
+enrutador.get('/historial/:animalId', verificarToken, requerirPrivilegio('geolocalizacion.ver'), controladorHistorial);
 
-    return respuestaExito(res, animales);
-  } catch (error) { return next(error); }
-});
+// GET /api/geolocalizacion/movilidad/:animalId — distancia, tiempo de
+// actividad y velocidad promedio calculados a partir del historial
+enrutador.get('/movilidad/:animalId', verificarToken, requerirPrivilegio('geolocalizacion.ver'), controladorMovilidad);
 
-// GET /api/v1/geolocalizacion/historial/:animalId — historial de ubicaciones
-enrutador.get('/historial/:animalId', verificarToken, requerirPrivilegio('geolocalizacion.ver'), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { limite } = z.object({ limite: z.coerce.number().int().positive().max(500).default(100) }).parse(req.query);
+// POST /api/geolocalizacion/dispositivos/:apiKey/ubicacion — endpoint para
+// dispositivos GPS (autenticado por apiKey, no por sesión de usuario)
+enrutador.post('/dispositivos/:apiKey/ubicacion', controladorRegistrarUbicacion);
 
-    const registros = await prisma.registroUbicacion.findMany({
-      where: { animalId: req.params['animalId'] as string },
-      orderBy: { fechaRegistro: 'desc' },
-      take: limite,
-    });
+// GET /api/geolocalizacion/dispositivos — listar dispositivos
+enrutador.get('/dispositivos', verificarToken, requerirPrivilegio('geolocalizacion.gestionar_dispositivos'), controladorListarDispositivos);
 
-    return respuestaExito(res, registros);
-  } catch (error) { return next(error); }
-});
-
-// POST /api/v1/geolocalizacion/dispositivos/:apiKey/ubicacion — endpoint para dispositivos GPS
-enrutador.post('/dispositivos/:apiKey/ubicacion', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { latitud, longitud, precision, velocidad } = z.object({
-      latitud:   z.number().min(-90).max(90),
-      longitud:  z.number().min(-180).max(180),
-      precision: z.number().optional(),
-      velocidad: z.number().optional(),
-    }).parse(req.body);
-
-    // Autenticar dispositivo por apiKey (comparación directa — el apiKey es un secreto único)
-    const dispositivo = await prisma.dispositivoGPS.findUnique({
-      where: { apiKey: req.params['apiKey'] as string },
-      select: { id: true, animalId: true },
-    });
-
-    if (!dispositivo) throw new ErrorNoAutorizado('API key del dispositivo no válida');
-
-    // Registrar ubicación
-    const registro = await prisma.registroUbicacion.create({
-      data: {
-        animalId:      dispositivo.animalId,
-        dispositivoGPSId: dispositivo.id,
-        latitud,
-        longitud,
-        precision,
-        velocidad,
-        esDatoSimulado: false,
-      },
-    });
-
-    return respuestaCreado(res, registro);
-  } catch (error) { return next(error); }
-});
-
-// GET /api/v1/geolocalizacion/dispositivos — listar dispositivos
-enrutador.get('/dispositivos', verificarToken, requerirPrivilegio('geolocalizacion.gestionar_dispositivos'), async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const dispositivos = await prisma.dispositivoGPS.findMany({
-      include: {
-        animal: { select: { numeroArete: true, nombre: true } },
-      },
-      orderBy: { codigoDispositivo: 'asc' },
-    });
-    return respuestaExito(res, dispositivos);
-  } catch (error) { return next(error); }
-});
+// POST /api/geolocalizacion/dispositivos/:id/importar — carga un reporte
+// CSV/XLS exportado desde la plataforma del fabricante (p. ej. Digitanimal)
+// y lo convierte en registros de ubicación del dispositivo indicado.
+enrutador.post(
+  '/dispositivos/:id/importar',
+  verificarToken,
+  requerirPrivilegio('geolocalizacion.gestionar_dispositivos'),
+  subidaArchivo.single('archivo'),
+  controladorImportarUbicaciones,
+);
 
 export default enrutador;

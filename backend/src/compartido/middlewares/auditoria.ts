@@ -3,7 +3,8 @@ import prisma from '../prisma/clientePrisma';
 import { TipoAccionAuditoria } from '@prisma/client';
 import { logger } from '../../config/logger';
 
-// Mapea el método HTTP al tipo de acción de auditoría
+// Traduce el verbo HTTP de la petición al tipo de acción que se guarda en
+// el registro de auditoría.
 function obtenerTipoAccion(metodo: string): TipoAccionAuditoria {
   switch (metodo.toUpperCase()) {
     case 'POST':   return TipoAccionAuditoria.CREAR;
@@ -15,20 +16,23 @@ function obtenerTipoAccion(metodo: string): TipoAccionAuditoria {
   }
 }
 
-// Extrae el nombre del módulo desde la URL
+// El primer segmento de la ruta (después de "/api/") identifica el módulo
+// sobre el que se actuó, p. ej. "/api/animales/123" → "animales".
 function extraerModulo(url: string): string {
   const segmentos = url.replace('/api/', '').split('/');
   return segmentos[0] ?? 'desconocido';
 }
 
-// Middleware para registrar acciones importantes en la auditoría
-// Solo registra mutaciones (POST, PUT, PATCH, DELETE)
+/**
+ * Middleware que deja constancia en RegistroAuditoria de las peticiones que
+ * modifican datos. Las lecturas (GET/HEAD/OPTIONS) se dejan pasar sin
+ * registrar para no llenar la auditoría de ruido.
+ */
 export function registrarAuditoria(
   descripcion: string,
   entidadTipo?: string
 ) {
   return async (req: Request, res: Response, siguiente: NextFunction): Promise<void> => {
-    // Solo auditar mutaciones
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       siguiente();
       return;
@@ -38,14 +42,14 @@ export function registrarAuditoria(
     const modulo = extraerModulo(req.path);
     const usuarioId = req.usuarioActual?.id;
 
-    // Capturar el body original antes de que sea procesado
+    // Se copia el body de entrada para dejar constancia de qué se envió,
+    // ocultando credenciales antes de persistirlo.
     const datosEntrada = req.body ? { ...req.body } : undefined;
-
-    // Eliminar contraseñas del log por seguridad
     if (datosEntrada?.contrasena) datosEntrada.contrasena = '[OCULTO]';
     if (datosEntrada?.tokenRefresh) datosEntrada.tokenRefresh = '[OCULTO]';
 
-    // Continuar con la solicitud y capturar el resultado
+    // Se envuelve res.json para poder saber, una vez respondida la petición,
+    // si terminó en éxito o en error (y con qué mensaje).
     const respuestaOriginal = res.json.bind(res);
     let exitosa = true;
     let errorMensaje: string | undefined;
@@ -62,7 +66,8 @@ export function registrarAuditoria(
 
     siguiente();
 
-    // Registrar después de que la respuesta sea enviada
+    // El registro se guarda cuando la respuesta ya salió, para no retrasar
+    // al cliente ni bloquear la petición si la escritura de auditoría falla.
     res.on('finish', () => {
       prisma.registroAuditoria.create({
         data: {

@@ -6,6 +6,12 @@ import {
   ErrorConflicto,
   ErrorValidacionDatos,
 } from '../../compartido/tipos/respuesta';
+import { enviarCorreoBienvenida } from '../notificaciones/correo.servicio';
+import { logger } from '../../config/logger';
+
+// El campo `contrasena` nunca se incluye en las selects de lectura
+// (seleccionUsuario) — solo se toca al crear la cuenta o al cambiarla,
+// siempre como hash de bcrypt.
 
 const seleccionUsuario = {
   id: true,
@@ -69,7 +75,7 @@ export async function crearUsuario(datos: DatosCrearUsuario) {
   }
 
   const hashContrasena = await bcrypt.hash(datos.contrasena, 12);
-  return prisma.usuario.create({
+  const usuario = await prisma.usuario.create({
     data: {
       nombre:     datos.nombre,
       apellido:   datos.apellido,
@@ -79,6 +85,19 @@ export async function crearUsuario(datos: DatosCrearUsuario) {
     },
     select: seleccionUsuario,
   });
+
+  // La cuenta ya quedó creada; si el correo de bienvenida falla (SMTP no
+  // configurado, credenciales inválidas, etc.) no debe revertir la creación.
+  try {
+    await enviarCorreoBienvenida(datos.correo, datos.nombre, datos.contrasena);
+  } catch (error) {
+    logger.warn('No se pudo enviar el correo de bienvenida', {
+      correo: datos.correo,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return usuario;
 }
 
 export interface DatosActualizarUsuario {

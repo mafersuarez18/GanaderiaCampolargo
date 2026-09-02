@@ -4,6 +4,10 @@ import {
   ErrorConflicto,
 } from '../../compartido/tipos/respuesta';
 
+// La relación Rol-Privilegio pasa por una tabla intermedia (RolPrivilegio);
+// aplanarPrivilegios() la oculta y devuelve directamente la lista de
+// privilegios, para que el resto de la app no tenga que lidiar con eso.
+
 const seleccionRol = {
   id: true,
   nombre: true,

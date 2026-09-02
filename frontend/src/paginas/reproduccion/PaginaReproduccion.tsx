@@ -8,6 +8,10 @@ import Paginacion from '../../componentes/ui/Paginacion';
 import Icono from '../../componentes/ui/Icono';
 import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
 
+// Ciclo reproductivo: partos próximos, eventos (celo, monta, diagnóstico
+// de gestación, parto...) y gestiones activas, incluyendo el cierre de una
+// gestación (parto/aborto/pérdida).
+
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface EventoReproductivo {
@@ -27,6 +31,7 @@ interface PartoProximo {
   finca: string;
   fechaPartoEsperado: string;
   diasRestantes: number;
+  clasificacion: 'urgente' | 'proximo' | 'futuro';
 }
 
 interface RespuestaEventos {
@@ -41,13 +46,17 @@ interface Indicadores {
   gestacionesAnio: number;
   gestacionesParto: number;
   abortos: number;
+  nacimientosAnio: number;
+  criasFallecidas: number;
   tasaPreniez: number;
   tasaNatalidad: number;
   tasaAborto: number;
+  tasaMortalidadCrias: number;
   totalCelos: number;
   totalInseminaciones: number;
   animalesConRepeticion: number;
   tasaRepeticionCelo: number;
+  intervaloPartosPromedioDias: number | null;
 }
 
 // ── Mapeo de tipos — usa los valores del enum TipoEventoReproductivo ──────────
@@ -393,6 +402,13 @@ export default function PaginaReproduccion() {
                         ico: 'refresh', col: 'text-secondary', fondo: 'bg-secondary/10',
                         bueno: indicadoresData.tasaRepeticionCelo <= 15,
                       },
+                      {
+                        et: 'Mortalidad de Crías',
+                        val: `${indicadoresData.tasaMortalidadCrias}%`,
+                        sub: `${indicadoresData.criasFallecidas} de ${indicadoresData.nacimientosAnio} nacimientos`,
+                        ico: 'heart_broken', col: 'text-error', fondo: 'bg-error-container',
+                        bueno: indicadoresData.tasaMortalidadCrias <= 10,
+                      },
                     ].map((kpi) => (
                       <div key={kpi.et} className="tarjeta-vidrio rounded-2xl p-4">
                         <div className="flex items-start justify-between mb-3">
@@ -428,6 +444,13 @@ export default function PaginaReproduccion() {
                       { et: 'Gestaciones en el año', val: indicadoresData.gestacionesAnio,     ico: 'pregnant_woman', col: 'text-secondary' },
                       { et: 'Partos registrados',    val: indicadoresData.gestacionesParto,    ico: 'child_care', col: 'text-tertiary' },
                       { et: 'Gestaciones en curso',  val: indicadoresData.gestacionesEnCurso,  ico: 'hourglass_top', col: 'text-primary' },
+                      {
+                        et: 'Intervalo entre partos',
+                        val: indicadoresData.intervaloPartosPromedioDias != null
+                          ? `${indicadoresData.intervaloPartosPromedioDias}d`
+                          : '—',
+                        ico: 'calendar_month', col: 'text-secondary',
+                      },
                     ].map((item) => (
                       <div key={item.et} className="tarjeta-vidrio rounded-2xl p-4 flex items-center gap-3">
                         <div className="p-2.5 bg-surface-container rounded-xl flex-shrink-0">

@@ -15,11 +15,16 @@ import {
   controladorEliminarRegistro,
   controladorListarMedicamentos,
   controladorCrearMedicamento,
+  controladorCumplimientoPorLote,
 } from './vacunacion.controlador';
 
 const enrutador = Router();
 
 enrutador.use(verificarToken);
+
+// El módulo cubre tres cosas relacionadas pero distintas: el catálogo de
+// medicamentos, los calendarios de vacunación (qué se aplica y cada
+// cuánto) y los registros de cada aplicación concreta.
 
 // Medicamentos (catálogo)
 enrutador.get('/medicamentos', requerirPrivilegio('vacunacion.ver'), controladorListarMedicamentos);
@@ -32,6 +37,9 @@ enrutador.get('/calendarios', requerirPrivilegio('vacunacion.ver'), controladorL
 enrutador.get('/calendarios/:id', requerirPrivilegio('vacunacion.ver'), controladorObtenerCalendario);
 enrutador.post('/calendarios', requerirPrivilegio('vacunacion.gestionar_calendario'), registrarAuditoria('Crear calendario vacunación', 'CalendarioVacunacion'), controladorCrearCalendario);
 enrutador.patch('/calendarios/:id', requerirPrivilegio('vacunacion.gestionar_calendario'), registrarAuditoria('Actualizar calendario vacunación', 'CalendarioVacunacion'), controladorActualizarCalendario);
+
+// GET /api/vacunacion/cumplimiento-por-lote
+enrutador.get('/cumplimiento-por-lote', requerirPrivilegio('vacunacion.ver'), controladorCumplimientoPorLote);
 
 // Registros de vacunación aplicada
 enrutador.get('/', requerirPrivilegio('vacunacion.ver'), controladorListarRegistros);

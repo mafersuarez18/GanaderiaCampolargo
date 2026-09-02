@@ -10,6 +10,7 @@ import {
   crearGestacion,
   cerrarGestacion,
   obtenerIndicadoresReproductivos,
+  obtenerEfectividadInseminacion,
 } from './reproduccion.servicio';
 import {
   respuestaExito,
@@ -17,6 +18,10 @@ import {
   respuestaListado,
 } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
+
+// La inseminación artificial se registra como un EventoReproductivo más
+// (tipo INSEMINACION_ARTIFICIAL), con sus propios campos adicionales; de
+// ahí que esquemaEvento incluya campos que solo aplican a ese tipo.
 
 const esquemaFiltros = z.object({
   animalId:   z.string().min(1).optional(),
@@ -128,6 +133,16 @@ export async function controladorIndicadores(
     }).parse(req.query);
     const indicadores = await obtenerIndicadoresReproductivos(anio, fincaId);
     return respuestaExito(res, indicadores);
+  } catch (error) { return next(error); }
+}
+
+export async function controladorEfectividadInseminacion(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const { fincaId } = z.object({ fincaId: z.string().min(1).optional() }).parse(req.query);
+    const efectividad = await obtenerEfectividadInseminacion(fincaId);
+    return respuestaExito(res, efectividad);
   } catch (error) { return next(error); }
 }
 

@@ -23,6 +23,9 @@ const PaginaReportes      = lazy(() => import('./paginas/reportes/PaginaReportes
 const PaginaSeguridad     = lazy(() => import('./paginas/seguridad/PaginaSeguridad'));
 const PaginaAuditoria     = lazy(() => import('./paginas/auditoria/PaginaAuditoria'));
 
+// Árbol de rutas de la aplicación: una ruta pública (login) y todo el
+// resto protegido detrás de RutaProtegida + LayoutPrincipal (barra
+// lateral, barra superior).
 export default function App() {
   const { estaAutenticado, cargando } = useAutenticacion();
 

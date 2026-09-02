@@ -26,10 +26,14 @@ interface RespuestaAutenticacion {
   expiraEn: number; // timestamp unix
 }
 
+// Tras 5 intentos fallidos seguidos la cuenta se bloquea temporalmente,
+// como protección básica contra fuerza bruta sobre el login.
 const MAX_INTENTOS_FALLIDOS = 5;
 const TIEMPO_BLOQUEO_MINUTOS = 30;
 
-// Incluye el rol y la lista de códigos de privilegio asociados, para embeberlos en el JWT
+// El rol y sus privilegios se traen siempre junto con el usuario porque
+// ambos terminan embebidos en el JWT (así no hay que consultar la base de
+// datos en cada petición para saber qué puede hacer el usuario).
 const incluirRolYPrivilegios = {
   rol: { include: { privilegios: { include: { privilegio: true } } } },
 } as const;

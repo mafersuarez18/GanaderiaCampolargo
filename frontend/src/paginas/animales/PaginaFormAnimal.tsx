@@ -9,6 +9,10 @@ import Icono from '../../componentes/ui/Icono';
 import { clienteHttp } from '../../servicios/clienteAxios';
 import toast from 'react-hot-toast';
 
+// Formulario de alta/edición de animal. La raza usa el patrón "buscar o
+// crear": si el veterinario escribe un nombre que no está en el catálogo,
+// el formulario despliega los campos para darla de alta ahí mismo antes de
+// enviar el animal.
 const esquemaAnimal = z.object({
   numeroArete:      z.string().min(1, 'El arete es requerido').max(50),
   nombre:           z.string().max(100).optional().or(z.literal('')),

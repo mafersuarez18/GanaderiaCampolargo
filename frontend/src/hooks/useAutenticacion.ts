@@ -9,6 +9,9 @@ interface DatosInicioSesion {
   contrasena: string;
 }
 
+// Envuelve el store de autenticación (persistido en localStorage) con las
+// acciones que necesitan tocar la red (login/logout) y navegar, para que
+// los componentes no tengan que orquestar ambas cosas por su cuenta.
 export function useAutenticacion() {
   const [cargando, setCargando] = useState(false);
   const navegar = useNavigate();

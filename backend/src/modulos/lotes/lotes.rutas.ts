@@ -18,6 +18,9 @@ const enrutador = Router();
 
 enrutador.use(verificarToken);
 
+// Módulo pequeño, sin controlador/servicio separados: la lógica de lotes
+// (agrupaciones de animales dentro de una finca) vive directamente aquí.
+
 const esquemaLote = z.object({
   nombre:      z.string().min(2).max(100),
   descripcion: z.string().max(500).optional(),
@@ -25,7 +28,7 @@ const esquemaLote = z.object({
   fincaId:     z.string().cuid(),
 });
 
-// GET /api/v1/lotes?fincaId=xxx — listar lotes (opcionalmente filtrados por finca)
+// GET /api/lotes?fincaId=xxx — listar lotes (opcionalmente filtrados por finca)
 enrutador.get('/', requerirPrivilegio('lotes.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { fincaId } = z.object({ fincaId: z.string().cuid().optional() }).parse(req.query);
@@ -45,7 +48,7 @@ enrutador.get('/', requerirPrivilegio('lotes.ver'), async (req: Request, res: Re
   } catch (error) { return next(error); }
 });
 
-// GET /api/v1/lotes/:id — obtener lote
+// GET /api/lotes/:id — obtener lote
 enrutador.get('/:id', requerirPrivilegio('lotes.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const lote = await prisma.lote.findUnique({
@@ -74,7 +77,7 @@ enrutador.get('/:id', requerirPrivilegio('lotes.ver'), async (req: Request, res:
   } catch (error) { return next(error); }
 });
 
-// POST /api/v1/lotes — crear lote
+// POST /api/lotes — crear lote
 enrutador.post(
   '/',
   requerirPrivilegio('lotes.crear'),
@@ -110,7 +113,7 @@ enrutador.post(
   }
 );
 
-// PATCH /api/v1/lotes/:id — actualizar lote
+// PATCH /api/lotes/:id — actualizar lote
 enrutador.patch(
   '/:id',
   requerirPrivilegio('lotes.editar'),
@@ -145,7 +148,7 @@ enrutador.patch(
   }
 );
 
-// DELETE /api/v1/lotes/:id — eliminar lote
+// DELETE /api/lotes/:id — eliminar lote
 enrutador.delete(
   '/:id',
   requerirPrivilegio('lotes.eliminar'),

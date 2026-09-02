@@ -8,6 +8,8 @@ import Icono from '../../componentes/ui/Icono';
 import { ModalConfirmacion } from '../../componentes/ui/Modal';
 import { useAutenticacion } from '../../hooks/useAutenticacion';
 
+// Calendarios de vacunación/desparasitación (qué se aplica y cada cuánto)
+// y el registro de cada aplicación concreta sobre un animal.
 interface CalendarioVacunacion {
   id: string;
   nombreVacuna: string;
@@ -34,6 +36,15 @@ interface RegistroVacunacion {
   calendarioVacunacion: { id: string; nombreVacuna: string; intervaloDias: number };
   medicamento?: { id: string; nombre: string };
   aplicadoPor: { id: string; nombre: string; apellido: string };
+}
+
+interface CumplimientoLote {
+  loteId: string;
+  loteNombre: string;
+  totalAnimales: number;
+  paresEsperados: number;
+  paresAlDia: number;
+  cumplimiento: number;
 }
 
 interface FormCalendario {
@@ -71,7 +82,7 @@ export default function PaginaVacunacion() {
   const { esAdministrador, esVeterinario } = useAutenticacion();
   const puedeEditar = esAdministrador || esVeterinario;
 
-  const [pestanaActiva, setPestanaActiva]               = useState<'calendarios' | 'registros' | 'planes'>('calendarios');
+  const [pestanaActiva, setPestanaActiva]               = useState<'calendarios' | 'registros' | 'planes' | 'cumplimiento'>('calendarios');
   const [calendarioActivo, setCalendarioActivo]         = useState<CalendarioVacunacion | null>(null);
   const [mostrarFormCalendario, setMostrarFormCalendario] = useState(false);
   const [mostrarFormRegistro, setMostrarFormRegistro]   = useState(false);
@@ -105,6 +116,13 @@ export default function PaginaVacunacion() {
   });
 
   const registros: RegistroVacunacion[] = respuestaRegistros?.datos ?? [];
+
+  const { data: cumplimientoPorLote = [], isLoading: cargandoCumplimiento } = useQuery<CumplimientoLote[]>({
+    queryKey: ['cumplimiento-vacunacion-lote'],
+    queryFn: () =>
+      clienteHttp.get('/vacunacion/cumplimiento-por-lote').then((r) => r.data.datos ?? r.data),
+    enabled: pestanaActiva === 'cumplimiento',
+  });
 
   // ── Mutaciones ───────────────────────────────────────────────────────────────
   const mutacionEliminar = useMutation({
@@ -173,10 +191,11 @@ export default function PaginaVacunacion() {
             { clave: 'calendarios', et: 'Calendarios',              ico: 'event_note' },
             { clave: 'registros',   et: 'Historial de Aplicaciones', ico: 'history' },
             { clave: 'planes',      et: 'Planes',                    ico: 'description' },
+            { clave: 'cumplimiento', et: 'Cumplimiento por Lote',    ico: 'checklist' },
           ].map((p) => (
             <button
               key={p.clave}
-              onClick={() => setPestanaActiva(p.clave as 'calendarios' | 'registros' | 'planes')}
+              onClick={() => setPestanaActiva(p.clave as 'calendarios' | 'registros' | 'planes' | 'cumplimiento')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 pestanaActiva === p.clave
                   ? 'bg-surface-container-lowest text-on-surface shadow-sm'
@@ -202,7 +221,7 @@ export default function PaginaVacunacion() {
                 </button>
               )}
             </>
-          ) : (
+          ) : pestanaActiva === 'registros' ? (
             <>
               {calendarioActivo && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20
@@ -224,7 +243,7 @@ export default function PaginaVacunacion() {
                 </button>
               )}
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -636,6 +655,53 @@ export default function PaginaVacunacion() {
               </div>
             </div>
           </motion.div>
+        ) : pestanaActiva === 'cumplimiento' ? (
+          <motion.div
+            key="cumplimiento"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            {cargandoCumplimiento ? (
+              <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-16 rounded-2xl bg-surface-container animate-pulse" />
+              ))}</div>
+            ) : !cumplimientoPorLote.length ? (
+              <div className="tarjeta-vidrio rounded-2xl p-12 text-center">
+                <Icono nombre="checklist" clase="text-[40px] text-outline mx-auto mb-3" />
+                <p className="font-medium text-on-surface-variant">Sin lotes con animales activos</p>
+              </div>
+            ) : (
+              <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
+                  {['Lote', 'Animales', 'Al día', 'Cumplimiento'].map((h) => (
+                    <span key={h} className={h === 'Lote' ? '' : 'text-center'}>{h}</span>
+                  ))}
+                </div>
+                {cumplimientoPorLote.map((l, idx) => (
+                  <div
+                    key={l.loteId}
+                    className={`grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-5 py-3.5 text-sm
+                      hover:bg-surface-container-low transition-colors
+                      ${idx < cumplimientoPorLote.length - 1 ? 'border-b border-outline-variant/10' : ''}`}
+                  >
+                    <span className="font-semibold text-on-surface">{l.loteNombre}</span>
+                    <span className="text-center text-on-surface-variant">{l.totalAnimales}</span>
+                    <span className="text-center text-on-surface-variant">{l.paresAlDia}/{l.paresEsperados}</span>
+                    <span className="text-center">
+                      <Badge variante={l.cumplimiento >= 80 ? 'verde' : l.cumplimiento >= 50 ? 'amarillo' : 'rojo'} tamano="xs">
+                        {l.cumplimiento}%
+                      </Badge>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-on-surface-variant flex items-center gap-1.5 mt-3">
+              <Icono nombre="info" clase="text-[13px]" />
+              Cumplimiento = pares animal-calendario al día (sin vacuna vencida) sobre el total de pares aplicables en el lote.
+            </p>
+          </motion.div>
         ) : (
           <motion.div
             key="registros-placeholder"
@@ -647,7 +713,7 @@ export default function PaginaVacunacion() {
       </AnimatePresence>
 
       {/* FAB — solo en pestañas de edición */}
-      {pestanaActiva !== 'planes' && (
+      {pestanaActiva !== 'planes' && pestanaActiva !== 'cumplimiento' && (
         <button
           onClick={() => pestanaActiva === 'calendarios' ? setMostrarFormCalendario(true) : setMostrarFormRegistro(true)}
           className="md:hidden fixed bottom-20 right-5 w-14 h-14 bg-primary text-on-primary rounded-full

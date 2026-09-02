@@ -2,6 +2,11 @@ import { Prisma, PrioridadAlerta } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
 
+// Las notificaciones las genera el motor de alertas (alertas.scheduler.ts);
+// este módulo solo se encarga de listarlas, marcarlas como leídas/abordadas
+// y de resolverlas automáticamente cuando la situación que las originó deja
+// de aplicar.
+
 export interface FiltrosNotificacion {
   noLeidas?: boolean;
   prioridad?: PrioridadAlerta;

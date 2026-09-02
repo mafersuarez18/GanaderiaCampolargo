@@ -19,6 +19,10 @@ import {
   ErrorValidacionDatos,
 } from '../../compartido/tipos/respuesta';
 
+// Reglas de negocio del módulo de animales: unicidad de arete, coherencia
+// de sexo entre padre/madre y cría, y protección contra el borrado de
+// animales que ya tienen historial médico o reproductivo asociado.
+
 export async function servicioListarAnimales(filtros: FiltrosAnimal) {
   return listarAnimales(filtros);
 }

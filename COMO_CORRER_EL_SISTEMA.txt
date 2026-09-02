@@ -217,7 +217,7 @@ El sistema tiene estas secciones en el menú:
 
 DIRECCIÓN DE LA API (para referencia técnica)
 ----------------------------------------------
-  http://localhost:3001/api/v1
+  http://localhost:3001/api
   http://localhost:3001/health   ← para verificar que el backend está vivo
 
 

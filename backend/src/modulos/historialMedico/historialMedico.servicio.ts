@@ -2,6 +2,11 @@ import { Prisma, EstadoSanitario, EstadoReproductivo, TipoDesparasitante, NivelG
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
 
+// Registra la consulta médica y todo lo que se diagnosticó/trató/aplicó en
+// ella en una sola operación (enfermedades, tratamientos, desparasitaciones,
+// información epidemiológica), y sincroniza la desparasitación con el
+// calendario de vacunación correspondiente.
+
 // ─── Pre-fill de nueva consulta ───────────────────────────────────────────────
 
 /**

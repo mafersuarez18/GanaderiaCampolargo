@@ -1,7 +1,5 @@
 # Sistema Campolargo — Gestión Veterinaria Bovina
 
-> **Última actualización:** Módulo de Alertas completo + Vista por finca en GPS
-
 > **Trabajo de Grado · Ingeniería en Informática**  
 > María Fernanda Suárez Delfin · Universidad Católica Andrés Bello (UCAB) · 2026
 
@@ -30,9 +28,9 @@ Sistema de gestión veterinaria integral para la empresa ganadera **Sucesión Jo
 
 El **Sistema Campolargo** digitaliza y centraliza la gestión operativa de las tres fincas bovinas de la empresa:
 
-- **La Esperanza**
-- **San Antonio**
-- **El Palmar**
+- **El Paraíso**
+- **Campo Alegre**
+- **Las Peñas**
 
 Reemplaza los registros físicos dispersos con un sistema web moderno que permite a administradores, veterinarios y técnicos de campo consultar y actualizar información en tiempo real desde cualquier dispositivo con navegador.
 
@@ -41,8 +39,9 @@ Reemplaza los registros físicos dispersos con un sistema web moderno que permit
 - Centralizar el historial clínico y sanitario de cada animal
 - Automatizar la programación de vacunaciones y desparasitaciones
 - Dar trazabilidad reproductiva completa (celos, inseminaciones, gestaciones, partos)
-- Emitir alertas automáticas ante eventos críticos (vacunas vencidas, partos próximos, días abiertos excedidos)
-- Generar reportes PDF para auditoría veterinaria y toma de decisiones
+- Emitir alertas automáticas ante eventos críticos (vacunas vencidas, partos próximos, días abiertos excedidos, entre otros)
+- Ubicar al hato en tiempo real mediante collares GPS, con el sistema ya preparado para recibir datos de dispositivos reales
+- Generar reportes en PDF y Excel para auditoría veterinaria y toma de decisiones
 - Llevar un registro de auditoría completo de todas las acciones del sistema
 
 ---
@@ -58,12 +57,15 @@ Reemplaza los registros físicos dispersos con un sistema web moderno que permit
 | Express | 4.x | Framework HTTP |
 | Prisma ORM | 6.x | Acceso a base de datos |
 | PostgreSQL | 18 | Base de datos relacional |
-| PostGIS | 3.6 | Extensión geoespacial para GPS |
+| PostGIS | 3.6 | Extensión geoespacial habilitada para el módulo de geolocalización |
 | JWT (jsonwebtoken) | 9.x | Autenticación con tokens |
 | Zod | 3.x | Validación de esquemas |
-| PDFKit | 0.15+ | Generación de reportes PDF |
+| PDFKit | 0.15+ | Generación de reportes en PDF |
+| ExcelJS | — | Generación de reportes en Excel e importación de reportes GPS (CSV/XLS) |
+| Multer | — | Carga de archivos (importación de reportes de dispositivos GPS) |
 | bcryptjs | — | Hash de contraseñas |
 | Nodemailer | — | Envío de correos electrónicos |
+| node-cron | — | Motor de alertas (evaluación periódica de reglas) |
 
 ### Frontend
 
@@ -76,6 +78,7 @@ Reemplaza los registros físicos dispersos con un sistema web moderno que permit
 | Framer Motion | 11.x | Animaciones |
 | TanStack Query | 5.x | Gestión de estado servidor |
 | React Router | 6.x | Enrutamiento SPA |
+| React Leaflet | — | Mapas del módulo de geolocalización |
 | Axios | 1.x | Cliente HTTP |
 | react-hot-toast | — | Notificaciones toast |
 | Material Symbols | — | Iconografía (Google Icons) |
@@ -119,20 +122,22 @@ Rutas (Router)
                       └─► Base de datos
 ```
 
+Los módulos más simples (lotes, inseminación) resuelven controlador y servicio directamente en el archivo de rutas, sin separar esas capas; el resto sigue la cadena completa.
+
 ---
 
 ## Estructura de directorios
 
 ```
-Tesis/
+GanaderiaCampolargo/
 ├── backend/
 │   ├── prisma/
 │   │   ├── schema.prisma          ← Esquema completo de la base de datos
-│   │   ├── seed.ts                ← Datos iniciales (fincas, razas, usuarios)
+│   │   ├── seed.ts                ← Datos iniciales (fincas, razas, usuarios, dispositivos GPS)
 │   │   └── migrations/            ← Historial de migraciones Prisma
 │   ├── src/
 │   │   ├── compartido/
-│   │   │   ├── middlewares/       ← autenticacion.ts, auditoria.ts, errores.ts
+│   │   │   ├── middlewares/       ← autenticacion.ts, auditoria.ts, manejarErrores.ts
 │   │   │   ├── prisma/            ← clientePrisma.ts (singleton)
 │   │   │   ├── tipos/             ← respuesta.ts (clases de error)
 │   │   │   └── utilidades/        ← paginacion.ts, respuestaHttp.ts
@@ -150,6 +155,7 @@ Tesis/
 │   │   │   ├── notificaciones/
 │   │   │   ├── reportes/
 │   │   │   ├── reproduccion/
+│   │   │   ├── roles/
 │   │   │   ├── usuarios/
 │   │   │   └── vacunacion/
 │   │   └── app.ts / servidor.ts   ← Punto de entrada Express
@@ -160,8 +166,10 @@ Tesis/
 ├── frontend/
 │   ├── src/
 │   │   ├── componentes/
-│   │   │   └── ui/                ← Badge, Tabla, Modal, Icono, Paginacion, BuscadorAnimal
-│   │   ├── hooks/                 ← useAutenticacion, useDebounce
+│   │   │   ├── layout/             ← BarraLateral, BarraSuperior, LayoutPrincipal, RutaProtegida
+│   │   │   └── ui/                 ← Badge, Tabla, Modal, Icono, Paginacion, BuscadorAnimal
+│   │   ├── hooks/                  ← useAutenticacion, useDebounce, useOnline
+│   │   ├── stores/                 ← autenticacionStore.ts (sesión persistida)
 │   │   ├── paginas/
 │   │   │   ├── alertas/
 │   │   │   ├── animales/
@@ -179,7 +187,7 @@ Tesis/
 │   │   │   └── vacunacion/
 │   │   ├── servicios/
 │   │   │   └── clienteAxios.ts    ← Cliente HTTP con interceptores JWT
-│   │   └── main.tsx / App.tsx
+│   │   └── principal.tsx / App.tsx
 │   ├── .env                       ← Variables de entorno frontend (NO subir a Git)
 │   ├── package.json
 │   ├── tailwind.config.ts
@@ -196,179 +204,168 @@ Tesis/
 
 ### 1. Dashboard
 
-Pantalla principal con indicadores clave del hato:
+Pantalla principal con indicadores clave del hato, calculados por el módulo de analítica (`/api/analytics`):
 
-- Total de animales activos, distribuidos por finca
+- Total de animales activos, distribuidos por finca y por raza
 - Animales en tratamiento / cuarentena
 - Próximos partos (próximos 30 días)
-- Alertas activas sin resolver
+- Alertas activas y críticas sin resolver
+- Indicadores reproductivos (tasa de preñez, natalidad, mortalidad de crías, días abiertos promedio)
 - Acceso rápido a las secciones más usadas
 
 ### 2. Fincas
 
 Gestión de las propiedades ganaderas:
 
-- Listado de fincas con contadores (animales, lotes, potreros, hectáreas)
-- **Panel de detalle lateral**: al hacer clic en una finca se despliega un panel que muestra:
-  - Información general (superficie, dirección, coordenadas GPS, fecha de registro)
-  - Lotes de la finca como filtros interactivos
-  - Lista completa de animales con búsqueda, filtro por lote y filtro por estado
-  - Cada animal es clickeable y redirige a su ficha completa
+- Listado de fincas con contadores (animales, lotes, hectáreas)
+- Panel de detalle: información general (superficie, dirección, coordenadas GPS), lotes de la finca y lista completa de animales con búsqueda y filtros
 - Crear, editar y eliminar fincas (solo administrador)
 - Validación: no se puede eliminar una finca con animales asociados
 
-### 3. Animales
+### 3. Lotes
+
+Subdivisión de cada finca en agrupaciones de animales (potreros de manejo):
+
+- CRUD de lotes, con nombre único dentro de cada finca
+- Filtro por finca y contador de animales por lote
+- Validación: no se puede eliminar un lote con animales asignados
+
+### 4. Animales
 
 Gestión del hato bovino completo:
 
-- Tabla paginada con búsqueda y filtros (finca, raza, sexo, estado)
+- Tabla paginada con búsqueda y filtros (finca, lote, raza, sexo, estado)
 - Ficha detallada de cada animal: datos básicos, genealogía, peso, estado sanitario
 - Registro de nuevos animales con validación de número de arete único
+- Selector de raza con patrón "buscar o crear": si la raza no existe en el catálogo, se registra ahí mismo desde el formulario
 - Edición y seguimiento histórico de cambios de estado
-- Enlace directo al historial médico y vacunaciones de cada animal
+- Enlace directo al historial médico, vacunación y reproducción de cada animal
 
-### 4. Historial Médico
+### 5. Historial Médico
 
 Consultas y registros veterinarios:
 
 - Listado de consultas con búsqueda por animal, fecha o diagnóstico
-- **Panel de detalle completo** con todos los campos clínicos:
-  - Anamnesis e historia del caso
-  - Examen físico: temperatura, frecuencia cardíaca/respiratoria, tiempo llenado capilar, mucosas, condición corporal
-  - Estado reproductivo al momento de la consulta
-  - Diagnóstico presuntivo y definitivo
-  - Plan diagnóstico, observaciones de pruebas oficiales
-  - Información epidemiológica
-  - Ayudas diagnósticas (hemograma, ecografía, etc.)
-  - Enfermedades diagnosticadas y tratamientos
-  - Desparasitaciones (con auto-sincronización al módulo de vacunación)
-  - Observaciones generales
-- **Auto-prefill de desparasitación**: al seleccionar un animal en una nueva consulta, se pre-cargan los datos de su última desparasitación registrada
+- Registro completo por consulta: anamnesis, examen físico (temperatura, frecuencia cardíaca/respiratoria, tiempo de llenado capilar, movimientos ruminales, condición corporal), estado reproductivo, diagnóstico y plan
+- Enfermedades diagnosticadas y sus tratamientos, cada uno con su propio detalle diagnóstico (diagnóstico, pronóstico, síntomas, pruebas)
+- Resultados de pruebas de rutina no ligadas a una enfermedad específica
+- Información epidemiológica del entorno (vectores presentes: garrapatas, mosquitos, murciélagos, moscas)
+- Desparasitaciones, con selector de medicamento en el mismo patrón "buscar o crear", y auto-sincronización con el calendario de vacunación
+- Auto-prefill: al seleccionar un animal en una nueva consulta, se pre-cargan los datos de su última desparasitación y sus enfermedades activas
 - Generación de PDF por consulta individual o por historial completo de un animal
 
-### 5. Vacunación
+### 6. Vacunación y desparasitación
 
-Calendarios y registros de vacunación:
+Calendarios y registros de aplicación:
 
-- Calendarios de vacunación con protocolos y medicamentos asociados
-- Registro de aplicaciones con fecha, dosis, vía, lote de vacuna
-- Panel lateral de detalle al seleccionar un registro
-- Edición y eliminación de registros (con confirmación)
-- **Auto-sincronización**: cuando se guarda una desparasitación en el historial médico, el sistema crea automáticamente un registro en el primer calendario cuyo nombre contenga "desparasit"
-- Indicadores por cantidad de dosis aplicadas y próxima aplicación
+- Calendarios de vacunación con intervalo de reaplicación, edad mínima y sexo al que aplican
+- Registro de aplicaciones con fecha, dosis, vía y lote de producto; próxima fecha calculada automáticamente
+- Selector de medicamento con patrón "buscar o crear"
+- Auto-sincronización: al registrar una desparasitación desde el historial médico, se crea automáticamente el registro correspondiente en el calendario de vacunación
+- Indicador de cumplimiento del calendario por lote
 
-### 6. Reproducción
+### 7. Reproducción
 
 Gestión del ciclo reproductivo:
 
-- Eventos reproductivos: detección de celo, monta natural, diagnóstico de gestación, parto, aborto, destete
-- Seguimiento de gestaciones activas
-- Alertas de partos próximos (próximos 30 días)
-- Registro de crías nacidas con vinculación genealógica automática
+- Eventos reproductivos: detección de celo, monta natural, inseminación artificial, diagnóstico de gestación, parto, aborto
+- Seguimiento de gestaciones activas, con cierre por parto, aborto o pérdida
+- Alertas de partos próximos, clasificadas por urgencia (urgente / próximo / futuro) según los días restantes
+- Indicadores: tasa de preñez, natalidad, aborto, mortalidad de crías, repetición de celo, intervalo entre partos y efectividad de inseminación artificial por semental
 
-### 7. Inseminación
+### 8. Inseminación
 
 Laboratorio de inseminación artificial:
 
-- Catálogo de sementales con datos genéticos y de performance
-- Registro de inseminaciones (clasificación IA, técnica de deposición, operador)
-- Seguimiento del inventario de pajillas de semen
-- Alertas de inventario bajo
+- Catálogo de sementales con datos genéticos y de origen
+- Inventario de dosis de semen, con descuento automático al registrar una inseminación
+- Registro de inseminaciones con clasificación, técnica de deposición y factores biológicos (patologías, balance energético, temperatura uterina, manejo del hato)
+- Alertas de inventario de semen bajo
 
-### 8. Mapa GPS
+### 9. Geolocalización
 
-Rastreo de dispositivos y animales:
+Rastreo GPS de animales, listo para operar con collares satelitales reales (p. ej. Digitanimal SAT) además de datos simulados:
 
-- **Pestaña "Dispositivos GPS"**: lista de todos los trackers con estado, animal asignado y última conexión
-- **Pestaña "Mapa en vivo"**: vista global con todos los animales posicionados sobre OpenStreetMap
-- **Pestaña "Vista por finca"** *(nueva)*:
-  - Selector de finca (La Esperanza, San Antonio, El Palmar)
-  - Mapa centrado y escalado automáticamente a la finca seleccionada
-  - Círculo delimitador de la finca con su color característico
-  - Solo los marcadores de animales de esa finca
-  - Indicador de cobertura GPS (% animales con dispositivo)
-  - Lista detallada de dispositivos de la finca con enlace a historial de movilidad
-- **Pestaña "Historial movilidad"**: trayectoria de un animal con estadísticas (distancia, velocidad, duración)
-- Todos los datos son simulados hasta instalar los dispositivos IoT reales en campo
+- **Dispositivos GPS**: catálogo de collares, su animal asignado, nivel de batería y estado de conexión
+- **Mapa en vivo**: posición actual de todos los animales sobre OpenStreetMap, con el área de cada finca delimitada según sus hectáreas registradas
+- **Vista por finca**: mapa centrado en una finca, con sus dispositivos y cobertura GPS
+- **Historial de movilidad**: distancia recorrida, tiempo de actividad y velocidad promedio de un animal, calculados en el backend a partir de su historial de posiciones
+- **Filtros por finca y por lote** en la vista de dispositivos
+- **Importación de reportes**: los collares satelitales no envían posiciones directamente a este sistema — reportan a la plataforma del fabricante, desde donde se exporta un archivo (CSV o Excel) que se sube en la ficha del dispositivo; el sistema detecta automáticamente las columnas de fecha, latitud, longitud y velocidad, sin importar el idioma del encabezado ni si usan coma o punto decimal
+- También expone un endpoint de ingesta directa (`POST /api/geolocalizacion/dispositivos/:apiKey/ubicacion`) para dispositivos que puedan integrarse en tiempo real
 
-### 9. Alertas
+### 10. Alertas
 
 Motor de alertas automáticas con panel de gestión completo:
 
-- **Tarjetas de resumen** por prioridad (crítica, alta, media, baja) clickeables como filtros
-- **Panel de urgentes**: resalta las alertas críticas/altas no leídas en la parte superior
-- **Tipos de alerta implementados:**
-  - `VACUNA_VENCIDA` / `VACUNA_PROXIMA` — evaluadas cada 12 h, umbral configurable
-  - `PARTO_PROXIMO` — evaluado cada 6 h, genera alerta crítica cuando faltan ≤ 3 días
-  - `DESPARASITACION` — calcula próxima fecha (90 días desde la última) y alerta 15 días antes
-  - `ENFERMEDAD_ACTIVA_SIN_RESOLUCION` — alerta si la enfermedad sigue activa pasado el umbral (def. 14 días)
-  - `DIAS_ABIERTOS_EXCEDIDOS` — vacas sin nueva gestación tras el parto (def. 90 días)
-  - `INTERVALO_REPRODUCTIVO_PROLONGADO` — intervalo entre partos mayor al umbral (def. 365 días)
-  - `AUSENCIA_CONTROL_VETERINARIO` — animales sin consulta veterinaria en N días (def. 60)
-  - `CONTROL_PESO_PENDIENTE` — animales sin peso registrado pasado el umbral (def. 30 días)
-  - `INVENTARIO_SEMEN_BAJO` — stock de pajillas por debajo del umbral
-- **Anti-duplicados**: no genera más de una notificación por entidad en 24 h
-- **Evaluación manual**: botón "Evaluar ahora" disponible para admin/veterinario
-- **Pestaña de reglas**: CRUD completo de reglas, activar/desactivar, ver fecha de última evaluación
-- **Filtros**: por prioridad, por tipo de entidad, solo no leídas
-- Prioridades: BAJA, MEDIA, ALTA, CRÍTICA
+- Tarjetas de resumen por prioridad (crítica, alta, media, baja), usables como filtros
+- Panel de urgentes que resalta las alertas críticas/altas no leídas
+- Tipos de alerta: vacuna vencida/próxima, parto próximo, días abiertos excedidos, enfermedad activa sin resolución, intervalo reproductivo prolongado, ausencia de control veterinario, control de peso pendiente, inventario de semen bajo, además de reglas personalizadas de disparo manual
+- Evaluación periódica automática (motor basado en `node-cron`) y evaluación manual bajo demanda
+- Cada regla puede notificar a usuarios específicos o, por defecto, a administradores y veterinarios; evita duplicar avisos de una misma entidad en 24 horas
+- CRUD de reglas: crear, activar/desactivar, editar umbrales y destinatarios
+- Filtros por prioridad, tipo de entidad y estado de lectura
 
-### 10. Reportes
+### 11. Reportes
 
-Exportación de datos:
+Exportación de datos en PDF y Excel:
 
-- **Reporte de Historial Médico por Animal**: PDF con todas las consultas, diagnósticos y tratamientos de un animal
-- **Reporte de Consulta Individual**: PDF con el detalle completo de una consulta específica
-- Generados con PDFKit, con encabezado institucional y datos de la empresa
+- Reportes de inventario, estado sanitario, vacunación y reproducción, filtrables por año, finca y estado
+- Historial médico completo de un animal, o el detalle de una consulta puntual
+- Documentos con encabezado institucional y estilo corporativo consistente
 
-### 11. Seguridad
+### 12. Seguridad
 
 Gestión de usuarios y acceso:
 
-- CRUD de usuarios del sistema
-- Asignación de roles: ADMINISTRADOR, VETERINARIO, TÉCNICO
-- Cambio de contraseña con validación de contraseña actual
-- Activación/desactivación de cuentas
-- Tokens JWT con expiración configurable y refresh token
+- CRUD de usuarios del sistema y autoservicio de perfil (cada usuario edita sus propios datos y contraseña)
+- Roles con privilegios configurables: el catálogo de privilegios es la fuente de verdad que verifica cada ruta del backend
+- Bloqueo temporal de cuenta tras varios intentos fallidos de inicio de sesión
+- Tokens JWT de corta duración con renovación automática vía refresh token
 
-### 12. Auditoría
+### 13. Auditoría
 
 Trazabilidad completa:
 
-- Registro automático de todas las operaciones críticas (crear, actualizar, eliminar, exportar)
-- Datos almacenados: usuario, acción, entidad, ID del registro, IP, timestamp
-- Consulta filtrada por usuario, módulo o rango de fechas
+- Registro automático de operaciones críticas (crear, actualizar, eliminar, exportar) y de intentos de inicio de sesión
+- Datos almacenados: usuario, acción, módulo, entidad afectada, IP, agente de usuario y resultado
+- Consulta filtrada por usuario, tipo de acción, módulo o rango de fechas
 
 ---
 
 ## Base de datos
 
-La base de datos PostgreSQL contiene las siguientes tablas principales:
+La base de datos PostgreSQL contiene, entre otras, las siguientes tablas:
 
 | Tabla | Descripción |
 |---|---|
-| `fincas` | Propiedades ganaderas |
-| `lotes` | Subdivisiones de una finca |
-| `potreros` | Subdivisiones de un lote |
-| `razas` | Catálogo de razas bovinas |
-| `medicamentos` | Catálogo de fármacos y vacunas |
-| `animales` | Hato bovino completo |
-| `historiales_medicos` | Consultas veterinarias |
-| `tratamientos` | Tratamientos prescritos por consulta |
-| `enfermedades_diagnosticadas` | Diagnósticos registrados en consulta |
-| `programas_desparasitacion` | Desparasitaciones registradas |
-| `calendarios_vacunacion` | Programas de vacunación |
-| `registros_vacunacion` | Aplicaciones individuales de vacuna |
-| `eventos_reproductivos` | Celos, montas, diagnósticos de gestación, partos |
-| `gestaciones` | Gestaciones activas o cerradas |
-| `partos` | Partos registrados con datos de la cría |
-| `sementales` | Toros y material genético disponible |
-| `inseminaciones` | Registros de IA por animal |
-| `dispositivos_gps` | Rastreadores GPS instalados en animales |
-| `alertas` | Reglas de alerta configuradas |
-| `notificaciones` | Alertas generadas por el motor de reglas |
-| `usuarios` | Cuentas de acceso al sistema |
-| `registros_auditoria` | Log de operaciones del sistema |
+| `finca` | Propiedades ganaderas |
+| `lote` | Subdivisiones de una finca |
+| `potrero` | Subdivisiones de un lote |
+| `raza` | Catálogo de razas bovinas |
+| `medicamento` | Catálogo de fármacos y vacunas |
+| `animal` | Hato bovino completo |
+| `registro_medico` | Consultas veterinarias |
+| `detalle_diagnostico` | Enfermedades diagnosticadas por consulta, con su propio diagnóstico/pronóstico/pruebas |
+| `tratamiento` | Tratamientos prescritos por consulta |
+| `informacion_epidemiologica` | Entorno y vectores relevados en una consulta |
+| `programa_desparasitacion` | Desparasitaciones registradas |
+| `calendario_vacunacion` | Programas de vacunación y desparasitación |
+| `registro_vacunacion` | Aplicaciones individuales de vacuna o desparasitante |
+| `evento_reproductivo` | Celos, montas, inseminaciones, diagnósticos de gestación, partos |
+| `inseminacion_artificial` | Datos específicos de un evento de inseminación |
+| `diagnostico_gestacion` | Diagnósticos de gestación asociados a un evento |
+| `gestacion` | Gestaciones activas o cerradas |
+| `nacimiento` | Partos registrados con datos de la cría |
+| `semental` | Toros y material genético disponible |
+| `inventario_semen` | Dosis de semen por semental |
+| `dispositivo_gps` | Collares GPS asignados a animales |
+| `registro_ubicacion` | Posiciones históricas de cada dispositivo |
+| `rol` / `privilegio` / `rol_privilegio` | Roles del sistema y sus privilegios asignados |
+| `usuario` | Cuentas de acceso al sistema |
+| `regla_alerta` / `regla_usuario` | Reglas del motor de alertas y sus destinatarios |
+| `notificacion` | Alertas generadas por el motor de reglas |
+| `registro_auditoria` | Log de operaciones del sistema |
 
 ---
 
@@ -488,7 +485,7 @@ npx prisma migrate dev --name inicio
 npm run db:seed
 ```
 
-Carga las 3 fincas, razas bovinas, usuarios de prueba, calendarios de vacunación y reglas de alerta.
+Carga las 3 fincas, razas bovinas, usuarios de prueba, calendarios de vacunación, reglas de alerta y dispositivos GPS de prueba.
 
 ### Paso 5 — Iniciar el sistema
 
@@ -526,38 +523,51 @@ http://localhost:5173
 
 ## API REST
 
-La API está disponible en `http://localhost:3001/api/v1`.
+La API está disponible en `http://localhost:3001/api`.
 
 ### Endpoints principales
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| POST | `/autenticacion/login` | Iniciar sesión |
-| POST | `/autenticacion/refresh` | Renovar token JWT |
+| POST | `/auth/iniciar-sesion` | Iniciar sesión |
+| POST | `/auth/renovar-token` | Renovar token JWT |
+| GET | `/auth/perfil` | Perfil del usuario autenticado |
 | GET | `/fincas` | Listar fincas |
 | GET | `/fincas/:id` | Detalle de una finca |
 | GET | `/fincas/:id/animales` | Animales de una finca (con filtros) |
-| GET | `/alertas/resumen` | Resumen de alertas por prioridad del usuario autenticado |
-| POST | `/alertas/evaluar` | Dispara evaluación inmediata de todas las reglas activas |
-| DELETE | `/alertas/:id` | Eliminar una regla de alerta |
+| GET | `/lotes?fincaId=` | Listar lotes (opcionalmente por finca) |
 | GET | `/animales` | Listar animales (paginado, con filtros) |
 | GET | `/animales/:id` | Detalle de un animal |
 | GET | `/animales/razas` | Catálogo de razas |
 | GET | `/historial-medico` | Listar consultas veterinarias |
 | POST | `/historial-medico` | Registrar consulta |
-| GET | `/historial-medico/prefill` | Pre-cargar datos de última desparasitación |
-| GET | `/vacunacion/calendarios` | Listar calendarios |
-| GET | `/vacunacion/registros` | Listar registros de vacunación |
+| GET | `/historial-medico/prefill?animalId=` | Pre-cargar datos de última desparasitación y enfermedades activas |
+| GET | `/vacunacion/calendarios` | Listar calendarios de vacunación |
+| GET | `/vacunacion` | Listar registros de vacunación |
 | PATCH | `/vacunacion/:id` | Editar un registro de vacunación |
 | DELETE | `/vacunacion/:id` | Eliminar un registro de vacunación |
-| GET | `/reproduccion/eventos` | Eventos reproductivos |
-| GET | `/reportes/historial-animal/:id` | PDF historial médico de un animal |
-| GET | `/reportes/consulta/:id` | PDF de una consulta |
-| GET | `/alertas/reglas` | Reglas de alerta configuradas |
+| GET | `/reproduccion/partos-proximos` | Gestaciones con parto próximo |
+| GET | `/reproduccion/gestaciones` | Gestaciones activas |
+| PATCH | `/reproduccion/gestaciones/:id/cerrar` | Cerrar una gestación (parto/aborto/pérdida) |
+| GET | `/reproduccion/indicadores` | Indicadores reproductivos del período |
+| GET | `/inseminacion/sementales` | Catálogo de sementales |
+| GET | `/inseminacion/inventario` | Inventario de dosis de semen |
+| GET | `/geolocalizacion/dispositivos` | Catálogo de dispositivos GPS |
+| GET | `/geolocalizacion/animales?fincaId=&loteId=` | Posiciones actuales de los animales |
+| GET | `/geolocalizacion/movilidad/:animalId` | Distancia, tiempo de actividad y velocidad promedio |
+| POST | `/geolocalizacion/dispositivos/:id/importar` | Importar reporte de posiciones (CSV/XLS) |
+| POST | `/geolocalizacion/dispositivos/:apiKey/ubicacion` | Ingesta de posición en tiempo real desde un dispositivo |
+| GET | `/alertas` | Reglas de alerta configuradas |
+| GET | `/alertas/resumen` | Resumen de alertas por prioridad del usuario autenticado |
+| POST | `/alertas/evaluar` | Disparo manual de evaluación de todas las reglas activas |
 | GET | `/notificaciones` | Notificaciones del usuario autenticado |
+| GET | `/reportes/historial-animal/:animalId` | PDF con el historial médico de un animal |
+| GET | `/reportes/consulta/:consultaId` | PDF con el detalle de una consulta |
+| GET | `/analytics/dashboard` | Resumen ejecutivo para el dashboard |
 | GET | `/auditoria` | Registros de auditoría |
 | GET | `/usuarios` | Listar usuarios (solo admin) |
-| GET | `/health` | Estado del servidor |
+| GET | `/roles` | Listar roles y sus privilegios (solo admin) |
+| GET | `/health` | Estado del servidor (fuera del prefijo `/api`) |
 
 ### Formato de respuesta
 
@@ -592,21 +602,25 @@ Los errores devuelven:
 | Registrar consultas médicas | ✅ | ✅ | ❌ |
 | Editar / eliminar vacunaciones | ✅ | ✅ | ❌ |
 | Registrar eventos reproductivos | ✅ | ✅ | ❌ |
+| Gestionar dispositivos GPS | ✅ | ✅ | ❌ |
 | Crear / eliminar fincas | ✅ | ❌ | ❌ |
-| Gestionar usuarios | ✅ | ❌ | ❌ |
+| Gestionar usuarios y roles | ✅ | ❌ | ❌ |
 | Ver auditoría | ✅ | ❌ | ❌ |
-| Descargar reportes PDF | ✅ | ✅ | ✅ |
+| Descargar reportes | ✅ | ✅ | ✅ |
+
+Cada privilegio individual (p. ej. `animales.crear`, `vacunacion.registrar`) se asigna a un rol desde el módulo de Seguridad; la tabla anterior resume el criterio con el que están configurados los tres roles por defecto, no una restricción fija del código.
 
 ---
 
 ## Reportes en PDF
 
-El módulo de reportes genera documentos PDF usando PDFKit:
+El módulo de reportes genera documentos usando PDFKit (PDF) y ExcelJS (Excel):
 
-- **Historial Médico por Animal** (`GET /api/v1/reportes/historial-animal/:animalId`): incluye datos del animal, todas sus consultas con diagnósticos, tratamientos y desparasitaciones, ordenadas cronológicamente.
-- **Reporte de Consulta** (`GET /api/v1/reportes/consulta/:consultaId`): detalle completo de una consulta específica, incluyendo examen físico, diagnóstico y plan de tratamiento.
+- **Historial Médico por Animal** (`GET /api/reportes/historial-animal/:animalId`): incluye datos del animal, todas sus consultas con diagnósticos, tratamientos y desparasitaciones, ordenadas cronológicamente.
+- **Reporte de Consulta** (`GET /api/reportes/consulta/:consultaId`): detalle completo de una consulta específica, incluyendo examen físico, diagnóstico y plan de tratamiento.
+- **Inventario, sanitario, vacunación y reproductivo** (`GET /api/reportes/{inventario|sanitario|vacunacion|reproductivo}`): reportes agregados filtrables por año, finca y estado, disponibles en PDF o Excel según el parámetro `formato`.
 
-Los PDF se envían directamente al navegador con el encabezado `Content-Disposition: attachment` para descarga automática.
+Los documentos se envían directamente al navegador con el encabezado `Content-Disposition: attachment` para descarga automática, y cada exportación queda registrada en la auditoría.
 
 ---
 

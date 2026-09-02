@@ -2,6 +2,9 @@ import { NavLink } from 'react-router-dom';
 import { useAutenticacion } from '../../hooks/useAutenticacion';
 import Icono from '../ui/Icono';
 
+// Menú de navegación principal (escritorio y versión deslizable en móvil).
+// Algunos ítems se ocultan según el rol del usuario — la lista completa
+// existe siempre, el filtro ocurre al renderizar.
 interface ElementoNav {
   etiqueta: string;
   ruta: string;

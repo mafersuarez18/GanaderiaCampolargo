@@ -12,6 +12,9 @@ const navMovil = [
   { etiqueta: 'Alertas',   ruta: '/alertas',          icono: 'notifications_active' },
 ];
 
+// Armazón visual de toda página protegida: barra lateral (o menú móvil
+// deslizable), barra superior y el contenido de la ruta actual vía
+// <Outlet />, con una transición sutil al cambiar de página.
 export default function LayoutPrincipal() {
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const ubicacion = useLocation();

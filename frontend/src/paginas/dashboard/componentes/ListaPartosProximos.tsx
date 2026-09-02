@@ -4,6 +4,8 @@ import { clienteHttp } from '../../../servicios/clienteAxios';
 import { EsqueletoLinea } from '../../../componentes/ui/EsqueletoTarjeta';
 import Icono from '../../../componentes/ui/Icono';
 
+// Gestaciones con parto esperado en el corto plazo, coloreadas según
+// cuán cerca está la fecha (urgente/próximo/futuro).
 interface PartoProximo {
   id: string;
   madreNumeroArete: string;

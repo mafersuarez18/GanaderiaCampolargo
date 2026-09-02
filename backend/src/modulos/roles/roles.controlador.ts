@@ -16,6 +16,10 @@ import {
   respuestaSinContenido,
 } from '../../compartido/utilidades/respuestaHttp';
 
+// Gestión de roles y del catálogo de privilegios que el resto de la API
+// verifica con requerirPrivilegio(). Módulo restringido a quien tenga
+// 'roles.gestionar' (ver roles.rutas.ts).
+
 const esquemaCrearRol = z.object({
   nombre: z.string().min(2).max(100),
   descripcion: z.string().max(300).optional(),

@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-// Carga .env manualmente porque tsx no lo hace automáticamente
+// tsx no carga el archivo .env por su cuenta, así que se lee y se vuelca a
+// process.env a mano antes de validar el resto de la configuración.
 try {
   const contenido = readFileSync(resolve(process.cwd(), '.env'), 'utf-8');
   for (const linea of contenido.split('\n')) {
@@ -14,9 +15,11 @@ try {
     const valor = trim.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
     if (!(clave in process.env)) process.env[clave] = valor;
   }
-} catch { /* .env no encontrado — usando variables del sistema (producción) */ }
+} catch { /* No hay .env (típico en producción): se usan las variables del sistema */ }
 
-// Esquema de validación de variables de entorno obligatorias
+// Todas las variables que la aplicación necesita para arrancar, con sus
+// valores por defecto donde tiene sentido tenerlos. Si falta algo
+// obligatorio (como los secretos JWT), el proceso no debe arrancar.
 const esquemaEntorno = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PUERTO: z.string().default('3001'),
@@ -29,7 +32,10 @@ const esquemaEntorno = z.object({
   EMAIL_PUERTO: z.string().default('587'),
   EMAIL_USUARIO: z.string().optional(),
   EMAIL_CLAVE: z.string().optional(),
-  EMAIL_REMITENTE: z.string().default('noreply@campolargo.com'),
+  // Sin valor por defecto fijo: Gmail exige que el remitente coincida con la
+  // cuenta autenticada (EMAIL_USUARIO), así que si no se define explícito,
+  // correo.servicio.ts usa EMAIL_USUARIO como remitente.
+  EMAIL_REMITENTE: z.string().optional(),
   URL_FRONTEND: z.string().default('http://localhost:5173'),
 });
 

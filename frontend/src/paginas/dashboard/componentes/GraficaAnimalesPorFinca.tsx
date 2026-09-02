@@ -4,6 +4,7 @@ import {
 } from 'recharts';
 import EsqueletoTarjeta from '../../../componentes/ui/EsqueletoTarjeta';
 
+// Barras con el total de animales activos por finca.
 interface DatoFinca {
   finca: string;
   total: number;

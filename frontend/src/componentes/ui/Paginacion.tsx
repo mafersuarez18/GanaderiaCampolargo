@@ -10,6 +10,8 @@ interface PropiedadesPaginacion {
   className?: string;
 }
 
+// Control de paginación reutilizable, con números de página truncados
+// (1 … 4 5 6 … 20) cuando hay muchas páginas.
 export default function Paginacion({
   paginaActual,
   totalPaginas,

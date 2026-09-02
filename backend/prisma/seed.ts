@@ -844,34 +844,80 @@ async function main() {
   console.log('Reglas de alerta por defecto creadas');
 
   // ----------------------------------------------------------
-  // 10. REGISTROS DE UBICACIÓN SIMULADOS (datos GPS de prueba)
+  // 10. DISPOSITIVOS GPS Y REGISTROS DE UBICACIÓN (datos de prueba)
   // ----------------------------------------------------------
-  // Coordenadas centradas en las coordenadas de cada finca en Yaracuy
+  // Mientras no hay trackers IoT reales en campo, se simula el flujo completo
+  // tal como quedará cuando se configuren: un DispositivoGPS por animal (con
+  // su propia apiKey, igual que un dispositivo real) y su historial de
+  // posiciones, con velocidad instantánea incluida, para que los reportes de
+  // movilidad (distancia, tiempo de actividad, velocidad promedio) tengan
+  // datos reales con los que calcular.
   const animalesParaGPS = await prisma.animal.findMany({
     where: { lote: { fincaId: fincaParaiso.id } },
     take: 5,
-    select: { id: true },
+    select: { id: true, numeroArete: true },
   });
 
+  let numeroDispositivo = 1;
   for (const animal of animalesParaGPS) {
-    // Simular varios puntos de ubicación histórica
-    const puntos = 5;
-    for (let i = 0; i < puntos; i++) {
+    const dispositivo = await prisma.dispositivoGPS.upsert({
+      where: { animalId: animal.id },
+      update: {},
+      create: {
+        codigoDispositivo: `GPS-ELP-${String(numeroDispositivo).padStart(3, '0')}`,
+        modelo: 'ESP32-GPS',
+        fabricante: 'Genérico',
+        apiKey: `sim_${animal.numeroArete.toLowerCase()}_${Math.random().toString(36).slice(2, 10)}`,
+        nivelBateria: 60 + Math.round(Math.random() * 40),
+        animalId: animal.id,
+      },
+    });
+
+    // Los primeros 3 dispositivos simulan estar reportando activamente
+    // (última señal hace pocos minutos); los últimos 2 simulan llevar horas
+    // desconectados, para que el estado "en línea" del panel sea realista.
+    const desconectado = numeroDispositivo > 3;
+    const finRecorridoMs = desconectado
+      ? Date.now() - 20 * 60 * 60 * 1000
+      : Date.now() - numeroDispositivo * 60 * 1000;
+    numeroDispositivo += 1;
+
+    // Recorrido simulado tipo "caminata" (cada punto parte del anterior, no
+    // de un centro fijo), con velocidad de pastoreo.
+    let lat = 10.1875 + (Math.random() - 0.5) * 0.01;
+    let lng = -68.5234 + (Math.random() - 0.5) * 0.01;
+    const puntos = 8;
+    let ultimaFecha = new Date(finRecorridoMs);
+    for (let i = puntos - 1; i >= 0; i--) {
+      lat += (Math.random() - 0.5) * 0.0015;
+      lng += (Math.random() - 0.5) * 0.0015;
+      const fechaRegistro = new Date(finRecorridoMs - i * 3 * 60 * 60 * 1000); // cada 3 horas
+      if (i === 0) ultimaFecha = fechaRegistro;
       await prisma.registroUbicacion.create({
         data: {
           animalId: animal.id,
-          latitud: 10.1875 + (Math.random() - 0.5) * 0.02,
-          longitud: -68.5234 + (Math.random() - 0.5) * 0.02,
+          dispositivoGPSId: dispositivo.id,
+          latitud: lat,
+          longitud: lng,
           altitud: 450 + Math.random() * 50,
           precision: 5 + Math.random() * 10,
+          velocidad: +(Math.random() * 3).toFixed(1), // pastoreo: 0-3 km/h aprox.
           esDatoSimulado: true,
-          fechaRegistro: new Date(Date.now() - i * 6 * 60 * 60 * 1000), // Cada 6 horas
+          fechaRegistro,
         },
       });
     }
+
+    await prisma.dispositivoGPS.update({
+      where: { id: dispositivo.id },
+      data: {
+        ultimaConexion: ultimaFecha,
+        estado: desconectado ? 'SIN_SEÑAL' : 'ACTIVO',
+      },
+    });
   }
 
-  console.log('Registros de ubicación simulados creados');
+  console.log('Dispositivos GPS y registros de ubicación de prueba creados');
 
   // ----------------------------------------------------------
   // RESUMEN FINAL

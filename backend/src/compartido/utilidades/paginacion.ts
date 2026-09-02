@@ -11,7 +11,9 @@ export interface ResultadoPaginacion extends OpcionesPrisma {
   porPagina: number;
 }
 
-// Acepta un objeto ParametrosPaginacion O dos números (pagina, porPagina)
+// Convierte los parámetros de paginación (página/porPágina, ya sea como
+// objeto ParametrosPaginacion o como dos números sueltos) en los valores
+// skip/take/orderBy que Prisma necesita, con límites de seguridad.
 export function calcularPaginacion(
   paramsOPagina: ParametrosPaginacion | number,
   porPaginaNum?: number,
@@ -42,7 +44,9 @@ export function calcularPaginacion(
   };
 }
 
-// Acepta (total, params) O (total, pagina, porPagina)
+// Arma el bloque `meta` que acompaña a los listados paginados (total de
+// registros, página actual y total de páginas), a partir del mismo par de
+// formas de parámetros que acepta calcularPaginacion.
 export function construirMeta(
   total: number,
   paramsOPagina: ParametrosPaginacion | number,

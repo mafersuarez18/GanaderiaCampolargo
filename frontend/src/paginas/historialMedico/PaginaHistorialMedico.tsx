@@ -10,6 +10,9 @@ import useDebounce from '../../hooks/useDebounce';
 import Icono from '../../componentes/ui/Icono';
 import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
 
+// Consultas médicas: listado, formulario de nueva consulta (con
+// enfermedades/tratamientos/desparasitaciones anidados) y su selector de
+// medicamento con el mismo patrón "buscar o crear" que el de raza.
 interface HistorialMedico {
   id: string;
   fechaConsulta: string;

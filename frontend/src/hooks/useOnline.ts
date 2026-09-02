@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+// Refleja el estado de conectividad del navegador (navigator.onLine), para
+// avisarle al usuario cuando se quedó sin conexión.
 export function useOnline(): boolean {
   const [estaEnLinea, setEstaEnLinea] = useState(navigator.onLine);
 

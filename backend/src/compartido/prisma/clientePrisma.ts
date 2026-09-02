@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../config/logger';
 
-// Instancia única de Prisma (patrón singleton para evitar múltiples conexiones)
+// Cliente Prisma compartido por toda la aplicación: una sola instancia,
+// una sola pool de conexiones a la base de datos.
 const clientePrisma = new PrismaClient({
   log: [
     { emit: 'event', level: 'query' },
@@ -10,7 +11,9 @@ const clientePrisma = new PrismaClient({
   ],
 });
 
-// Registrar consultas lentas en desarrollo (> 2 segundos)
+// Cualquier consulta que tarde más de 2 segundos queda registrada como
+// advertencia, para poder detectar cuellos de botella sin activar el log
+// completo de queries.
 clientePrisma.$on('query', (evento) => {
   if (evento.duration > 2000) {
     logger.warn('Consulta lenta detectada', {
@@ -24,7 +27,9 @@ clientePrisma.$on('error', (evento) => {
   logger.error('Error en Prisma', { mensaje: evento.message });
 });
 
-// Reutilizar instancia en desarrollo (hot-reload de tsx)
+// En desarrollo, tsx watch recarga el módulo en cada cambio de archivo;
+// guardar la instancia en el objeto global evita crear una conexión nueva
+// por cada recarga.
 declare global {
   // eslint-disable-next-line no-var
   var __prisma: PrismaClient | undefined;

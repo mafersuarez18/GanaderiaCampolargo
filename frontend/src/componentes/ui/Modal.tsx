@@ -25,6 +25,9 @@ const anchosPorTamano: Record<TamanoModal, string> = {
   completo: 'max-w-4xl',
 };
 
+// Modal genérico reutilizado en toda la app: se renderiza vía portal (para
+// no heredar overflow/z-index del componente que lo abre), bloquea el
+// scroll del body mientras está abierto y se cierra con Escape.
 export default function Modal({
   abierto,
   alCerrar,

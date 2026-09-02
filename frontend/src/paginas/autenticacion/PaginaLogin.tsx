@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import { useAutenticacion } from '../../hooks/useAutenticacion';
 import Icono from '../../componentes/ui/Icono';
 
+// Única ruta pública de la app; al iniciar sesión con éxito, useAutenticacion
+// se encarga de guardar los tokens y redirigir al dashboard.
 const esquemaLogin = z.object({
   correo:    z.string().email('Ingrese un correo electrónico válido'),
   contrasena:z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),

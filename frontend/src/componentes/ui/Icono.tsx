@@ -1,3 +1,6 @@
+// Envuelve la fuente de iconos Material Symbols: `nombre` debe ser el
+// nombre exacto del ligature de Google (p. ej. "pets", "wifi_off") — un
+// nombre inválido se renderiza como texto literal en vez de un ícono.
 interface PropiedadesIcono {
   nombre: string;
   relleno?: boolean;

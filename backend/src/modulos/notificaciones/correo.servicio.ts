@@ -3,6 +3,9 @@ import { entorno } from '../../config/entorno';
 import { logger } from '../../config/logger';
 import { PrioridadAlerta } from '@prisma/client';
 
+// El envío de correo es opcional: si no hay credenciales SMTP configuradas
+// (EMAIL_USUARIO), las funciones de este archivo simplemente no envían nada
+// en vez de fallar, para que el sistema funcione igual sin correo en dev.
 const transportador = nodemailer.createTransport({
   host: entorno.EMAIL_SERVIDOR,
   port: parseInt(entorno.EMAIL_PUERTO, 10),
@@ -11,6 +14,11 @@ const transportador = nodemailer.createTransport({
     ? { user: entorno.EMAIL_USUARIO, pass: entorno.EMAIL_CLAVE }
     : undefined,
 });
+
+// Gmail rechaza (o reescribe) un remitente que no sea la propia cuenta
+// autenticada, así que a falta de EMAIL_REMITENTE explícito se usa
+// EMAIL_USUARIO — son, en la práctica, casi siempre la misma dirección.
+const remitente = entorno.EMAIL_REMITENTE ?? entorno.EMAIL_USUARIO;
 
 function obtenerColorPrioridad(prioridad: PrioridadAlerta): string {
   const colores: Record<PrioridadAlerta, string> = {
@@ -89,7 +97,7 @@ export async function enviarCorreoAlerta(
   `;
 
   await transportador.sendMail({
-    from: `"Sistema Campolargo" <${entorno.EMAIL_REMITENTE}>`,
+    from: `"Sucesión Campolargo" <${remitente}>`,
     to: destinatario,
     subject: `[${etiqueta.toUpperCase()}] ${titulo} — Campolargo`,
     html: htmlCorreo,
@@ -104,7 +112,7 @@ export async function enviarCorreoBienvenida(
   if (!entorno.EMAIL_USUARIO) return;
 
   await transportador.sendMail({
-    from: `"Sistema Campolargo" <${entorno.EMAIL_REMITENTE}>`,
+    from: `"Sucesión Campolargo" <${remitente}>`,
     to: destinatario,
     subject: 'Bienvenido al Sistema de Gestión Veterinaria — Campolargo',
     html: `

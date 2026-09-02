@@ -1,7 +1,11 @@
-import { Prisma, Sexo } from '@prisma/client';
+import { Prisma, Sexo, EstadoAnimal } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado, ErrorConflicto } from '../../compartido/tipos/respuesta';
 import { resolverNotificacionesDeEntidad } from '../notificaciones/notificaciones.servicio';
+
+// Al registrar una vacunación se calcula automáticamente proximaFecha
+// (fecha + intervaloDias del calendario), que es lo que luego usa el motor
+// de alertas para avisar de vacunas próximas a vencer.
 
 // ─── Calendarios ─────────────────────────────────────────────────────────────
 
@@ -256,4 +260,76 @@ export async function crearMedicamento(datos: DatosCrearMedicamento) {
   if (existente) throw new ErrorConflicto(`Ya existe un medicamento llamado '${datos.nombre}'`);
 
   return prisma.medicamento.create({ data: datos });
+}
+
+// ─── Cumplimiento del calendario de vacunación por lote ───────────────────────
+// Para cada lote, sobre cada par (animal activo, calendario aplicable a su
+// sexo), se considera "al día" cuando existe un RegistroVacunacion cuya
+// próxima fecha aún no venció. El cumplimiento es el % de esos pares al día.
+
+export async function obtenerCumplimientoVacunacionPorLote() {
+  const [lotes, calendarios] = await Promise.all([
+    prisma.lote.findMany({
+      select: {
+        id: true,
+        nombre: true,
+        animales: {
+          where: { estado: EstadoAnimal.ACTIVO },
+          select: { id: true, sexo: true },
+        },
+      },
+      orderBy: { nombre: 'asc' },
+    }),
+    prisma.calendarioVacunacion.findMany({
+      select: { id: true, nombreVacuna: true, aplicaASexo: true },
+    }),
+  ]);
+
+  const registros = await prisma.registroVacunacion.findMany({
+    where: { historialMedico: { isNot: null } },
+    select: {
+      calendarioVacunacionId: true,
+      proximaFecha: true,
+      historialMedico: { select: { animalId: true } },
+    },
+    orderBy: { fechaAplicacion: 'desc' },
+  });
+
+  // Se conserva solo el registro más reciente por (animal, calendario), dado
+  // el orderBy fechaAplicacion desc: la primera vez que se ve una clave es la más reciente.
+  const ultimaProximaFecha = new Map<string, Date | null>();
+  for (const r of registros) {
+    const animalId = r.historialMedico?.animalId;
+    if (!animalId) continue;
+    const clave = `${animalId}::${r.calendarioVacunacionId}`;
+    if (!ultimaProximaFecha.has(clave)) {
+      ultimaProximaFecha.set(clave, r.proximaFecha);
+    }
+  }
+
+  const hoy = new Date();
+
+  return lotes.map((lote) => {
+    let paresEsperados = 0;
+    let paresAlDia = 0;
+
+    for (const animal of lote.animales) {
+      for (const cal of calendarios) {
+        if (cal.aplicaASexo && cal.aplicaASexo !== animal.sexo) continue;
+        paresEsperados += 1;
+        const proximaFecha = ultimaProximaFecha.get(`${animal.id}::${cal.id}`);
+        if (proximaFecha === undefined) continue; // nunca aplicado -> pendiente
+        if (proximaFecha === null || proximaFecha >= hoy) paresAlDia += 1;
+      }
+    }
+
+    return {
+      loteId: lote.id,
+      loteNombre: lote.nombre,
+      totalAnimales: lote.animales.length,
+      paresEsperados,
+      paresAlDia,
+      cumplimiento: paresEsperados > 0 ? +((paresAlDia / paresEsperados) * 100).toFixed(1) : 0,
+    };
+  });
 }

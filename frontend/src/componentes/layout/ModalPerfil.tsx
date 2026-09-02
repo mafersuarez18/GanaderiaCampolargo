@@ -12,6 +12,9 @@ interface PropsModalPerfil {
   alCerrar: () => void;
 }
 
+// Modal de autoservicio del usuario: editar sus propios datos (nombre,
+// cargo, teléfono) o cambiar su contraseña, con validación en el cliente
+// antes de llamar al backend.
 export default function ModalPerfil({ abierto, alCerrar }: PropsModalPerfil) {
   const { usuario } = useAutenticacion();
   const tienda = useAutenticacionStore();

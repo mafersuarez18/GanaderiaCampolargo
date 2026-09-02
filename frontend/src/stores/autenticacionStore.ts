@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+// Estado de sesión persistido en localStorage (clave "campolargo-auth"),
+// para que el usuario siga con la sesión iniciada tras recargar la página.
+
 export interface RolSesion {
   id: string;
   nombre: string;

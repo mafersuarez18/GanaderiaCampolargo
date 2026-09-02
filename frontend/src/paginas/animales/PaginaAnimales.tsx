@@ -10,6 +10,8 @@ import Badge, { BadgeEstadoAnimal } from '../../componentes/ui/Badge';
 import useDebounce from '../../hooks/useDebounce';
 import Icono from '../../componentes/ui/Icono';
 
+// Listado principal de animales, con búsqueda (debounced), filtros y
+// paginación server-side.
 interface Animal {
   id: string;
   numeroArete: string;

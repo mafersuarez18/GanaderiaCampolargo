@@ -2,7 +2,11 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAutenticacionStore } from '../stores/autenticacionStore';
 import toast from 'react-hot-toast';
 
-const URL_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api/v1';
+// Cliente HTTP único de la app: agrega el token en cada petición y, si el
+// backend responde 401, intenta renovarlo automáticamente con el refresh
+// token antes de reintentar la petición original (sin que el componente
+// que la disparó se entere de nada).
+const URL_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api';
 
 export const clienteHttp = axios.create({
   baseURL: URL_BASE,

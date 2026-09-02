@@ -4,6 +4,10 @@ import { Response } from 'express';
 import path from 'path';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 
+// Generación de reportes descargables (PDF con PDFKit, Excel con ExcelJS)
+// con una plantilla visual compartida: banda de encabezado con el logo,
+// paleta corporativa y pie de página con numeración.
+
 const RUTA_LOGO = path.join(__dirname, '../../assets/logo-campolargo.png');
 
 // ── Paleta corporativa ─────────────────────────────────────────────────────────

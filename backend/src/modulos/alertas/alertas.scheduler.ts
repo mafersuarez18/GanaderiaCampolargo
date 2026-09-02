@@ -4,11 +4,13 @@ import { logger } from '../../config/logger';
 import { TipoAlertaRegla, EstadoNotificacion, PrioridadAlerta } from '@prisma/client';
 import { enviarCorreoAlerta } from '../notificaciones/correo.servicio';
 
-// ── Inicio del motor de alertas ───────────────────────────────────────────────
+// ── Motor de alertas ────────────────────────────────────────────────────────
+// Evalúa periódicamente las ReglaAlerta activas (vacunas por vencer, partos
+// próximos, días abiertos excedidos, etc.) y genera Notificacion para los
+// usuarios interesados, evitando duplicar avisos ya emitidos recientemente.
 
-/** Registra todos los cron jobs del motor de alertas */
+/** Programa el cron job que dispara la evaluación de reglas cada hora. */
 export function iniciarMotorAlertas(): void {
-  // Evaluación completa: cada hora en punto
   cron.schedule('0 * * * *', async () => {
     logger.debug('Motor de alertas: evaluación periódica');
     await evaluarTodasLasReglas();

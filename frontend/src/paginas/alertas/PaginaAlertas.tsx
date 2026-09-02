@@ -9,6 +9,10 @@ import Icono from '../../componentes/ui/Icono';
 import { ModalConfirmacion } from '../../componentes/ui/Modal';
 import toast from 'react-hot-toast';
 
+// Panel de notificaciones generadas por el motor de alertas: resumen por
+// prioridad/tipo y el listado completo, con acciones para leer/abordar
+// (abordar = resolver manualmente, saca la alerta del conteo pendiente).
+
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface Notificacion {

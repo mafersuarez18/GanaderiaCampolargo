@@ -17,16 +17,16 @@ const enrutador = Router();
 
 enrutador.use(verificarToken);
 
-// GET /api/v1/fincas
+// GET /api/fincas
 enrutador.get('/', requerirPrivilegio('fincas.ver'), controladorListarFincas);
 
-// GET /api/v1/fincas/:id
+// GET /api/fincas/:id
 enrutador.get('/:id', requerirPrivilegio('fincas.ver'), controladorObtenerFinca);
 
-// GET /api/v1/fincas/:id/animales
+// GET /api/fincas/:id/animales
 enrutador.get('/:id/animales', requerirPrivilegio('fincas.ver'), controladorAnimalesDeFinca);
 
-// POST /api/v1/fincas
+// POST /api/fincas
 enrutador.post(
   '/',
   requerirPrivilegio('fincas.crear'),
@@ -34,7 +34,7 @@ enrutador.post(
   controladorCrearFinca,
 );
 
-// PATCH /api/v1/fincas/:id
+// PATCH /api/fincas/:id
 enrutador.patch(
   '/:id',
   requerirPrivilegio('fincas.editar'),
@@ -42,7 +42,7 @@ enrutador.patch(
   controladorActualizarFinca,
 );
 
-// DELETE /api/v1/fincas/:id
+// DELETE /api/fincas/:id
 enrutador.delete(
   '/:id',
   requerirPrivilegio('fincas.eliminar'),

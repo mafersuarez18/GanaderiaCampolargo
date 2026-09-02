@@ -17,6 +17,9 @@ import {
 } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 
+// Todas las operaciones aquí están acotadas al usuario autenticado: nadie
+// puede leer o modificar notificaciones de otra persona.
+
 const esquemaFiltros = z.object({
   noLeidas:  z.coerce.boolean().optional(),
   prioridad: z.nativeEnum(PrioridadAlerta).optional(),

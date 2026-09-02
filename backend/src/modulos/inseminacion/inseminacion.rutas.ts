@@ -13,7 +13,11 @@ const enrutador = Router();
 
 enrutador.use(verificarToken);
 
-// GET /api/v1/inseminacion/sementales — listado de sementales
+// Este módulo es pequeño y no tiene controlador/servicio separados: toda
+// la lógica de sementales, inventario de semen e inseminación artificial
+// vive directamente en las rutas.
+
+// GET /api/inseminacion/sementales — listado de sementales
 enrutador.get('/sementales', requerirPrivilegio('inseminacion.ver'), async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const sementales = await prisma.semental.findMany({
@@ -27,7 +31,7 @@ enrutador.get('/sementales', requerirPrivilegio('inseminacion.ver'), async (_req
   } catch (error) { return next(error); }
 });
 
-// POST /api/v1/inseminacion/sementales — registrar semental
+// POST /api/inseminacion/sementales — registrar semental
 enrutador.post('/sementales', requerirPrivilegio('inseminacion.crear'), registrarAuditoria('Registrar semental', 'Semental'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({
@@ -49,7 +53,7 @@ enrutador.post('/sementales', requerirPrivilegio('inseminacion.crear'), registra
   } catch (error) { return next(error); }
 });
 
-// GET /api/v1/inseminacion/inventario — inventario de semen
+// GET /api/inseminacion/inventario — inventario de semen
 enrutador.get('/inventario', requerirPrivilegio('inseminacion.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { pagina, porPagina } = z.object({
@@ -72,7 +76,7 @@ enrutador.get('/inventario', requerirPrivilegio('inseminacion.ver'), async (req:
   } catch (error) { return next(error); }
 });
 
-// POST /api/v1/inseminacion/inventario — registrar lote de semen
+// POST /api/inseminacion/inventario — registrar lote de semen
 enrutador.post('/inventario', requerirPrivilegio('inseminacion.crear'), registrarAuditoria('Registrar lote de semen', 'InventarioSemen'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({
@@ -104,7 +108,7 @@ enrutador.post('/inventario', requerirPrivilegio('inseminacion.crear'), registra
   } catch (error) { return next(error); }
 });
 
-// GET /api/v1/inseminacion — listado de inseminaciones (via eventos reproductivos)
+// GET /api/inseminacion — listado de inseminaciones (via eventos reproductivos)
 enrutador.get('/', requerirPrivilegio('inseminacion.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = z.object({
@@ -163,7 +167,7 @@ enrutador.get('/', requerirPrivilegio('inseminacion.ver'), async (req: Request, 
   } catch (error) { return next(error); }
 });
 
-// POST /api/v1/inseminacion — registrar inseminación
+// POST /api/inseminacion — registrar inseminación
 enrutador.post('/', requerirPrivilegio('inseminacion.crear'), registrarAuditoria('Registrar inseminación', 'InseminacionArtificial'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({

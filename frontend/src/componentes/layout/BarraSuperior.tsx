@@ -34,6 +34,10 @@ interface Notificacion {
   creadoEn: string;
 }
 
+// Encabezado fijo con el título de la página actual, búsqueda global de
+// animales, campanita de notificaciones (con conteo en vivo) y menú de
+// perfil.
+
 async function obtenerNoLeidas(): Promise<{ total: number }> {
   const { data } = await clienteHttp.get('/notificaciones/no-leidas/conteo');
   return data.datos;

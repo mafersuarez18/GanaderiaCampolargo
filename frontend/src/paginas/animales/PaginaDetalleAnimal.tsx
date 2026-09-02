@@ -10,6 +10,9 @@ import { ModalConfirmacion } from '../../componentes/ui/Modal';
 import { EsqueletoLinea } from '../../componentes/ui/EsqueletoTarjeta';
 import toast from 'react-hot-toast';
 
+// Ficha completa de un animal: datos generales y accesos a su historial
+// médico, reproductivo y de vacunación (cada uno vive en su propia página,
+// filtrada por este animal).
 async function obtenerAnimal(id: string) {
   const { data } = await clienteHttp.get(`/animales/${id}`);
   return data.datos;

@@ -4,6 +4,8 @@ import { EsqueletoLinea } from '../../../componentes/ui/EsqueletoTarjeta';
 import { BadgePrioridad } from '../../../componentes/ui/Badge';
 import Icono from '../../../componentes/ui/Icono';
 
+// Últimas notificaciones críticas/altas sin abordar, con acceso rápido
+// para marcarlas como abordadas desde el propio dashboard.
 interface AlertaResumen {
   id: string;
   titulo: string;

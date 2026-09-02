@@ -23,9 +23,12 @@ const enrutador = Router();
 
 enrutador.use(verificarToken);
 
-// ── Rutas de auto-servicio (deben ir ANTES de /:id para no ser capturadas) ──
+// Las rutas de auto-servicio ("/mi-perfil", "/cambiar-contrasena") solo
+// exigen sesión iniciada — cualquier usuario puede ver/editar su propio
+// perfil sin necesitar el privilegio administrativo 'usuarios.*'. Deben
+// declararse antes de "/:id" para que Express no las confunda con un id.
 
-// GET /api/v1/usuarios/mi-perfil — perfil del usuario autenticado
+// GET /api/usuarios/mi-perfil — perfil del usuario autenticado
 enrutador.get('/mi-perfil', autenticado, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { prisma } = await import('../../compartido/prisma/clientePrisma');
@@ -40,7 +43,7 @@ enrutador.get('/mi-perfil', autenticado, async (req: Request, res: Response, nex
   } catch (error) { return next(error); }
 });
 
-// PATCH /api/v1/usuarios/mi-perfil — actualizar propio perfil
+// PATCH /api/usuarios/mi-perfil — actualizar propio perfil
 enrutador.patch('/mi-perfil', autenticado, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const datos = z.object({
@@ -55,7 +58,7 @@ enrutador.patch('/mi-perfil', autenticado, async (req: Request, res: Response, n
   } catch (error) { return next(error); }
 });
 
-// PATCH /api/v1/usuarios/cambiar-contrasena — cambiar propia contraseña
+// PATCH /api/usuarios/cambiar-contrasena — cambiar propia contraseña
 enrutador.patch('/cambiar-contrasena', autenticado, controladorCambiarContrasena);
 
 // ── Rutas de administrador ──────────────────────────────────────────────────

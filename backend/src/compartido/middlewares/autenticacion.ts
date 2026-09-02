@@ -3,7 +3,8 @@ import jwt from 'jsonwebtoken';
 import { entorno } from '../../config/entorno';
 import { ErrorNoAutorizado, ErrorForbidden } from '../tipos/respuesta';
 
-// Extiende el tipo Request de Express para incluir el usuario autenticado
+// Se amplía el Request de Express para poder colgar del objeto `req` los
+// datos del usuario autenticado, una vez verificado el token.
 declare global {
   namespace Express {
     interface Request {
@@ -34,7 +35,11 @@ interface PayloadJWT {
   exp: number;
 }
 
-// Verifica que el token JWT sea válido
+/**
+ * Exige un token JWT válido en el header Authorization (Bearer) y, si lo es,
+ * deja los datos del usuario disponibles en `req.usuarioActual` para el
+ * resto de la cadena de middlewares/controladores.
+ */
 export function verificarToken(req: Request, _res: Response, siguiente: NextFunction): void {
   const encabezadoAutorizacion = req.headers.authorization;
 
@@ -66,8 +71,9 @@ export function verificarToken(req: Request, _res: Response, siguiente: NextFunc
   }
 }
 
-// Acceso para cualquier usuario autenticado, sin exigir un privilegio en particular
-// (recursos de auto-servicio como el propio perfil, o listados con alcance por usuario)
+// Solo exige que exista una sesión válida, sin pedir un privilegio en
+// concreto — para recursos de autoservicio (por ejemplo, el propio perfil)
+// donde basta con estar identificado.
 export function autenticado(req: Request, _res: Response, siguiente: NextFunction): void {
   if (!req.usuarioActual) {
     throw new ErrorNoAutorizado();
@@ -75,8 +81,12 @@ export function autenticado(req: Request, _res: Response, siguiente: NextFunctio
   siguiente();
 }
 
-// Verifica que el usuario tenga al menos uno de los privilegios requeridos,
-// según los privilegios asignados a su rol (embebidos en el token de acceso)
+/**
+ * Exige que el usuario tenga al menos uno de los privilegios indicados.
+ * Los privilegios del usuario ya vienen embebidos en el token de acceso
+ * (se resolvieron a partir de su rol al iniciar sesión), así que esta
+ * verificación no necesita consultar la base de datos.
+ */
 export function requerirPrivilegio(...codigosPermitidos: string[]) {
   return (req: Request, _res: Response, siguiente: NextFunction): void => {
     if (!req.usuarioActual) {

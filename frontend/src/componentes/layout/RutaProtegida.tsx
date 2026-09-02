@@ -8,6 +8,8 @@ interface PropiedadesRutaProtegida {
   roles?: string[];
 }
 
+// Envuelve una ruta exigiendo sesión iniciada (y, opcionalmente, uno de
+// los roles indicados); redirige en vez de renderizar cuando no se cumple.
 export default function RutaProtegida({
   children,
   redirigirA = '/iniciar-sesion',

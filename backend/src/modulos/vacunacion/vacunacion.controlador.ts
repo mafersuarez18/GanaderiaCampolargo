@@ -12,6 +12,7 @@ import {
   eliminarRegistroVacunacion,
   listarMedicamentos,
   crearMedicamento,
+  obtenerCumplimientoVacunacionPorLote,
 } from './vacunacion.servicio';
 import {
   respuestaExito,
@@ -21,6 +22,11 @@ import {
 } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 import { prisma } from '../../compartido/prisma/clientePrisma';
+
+// El registro de vacunación normalmente cuelga de una consulta médica
+// (historialMedicoId), pero también se puede aplicar sin pasar por una
+// consulta formal (solo animalId) — en ese caso se busca el historial más
+// reciente del animal para vincularlo automáticamente.
 
 const esquemaCalendario = z.object({
   nombreVacuna:    z.string().min(2).max(200),
@@ -187,5 +193,14 @@ export async function controladorCrearMedicamento(
     const datos = esquemaCrearMedicamento.parse(req.body);
     const medicamento = await crearMedicamento(datos);
     return respuestaCreado(res, medicamento);
+  } catch (error) { return next(error); }
+}
+
+export async function controladorCumplimientoPorLote(
+  _req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const cumplimiento = await obtenerCumplimientoVacunacionPorLote();
+    return respuestaExito(res, cumplimiento);
   } catch (error) { return next(error); }
 }

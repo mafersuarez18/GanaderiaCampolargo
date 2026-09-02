@@ -3,6 +3,9 @@ import DailyRotateFile from 'winston-daily-rotate-file';
 import path from 'path';
 import { esProduccion } from './entorno';
 
+// Logger centralizado de la aplicación. En desarrollo solo imprime en
+// consola con colores; en producción además escribe a archivos rotados
+// por día (uno con todo, otro solo con errores).
 const formatoConsola = winston.format.combine(
   winston.format.colorize(),
   winston.format.timestamp({ format: 'DD/MM/YYYY HH:mm:ss' }),

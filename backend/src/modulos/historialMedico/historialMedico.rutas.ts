@@ -16,7 +16,9 @@ const enrutador = Router();
 
 enrutador.use(verificarToken);
 
-// GET /api/v1/historial-medico/prefill?animalId=... — datos para pre-rellenar formulario
+// Datos para pre-rellenar el formulario de nueva consulta (última
+// desparasitación, calendarios disponibles, enfermedades activas del
+// animal) — se consulta antes de mostrar el formulario al veterinario.
 enrutador.get('/prefill', requerirPrivilegio('historial_medico.ver'), controladorPrefillConsulta);
 
 enrutador.get('/', requerirPrivilegio('historial_medico.ver'), controladorListarHistorial);

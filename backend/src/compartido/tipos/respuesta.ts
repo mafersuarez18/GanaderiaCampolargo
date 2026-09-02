@@ -1,4 +1,6 @@
-// Tipos estándar para las respuestas de la API
+// Forma estándar de toda respuesta JSON de la API: éxito/error, mensaje
+// legible, los datos propiamente dichos y, si aplica, detalle de errores
+// de validación o metadatos de paginación.
 
 export interface RespuestaApi<T = unknown> {
   exito: boolean;
@@ -28,7 +30,9 @@ export interface ParametrosPaginacion {
   direccion?: 'asc' | 'desc';
 }
 
-// Tipos de error para el manejador global
+// Jerarquía de errores de aplicación: cada uno lleva su código HTTP
+// correspondiente para que el manejador global (manejarErrores.ts) sepa
+// cómo responder sin tener que inspeccionar el mensaje.
 export class ErrorAplicacion extends Error {
   public readonly codigoHttp: number;
   public readonly esOperacional: boolean;

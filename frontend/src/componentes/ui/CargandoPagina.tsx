@@ -4,6 +4,8 @@ interface PropiedadesCargandoPagina {
   mensaje?: string;
 }
 
+// Pantalla de carga a página completa, usada mientras se verifica la
+// sesión o mientras el code-splitting de rutas trae el chunk de una página.
 export default function CargandoPagina({ mensaje = 'Cargando...' }: PropiedadesCargandoPagina) {
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-50">

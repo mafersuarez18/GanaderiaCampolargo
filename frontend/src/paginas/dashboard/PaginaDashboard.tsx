@@ -10,6 +10,8 @@ import ListaPartosProximos from './componentes/ListaPartosProximos';
 import Icono from '../../componentes/ui/Icono';
 import { Link } from 'react-router-dom';
 
+// Resumen ejecutivo del sistema: KPIs generales y los widgets de las
+// componentes/ (gráficas y listas) que consumen el mismo endpoint agregado.
 interface ResumenDashboard {
   totalAnimales: number;
   animalesPorFinca: Array<{ finca: string; total: number; activos: number }>;
@@ -32,6 +34,32 @@ async function obtenerResumen(): Promise<ResumenDashboard> {
   return data.datos;
 }
 
+interface PorcentajeTratados {
+  totalAnimalesActivos: number;
+  animalesTratados: number;
+  porcentajeTratados: number;
+}
+
+interface RecurrenciaPatologias {
+  totalAnimalesConDiagnostico: number;
+  animalesConRecurrencia: number;
+  tasaRecurrencia: number;
+}
+
+async function obtenerPorcentajeTratados(): Promise<PorcentajeTratados> {
+  const inicioAnio = new Date(new Date().getFullYear(), 0, 1).toISOString();
+  const hoy = new Date().toISOString();
+  const { data } = await clienteHttp.get('/analytics/porcentaje-tratados', {
+    params: { desde: inicioAnio, hasta: hoy },
+  });
+  return data.datos;
+}
+
+async function obtenerRecurrenciaPatologias(): Promise<RecurrenciaPatologias> {
+  const { data } = await clienteHttp.get('/analytics/recurrencia-patologias');
+  return data.datos;
+}
+
 const variantesContenedor = {
   oculto: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.07 } },
@@ -47,6 +75,14 @@ export default function PaginaDashboard() {
     queryKey: ['dashboard-resumen'],
     queryFn: obtenerResumen,
     refetchInterval: 1000 * 60 * 5,
+  });
+  const { data: tratados, isLoading: cargandoTratados } = useQuery({
+    queryKey: ['dashboard-porcentaje-tratados'],
+    queryFn: obtenerPorcentajeTratados,
+  });
+  const { data: recurrencia, isLoading: cargandoRecurrencia } = useQuery({
+    queryKey: ['dashboard-recurrencia-patologias'],
+    queryFn: obtenerRecurrenciaPatologias,
   });
 
   const hora = new Date().getHours();
@@ -157,6 +193,53 @@ export default function PaginaDashboard() {
               )}
             </div>
           ))}
+        </div>
+      </motion.div>
+
+      {/* Indicadores clínicos */}
+      <motion.div variants={variantesElemento}>
+        <p className="text-xs font-semibold text-on-surface-variant mb-3 uppercase tracking-wider">
+          Indicadores Clínicos
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="tarjeta-vidrio rounded-2xl p-4">
+            {cargandoTratados ? (
+              <EsqueletoTarjeta className="h-16" />
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Icono nombre="vaccines" clase="text-[16px] text-primary" />
+                  <p className="text-xs text-on-surface-variant truncate">Animales tratados este año</p>
+                </div>
+                <p className="text-xl font-bold text-on-surface">
+                  {tratados?.porcentajeTratados.toFixed(1) ?? '—'}
+                  <span className="text-sm font-normal text-on-surface-variant">%</span>
+                </p>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  {tratados?.animalesTratados ?? 0} de {tratados?.totalAnimalesActivos ?? 0} animales activos
+                </p>
+              </>
+            )}
+          </div>
+          <div className="tarjeta-vidrio rounded-2xl p-4">
+            {cargandoRecurrencia ? (
+              <EsqueletoTarjeta className="h-16" />
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Icono nombre="autorenew" clase="text-[16px] text-error" />
+                  <p className="text-xs text-on-surface-variant truncate">Recurrencia de patologías</p>
+                </div>
+                <p className="text-xl font-bold text-on-surface">
+                  {recurrencia?.tasaRecurrencia.toFixed(1) ?? '—'}
+                  <span className="text-sm font-normal text-on-surface-variant">%</span>
+                </p>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  {recurrencia?.animalesConRecurrencia ?? 0} de {recurrencia?.totalAnimalesConDiagnostico ?? 0} animales con diagnóstico
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </motion.div>
 

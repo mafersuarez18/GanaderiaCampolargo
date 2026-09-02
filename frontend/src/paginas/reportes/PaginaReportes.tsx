@@ -6,6 +6,8 @@ import Icono from '../../componentes/ui/Icono';
 import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
 import type { AnimalResumen } from '../../componentes/ui/BuscadorAnimal';
 
+// Central de descargas: cada tarjeta dispara un GET al backend que
+// devuelve el archivo (PDF o Excel) directamente como blob.
 interface TipoReporte {
   id: string;
   titulo: string;

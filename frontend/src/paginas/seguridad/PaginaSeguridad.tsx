@@ -7,6 +7,9 @@ import Modal, { ModalConfirmacion } from '../../componentes/ui/Modal';
 import { useAutenticacion } from '../../hooks/useAutenticacion';
 import Icono from '../../componentes/ui/Icono';
 
+// Administración de usuarios, roles y sus privilegios — página restringida
+// a administradores (ver requerirPrivilegio('roles.gestionar') /
+// 'usuarios.*' en el backend).
 interface Rol {
   id: string;
   nombre: string;

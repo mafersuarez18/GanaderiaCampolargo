@@ -1,6 +1,10 @@
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { EstadoAnimal, EstadoSanitario, PrioridadAlerta, EstadoGestacion } from '@prisma/client';
 
+// Indicadores agregados para el dashboard y los reportes analíticos: todo
+// lo que aquí se calcula son cifras de solo lectura derivadas de otros
+// módulos (animales, gestaciones, tratamientos...), no hay escritura.
+
 export async function obtenerResumenDashboard() {
   // Ejecutar todas las consultas en paralelo para minimizar latencia
   const [
@@ -96,8 +100,10 @@ export async function obtenerResumenDashboard() {
     ? (gestacionesActivas / hembrasTotales) * 100
     : 0;
 
-  const tasaNatalidad = totalAnimales > 0
-    ? (nacimientos / totalAnimales) * 100
+  // Se calcula sobre el total de hembras activas (no sobre el rebaño completo)
+  // para no diluir el indicador con animales que biológicamente no pueden parir.
+  const tasaNatalidad = hembrasTotales > 0
+    ? (nacimientos / hembrasTotales) * 100
     : 0;
 
   // Días abiertos: promedio de tiempo entre parto y nueva gestación (simplificado)
@@ -139,14 +145,14 @@ export async function obtenerResumenDashboard() {
 }
 
 async function calcularDiasAbiertoPromedio(): Promise<number> {
-  // Calcula promedio de días entre último parto y fecha actual (o nueva gestación)
+  // Calcula promedio de días entre último parto y fecha actual (o nueva gestación),
+  // sobre la totalidad del historial de gestaciones finalizadas en parto.
   const gestacionesConParto = await prisma.gestacion.findMany({
     where: { estadoGestacion: EstadoGestacion.FINALIZADA_PARTO },
     select: {
       fechaPartoEsperado: true,
       madreId: true,
     },
-    take: 50,
     orderBy: { fechaPartoEsperado: 'desc' },
   });
 
@@ -191,6 +197,74 @@ export async function obtenerEvolucionMensual(anio: number) {
   );
 
   return datos;
+}
+
+// ─── Porcentaje de animales tratados en un período ────────────────────────────
+
+export async function obtenerPorcentajeAnimalesTratados(desde: Date, hasta: Date, fincaId?: string) {
+  const [totalActivos, tratamientos] = await Promise.all([
+    prisma.animal.count({
+      where: { estado: EstadoAnimal.ACTIVO, ...(fincaId && { lote: { fincaId } }) },
+    }),
+    prisma.tratamiento.findMany({
+      where: {
+        fechaInicio: { gte: desde, lte: hasta },
+        ...(fincaId && { historialMedico: { animal: { lote: { fincaId } } } }),
+      },
+      select: { historialMedico: { select: { animalId: true } } },
+    }),
+  ]);
+
+  const animalesTratados = new Set(tratamientos.map((t) => t.historialMedico.animalId));
+
+  return {
+    desde,
+    hasta,
+    totalAnimalesActivos: totalActivos,
+    animalesTratados: animalesTratados.size,
+    porcentajeTratados: totalActivos > 0
+      ? +((animalesTratados.size / totalActivos) * 100).toFixed(1)
+      : 0,
+  };
+}
+
+// ─── Tasa de recurrencia de patologías ────────────────────────────────────────
+// Proporción de animales con diagnóstico que presentan la MISMA enfermedad
+// diagnosticada en 2 o más ocasiones distintas (recaída/reincidencia).
+
+export async function obtenerTasaRecurrenciaPatologias(fincaId?: string) {
+  const enfermedades = await prisma.enfermedadDiagnosticada.findMany({
+    where: {
+      ...(fincaId && { historialMedico: { animal: { lote: { fincaId } } } }),
+    },
+    select: {
+      nombreEnfermedad: true,
+      historialMedico: { select: { animalId: true } },
+    },
+  });
+
+  const conteoPorAnimalEnfermedad = new Map<string, number>();
+  const animalesConDiagnostico = new Set<string>();
+
+  for (const e of enfermedades) {
+    const animalId = e.historialMedico.animalId;
+    animalesConDiagnostico.add(animalId);
+    const clave = `${animalId}::${e.nombreEnfermedad.trim().toLowerCase()}`;
+    conteoPorAnimalEnfermedad.set(clave, (conteoPorAnimalEnfermedad.get(clave) ?? 0) + 1);
+  }
+
+  const animalesConRecurrencia = new Set<string>();
+  for (const [clave, conteo] of conteoPorAnimalEnfermedad) {
+    if (conteo >= 2) animalesConRecurrencia.add(clave.split('::')[0]!);
+  }
+
+  return {
+    totalAnimalesConDiagnostico: animalesConDiagnostico.size,
+    animalesConRecurrencia: animalesConRecurrencia.size,
+    tasaRecurrencia: animalesConDiagnostico.size > 0
+      ? +((animalesConRecurrencia.size / animalesConDiagnostico.size) * 100).toFixed(1)
+      : 0,
+  };
 }
 
 export async function obtenerDistribucionPorEdad() {

@@ -13,19 +13,24 @@ import {
   controladorCrearGestacion,
   controladorCerrarGestacion,
   controladorIndicadores,
+  controladorEfectividadInseminacion,
 } from './reproduccion.controlador';
 
 const enrutador = Router();
 
 enrutador.use(verificarToken);
 
-// GET /api/v1/reproduccion/partos-proximos
+// El orden importa: las rutas con segmento fijo (/partos-proximos,
+// /gestaciones, /indicadores...) deben declararse antes de "/:id" para que
+// Express no las confunda con un id de evento.
+
+// GET /api/reproduccion/partos-proximos
 enrutador.get('/partos-proximos', requerirPrivilegio('reproduccion.ver'), controladorPartosProximos);
 
-// GET /api/v1/reproduccion/gestaciones
+// GET /api/reproduccion/gestaciones
 enrutador.get('/gestaciones', requerirPrivilegio('reproduccion.ver'), controladorGestacionesActivas);
 
-// POST /api/v1/reproduccion/gestaciones
+// POST /api/reproduccion/gestaciones
 enrutador.post(
   '/gestaciones',
   requerirPrivilegio('reproduccion.crear'),
@@ -33,7 +38,7 @@ enrutador.post(
   controladorCrearGestacion,
 );
 
-// PATCH /api/v1/reproduccion/gestaciones/:id/cerrar
+// PATCH /api/reproduccion/gestaciones/:id/cerrar
 enrutador.patch(
   '/gestaciones/:id/cerrar',
   requerirPrivilegio('reproduccion.crear'),
@@ -41,16 +46,19 @@ enrutador.patch(
   controladorCerrarGestacion,
 );
 
-// GET /api/v1/reproduccion/indicadores
+// GET /api/reproduccion/indicadores
 enrutador.get('/indicadores', requerirPrivilegio('reproduccion.ver'), controladorIndicadores);
 
-// GET /api/v1/reproduccion
+// GET /api/reproduccion/efectividad-inseminacion
+enrutador.get('/efectividad-inseminacion', requerirPrivilegio('reproduccion.ver'), controladorEfectividadInseminacion);
+
+// GET /api/reproduccion
 enrutador.get('/', requerirPrivilegio('reproduccion.ver'), controladorListarEventos);
 
-// GET /api/v1/reproduccion/:id
+// GET /api/reproduccion/:id
 enrutador.get('/:id', requerirPrivilegio('reproduccion.ver'), controladorObtenerEvento);
 
-// POST /api/v1/reproduccion
+// POST /api/reproduccion
 enrutador.post(
   '/',
   requerirPrivilegio('reproduccion.crear'),

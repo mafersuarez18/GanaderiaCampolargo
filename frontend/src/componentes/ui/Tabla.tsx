@@ -3,6 +3,9 @@ import clsx from 'clsx';
 import { EsqueletoLinea } from './EsqueletoTarjeta';
 import Icono from './Icono';
 
+// Tabla genérica y tipada: cada página define sus columnas (con un
+// `render` opcional para celdas personalizadas) y le pasa sus datos; la
+// tabla se encarga de esqueletos de carga, orden, selección y estado vacío.
 export interface ColumnaTabla<T> {
   clave: string;
   encabezado: string;

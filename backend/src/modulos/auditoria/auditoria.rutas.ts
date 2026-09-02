@@ -11,6 +11,9 @@ const enrutador = Router();
 
 enrutador.use(verificarToken, requerirPrivilegio('auditoria.ver'));
 
+// Único endpoint del módulo: listado paginado y filtrable de
+// RegistroAuditoria (los registros en sí los crea el middleware
+// registrarAuditoria desde cada módulo, no este archivo).
 enrutador.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filtros = z.object({

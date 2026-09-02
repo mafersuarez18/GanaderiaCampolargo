@@ -1,6 +1,9 @@
 import { Prisma, EstadoAnimal, Sexo } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 
+// Acceso a datos puro (consultas Prisma), sin reglas de negocio — esas
+// viven en animales.servicio.ts.
+
 export interface FiltrosAnimal {
   busqueda?: string;
   fincaId?: string;
@@ -96,6 +99,8 @@ export async function listarAnimales(filtros: FiltrosAnimal = {}) {
   return { registros, total };
 }
 
+// Se usa tanto para la ficha de detalle como para validar relaciones
+// (padre/madre) al crear o actualizar otro animal.
 export async function obtenerAnimalPorId(id: string) {
   return prisma.animal.findUnique({
     where: { id },

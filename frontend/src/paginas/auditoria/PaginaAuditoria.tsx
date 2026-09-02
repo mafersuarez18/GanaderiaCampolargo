@@ -7,6 +7,8 @@ import Paginacion from '../../componentes/ui/Paginacion';
 import useDebounce from '../../hooks/useDebounce';
 import Icono from '../../componentes/ui/Icono';
 
+// Historial de acciones del sistema (quién hizo qué, cuándo y desde dónde),
+// solo lectura y accesible únicamente para administradores.
 interface RegistroAuditoria {
   id: string;
   accion: string;

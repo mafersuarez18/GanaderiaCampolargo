@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { RespuestaApi, MetaPaginacion } from '../tipos/respuesta';
 
-// Funciones auxiliares para enviar respuestas estandarizadas
+// Atajos para responder siempre con la misma forma (RespuestaApi), en vez
+// de armar el objeto { exito, mensaje, datos, ... } a mano en cada controlador.
 
 export function respuestaExito<T>(
   res: Response,

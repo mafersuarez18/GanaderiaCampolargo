@@ -19,10 +19,13 @@ const enrutador = Router();
 
 enrutador.use(verificarToken);
 
-// GET /api/v1/animales/razas — debe ir antes que /:id para no confundirse con el param
+// Las mutaciones (crear/actualizar/eliminar) quedan registradas en la
+// auditoría; las lecturas no, para no saturarla.
+
+// GET /api/animales/razas — debe ir antes que /:id para no confundirse con el param
 enrutador.get('/razas', requerirPrivilegio('animales.ver'), controladorListarRazas);
 
-// POST /api/v1/animales/razas — registrar una raza nueva (usado desde el
+// POST /api/animales/razas — registrar una raza nueva (usado desde el
 // formulario de animal cuando la raza escrita no existe en el catálogo)
 enrutador.post(
   '/razas',
@@ -31,16 +34,16 @@ enrutador.post(
   controladorCrearRaza,
 );
 
-// GET /api/v1/animales/arete/:arete
+// GET /api/animales/arete/:arete
 enrutador.get('/arete/:arete', requerirPrivilegio('animales.ver'), controladorBuscarPorArete);
 
-// GET /api/v1/animales
+// GET /api/animales
 enrutador.get('/', requerirPrivilegio('animales.ver'), controladorListarAnimales);
 
-// GET /api/v1/animales/:id
+// GET /api/animales/:id
 enrutador.get('/:id', requerirPrivilegio('animales.ver'), controladorObtenerAnimal);
 
-// POST /api/v1/animales
+// POST /api/animales
 enrutador.post(
   '/',
   requerirPrivilegio('animales.crear'),
@@ -48,7 +51,7 @@ enrutador.post(
   controladorCrearAnimal,
 );
 
-// PATCH /api/v1/animales/:id
+// PATCH /api/animales/:id
 enrutador.patch(
   '/:id',
   requerirPrivilegio('animales.editar'),
@@ -56,7 +59,7 @@ enrutador.patch(
   controladorActualizarAnimal,
 );
 
-// DELETE /api/v1/animales/:id
+// DELETE /api/animales/:id
 enrutador.delete(
   '/:id',
   requerirPrivilegio('animales.eliminar'),

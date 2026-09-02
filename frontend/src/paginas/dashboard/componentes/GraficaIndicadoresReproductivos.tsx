@@ -4,6 +4,8 @@ import {
 } from 'recharts';
 import EsqueletoTarjeta from '../../../componentes/ui/EsqueletoTarjeta';
 
+// Radar con los indicadores reproductivos clave del año, todos
+// normalizados a una escala 0-100 para poder graficarlos juntos.
 interface IndicadoresReproductivos {
   tasaPreniez: number;
   tasaNatalidad: number;

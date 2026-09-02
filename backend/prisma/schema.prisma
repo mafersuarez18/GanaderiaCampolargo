@@ -1,6 +1,6 @@
 // =============================================================
 // PRISMA SCHEMA — Sistema de Gestión Veterinaria Campolargo
-// Base de datos: PostgreSQL 18 + PostGIS 3.6.2
+// Base de datos: PostgreSQL 18
 // Todo en español según requerimiento del proyecto
 // =============================================================
 
@@ -12,7 +12,11 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
-  extensions = [postgis, unaccent, pg_trgm]
+  // Las coordenadas GPS se guardan como Float (latitud/longitud), no como
+  // tipos geométricos nativos, así que no se depende de la extensión
+  // PostGIS — solo de unaccent (búsquedas sin distinguir tildes) y pg_trgm
+  // (búsquedas por similitud de texto).
+  extensions = [unaccent, pg_trgm]
 }
 
 // =============================================================
@@ -200,7 +204,7 @@ model Finca {
   hectareas    Float?
   descripcion  String?
 
-  // Coordenadas del centro geográfico de la finca (PostGIS)
+  // Coordenadas del centro geográfico de la finca
   latitudCentro  Float?
   longitudCentro Float?
 
@@ -733,7 +737,7 @@ model DispositivoGPS {
 
 model RegistroUbicacion {
   id              String   @id @default(cuid())
-  latitud         Float    // Coordenada decimal (PostGIS POINT)
+  latitud         Float    // Coordenada decimal
   longitud        Float    // Coordenada decimal
   altitud         Float?   // Metros sobre el nivel del mar
   precision       Float?   // Precisión GPS en metros

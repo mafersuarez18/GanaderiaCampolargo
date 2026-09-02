@@ -16,6 +16,10 @@ import {
   respuestaSinContenido,
 } from '../../compartido/utilidades/respuestaHttp';
 
+// Gestión de cuentas de usuario. El cambio de contraseña vive en su propio
+// endpoint (exige la contraseña actual) en vez de pasar por
+// controladorActualizarUsuario, que es de uso administrativo.
+
 const esquemaCrear = z.object({
   nombre:     z.string().min(2).max(100),
   apellido:   z.string().min(2).max(100),

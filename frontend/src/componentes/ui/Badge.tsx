@@ -1,5 +1,9 @@
 import clsx from 'clsx';
 
+// Etiqueta pequeña de estado (verde, rojo, amarillo...), con variantes
+// semánticas listas para usar más abajo (BadgeEstadoAnimal, BadgePrioridad,
+// BadgeRol) que mapean cada valor del dominio a su color correspondiente.
+
 type VarianteBadge = 'verde' | 'tierra' | 'rojo' | 'amarillo' | 'azul' | 'gris' | 'morado';
 type TamanoBadge = 'xs' | 'sm' | 'md';
 

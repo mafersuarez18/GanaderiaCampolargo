@@ -1,5 +1,8 @@
 import clsx from 'clsx';
 
+// Placeholders animados ("skeleton") para mostrar mientras carga contenido
+// real, evitando el salto brusco de layout cuando llegan los datos.
+
 interface PropiedadesEsqueletoTarjeta {
   className?: string;
 }

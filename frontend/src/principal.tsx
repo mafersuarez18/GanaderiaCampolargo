@@ -7,6 +7,9 @@ import { Toaster } from 'react-hot-toast';
 import App from './App';
 import './estilos/global.css';
 
+// Punto de entrada de la SPA: monta el árbol de React con el router, el
+// cliente de React Query (caché de datos del servidor) y el sistema de
+// notificaciones toast, todos compartidos por toda la aplicación.
 const clienteQuery = new QueryClient({
   defaultOptions: {
     queries: {

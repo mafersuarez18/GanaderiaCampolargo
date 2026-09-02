@@ -6,6 +6,8 @@ import { useAutenticacion } from '../../hooks/useAutenticacion';
 import Icono from '../../componentes/ui/Icono';
 import toast from 'react-hot-toast';
 
+// CRUD de lotes (agrupaciones de animales dentro de una finca), con
+// filtro por finca.
 interface Finca {
   id: string;
   nombre: string;

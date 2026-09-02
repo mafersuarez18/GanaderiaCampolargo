@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 
 // ── Tipos ───────────────────────────────────────────────────────────────────
 
+// CRUD de fincas, con sus lotes visibles en la ficha de cada una.
 interface Finca {
   id: string;
   nombre: string;

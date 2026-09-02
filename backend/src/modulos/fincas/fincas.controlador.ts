@@ -17,6 +17,8 @@ import {
 } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 
+// Valida la entrada HTTP con Zod y delega en el servicio.
+
 const esquemaFinca = z.object({
   nombre:         z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100),
   municipio:      z.string().min(2).max(100),

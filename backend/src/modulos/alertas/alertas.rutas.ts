@@ -17,9 +17,10 @@ import {
 
 const enrutador = Router();
 
+// Todas las rutas de este módulo requieren sesión iniciada.
 enrutador.use(verificarToken);
 
-// ── GET /api/v1/alertas — listar reglas de alerta ────────────────────────────
+// ── GET /api/alertas — listar reglas de alerta ────────────────────────────
 enrutador.get('/', requerirPrivilegio('alertas.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const reglas = await prisma.reglaAlerta.findMany({
@@ -38,7 +39,7 @@ enrutador.get('/', requerirPrivilegio('alertas.ver'), async (req: Request, res: 
   } catch (error) { return next(error); }
 });
 
-// ── GET /api/v1/alertas/resumen — resumen de notificaciones por categoría ─────
+// ── GET /api/alertas/resumen — resumen de notificaciones por categoría ─────
 enrutador.get('/resumen', requerirPrivilegio('alertas.ver'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const usuarioId = req.usuarioActual!.id;
@@ -83,10 +84,12 @@ enrutador.get('/resumen', requerirPrivilegio('alertas.ver'), async (req: Request
   } catch (error) { return next(error); }
 });
 
-// ── POST /api/v1/alertas/evaluar — disparo manual del motor ──────────────────
+// ── POST /api/alertas/evaluar — disparo manual del motor ──────────────────
 enrutador.post('/evaluar', requerirPrivilegio('alertas.evaluar'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const resultado = await evaluarTodasLasReglas(true); // skipThrottle = true en disparo manual
+    // Disparo manual: se ignora el throttle de evaluarCadaHoras para que el
+    // usuario vea el resultado de inmediato, sin esperar al próximo ciclo.
+    const resultado = await evaluarTodasLasReglas(true);
     return respuestaExito(res, {
       mensaje: `Motor ejecutado: ${resultado.evaluadas} regla(s) evaluada(s)`,
       ...resultado,
@@ -108,7 +111,7 @@ const esquemaRegla = z.object({
   usuarioIds:             z.array(z.string().min(1)).default([]),
 });
 
-// ── POST /api/v1/alertas — crear regla de alerta ─────────────────────────────
+// ── POST /api/alertas — crear regla de alerta ─────────────────────────────
 enrutador.post('/', requerirPrivilegio('alertas.gestionar_reglas'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { usuarioIds, ...datos } = esquemaRegla.parse(req.body);
@@ -128,7 +131,7 @@ enrutador.post('/', requerirPrivilegio('alertas.gestionar_reglas'), async (req: 
   } catch (error) { return next(error); }
 });
 
-// ── PATCH /api/v1/alertas/:id — actualizar regla ─────────────────────────────
+// ── PATCH /api/alertas/:id — actualizar regla ─────────────────────────────
 enrutador.patch('/:id', requerirPrivilegio('alertas.gestionar_reglas'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { usuarioIds, ...datos } = esquemaRegla.partial().parse(req.body);
@@ -151,7 +154,7 @@ enrutador.patch('/:id', requerirPrivilegio('alertas.gestionar_reglas'), async (r
   } catch (error) { return next(error); }
 });
 
-// ── DELETE /api/v1/alertas/:id — eliminar regla ───────────────────────────────
+// ── DELETE /api/alertas/:id — eliminar regla ───────────────────────────────
 enrutador.delete('/:id', requerirPrivilegio('alertas.gestionar_reglas'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     await prisma.reglaAlerta.delete({

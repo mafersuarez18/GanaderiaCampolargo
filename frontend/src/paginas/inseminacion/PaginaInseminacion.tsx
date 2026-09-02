@@ -12,6 +12,10 @@ import Icono from '../../componentes/ui/Icono';
 import Paginacion from '../../componentes/ui/Paginacion';
 import toast from 'react-hot-toast';
 
+// Laboratorio de inseminación artificial: catálogo de sementales,
+// inventario de dosis de semen y el registro de cada inseminación
+// aplicada (que descuenta una dosis del inventario).
+
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface Semental {
   id: string;
@@ -59,12 +63,21 @@ interface Inseminacion {
 
 interface Animal { id: string; numeroArete: string; nombre: string | null; lote?: { finca?: { nombre: string } } }
 
+interface EfectividadSemental {
+  sementalId: string;
+  sementalNombre: string;
+  totalInseminaciones: number;
+  inseminacionesEfectivas: number;
+  tasaEfectividad: number;
+}
+
 // ── Fetchers ──────────────────────────────────────────────────────────────────
 const api = {
   sementales:    () => clienteHttp.get('/inseminacion/sementales').then((r) => r.data.datos ?? []),
   inventario:    (p: number) => clienteHttp.get('/inseminacion/inventario', { params: { pagina: p, porPagina: 20 } }).then((r) => r.data),
   inseminaciones:(p: number) => clienteHttp.get('/inseminacion', { params: { pagina: p, porPagina: 20 } }).then((r) => r.data),
   animalesHembra:() => clienteHttp.get('/animales', { params: { sexo: 'HEMBRA', estado: 'ACTIVO', porPagina: 200 } }).then((r) => r.data.datos ?? []),
+  efectividad:   () => clienteHttp.get('/reproduccion/efectividad-inseminacion').then((r) => r.data.datos ?? []),
 };
 
 // ── Esquema form inseminación ─────────────────────────────────────────────────
@@ -94,7 +107,7 @@ export default function PaginaInseminacion() {
   const puedeRegistrar = esAdministrador || esVeterinario;
   const qc = useQueryClient();
 
-  const [pestaña,      setPestaña]      = useState<'inseminaciones' | 'inventario' | 'sementales'>('inseminaciones');
+  const [pestaña,      setPestaña]      = useState<'inseminaciones' | 'inventario' | 'sementales' | 'efectividad'>('inseminaciones');
   const [pagIns,       setPagIns]       = useState(1);
   const [pagInv,       setPagInv]       = useState(1);
   const [modalIns,     setModalIns]     = useState(false);
@@ -106,6 +119,11 @@ export default function PaginaInseminacion() {
   const { data: dataInv,  isLoading: cargInv  } = useQuery({ queryKey: ['inv-semen', pagInv],    queryFn: () => api.inventario(pagInv) });
   const { data: dataIns,  isLoading: cargIns  } = useQuery({ queryKey: ['inseminaciones', pagIns], queryFn: () => api.inseminaciones(pagIns) });
   const { data: hembras = [] } = useQuery<Animal[]>({ queryKey: ['hembras-select'], queryFn: api.animalesHembra, enabled: modalIns });
+  const { data: efectividad = [], isLoading: cargEfec } = useQuery<EfectividadSemental[]>({
+    queryKey: ['efectividad-inseminacion'],
+    queryFn: api.efectividad,
+    enabled: pestaña === 'efectividad',
+  });
 
   const lotes: LoteSemen[]        = dataInv?.datos ?? [];
   const inseminaciones: Inseminacion[] = dataIns?.datos ?? [];
@@ -191,6 +209,7 @@ export default function PaginaInseminacion() {
           { clave: 'inseminaciones', et: 'Inseminaciones', ico: 'biotech' },
           { clave: 'inventario',     et: 'Inventario semen', ico: 'inventory' },
           { clave: 'sementales',     et: 'Sementales', ico: 'pets' },
+          { clave: 'efectividad',    et: 'Efectividad IA', ico: 'insights' },
         ] as const).map((p) => (
           <button
             key={p.clave}
@@ -458,6 +477,51 @@ export default function PaginaInseminacion() {
               ))}
             </div>
           )}
+        </motion.div>
+      )}
+
+      {/* ── PESTAÑA: EFECTIVIDAD IA POR SEMENTAL ─────────────────────────────── */}
+      {pestaña === 'efectividad' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          {cargEfec ? (
+            <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-16 rounded-2xl bg-surface-container animate-pulse" />
+            ))}</div>
+          ) : !efectividad.length ? (
+            <VacioPanel icono="insights" texto="Sin datos de efectividad" subtexto="Se calcula a partir de las inseminaciones registradas con dosis vinculada a un semental" />
+          ) : (
+            <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
+                {['Semental', 'Inseminaciones', 'Efectivas', 'Efectividad'].map((h) => (
+                  <span key={h} className={h === 'Semental' ? '' : 'text-center'}>{h}</span>
+                ))}
+              </div>
+              {efectividad.map((e, idx) => (
+                <div
+                  key={e.sementalId}
+                  className={`grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-5 py-3.5 text-sm
+                    hover:bg-surface-container-low transition-colors
+                    ${idx < efectividad.length - 1 ? 'border-b border-outline-variant/10' : ''}`}
+                >
+                  <span className="font-semibold text-on-surface flex items-center gap-2">
+                    <Icono nombre="pets" clase="text-[16px] text-secondary" />
+                    {e.sementalNombre}
+                  </span>
+                  <span className="text-center text-on-surface-variant">{e.totalInseminaciones}</span>
+                  <span className="text-center text-on-surface-variant">{e.inseminacionesEfectivas}</span>
+                  <span className="text-center">
+                    <Badge variante={e.tasaEfectividad >= 60 ? 'verde' : e.tasaEfectividad >= 40 ? 'amarillo' : 'rojo'} tamano="xs">
+                      {e.tasaEfectividad}%
+                    </Badge>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[11px] text-on-surface-variant flex items-center gap-1.5">
+            <Icono nombre="info" clase="text-[13px]" />
+            Efectividad = inseminaciones cuya gestación resultante no terminó en aborto ni pérdida, sobre el total de inseminaciones de ese semental.
+          </p>
         </motion.div>
       )}
 

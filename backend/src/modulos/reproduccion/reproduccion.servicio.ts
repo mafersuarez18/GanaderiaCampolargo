@@ -3,6 +3,11 @@ import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado, ErrorValidacionDatos } from '../../compartido/tipos/respuesta';
 import { resolverNotificacionesDeEntidad } from '../notificaciones/notificaciones.servicio';
 
+// Ciclo reproductivo completo: eventos (celo, monta, inseminación,
+// diagnóstico), gestaciones abiertas/cerradas y los indicadores que se
+// calculan a partir de ese historial (tasas de preñez, natalidad, aborto,
+// repetición de celo, efectividad de IA por semental, etc.).
+
 // ─── Partos próximos ────────────────────────────────────────────────────────
 
 export async function listarPartosProximos(diasHorizonte: number = 30, limite: number = 20) {
@@ -28,18 +33,25 @@ export async function listarPartosProximos(diasHorizonte: number = 30, limite: n
     take: limite,
   });
 
-  return gestaciones.map((g) => ({
-    id: g.id,
-    madreId: g.madreId,
-    madreNumeroArete: g.madre.numeroArete,
-    madreNombre: g.madre.nombre,
-    finca: g.madre.lote.finca.nombre,
-    fechaPartoEsperado: g.fechaPartoEsperado,
-    diasRestantes: Math.max(
+  return gestaciones.map((g) => {
+    const diasRestantes = Math.max(
       0,
       Math.ceil((g.fechaPartoEsperado.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)),
-    ),
-  }));
+    );
+    const clasificacion: 'urgente' | 'proximo' | 'futuro' =
+      diasRestantes <= 7 ? 'urgente' : diasRestantes <= 30 ? 'proximo' : 'futuro';
+
+    return {
+      id: g.id,
+      madreId: g.madreId,
+      madreNumeroArete: g.madre.numeroArete,
+      madreNombre: g.madre.nombre,
+      finca: g.madre.lote.finca.nombre,
+      fechaPartoEsperado: g.fechaPartoEsperado,
+      diasRestantes,
+      clasificacion,
+    };
+  });
 }
 
 // ─── Eventos reproductivos ───────────────────────────────────────────────────
@@ -264,6 +276,7 @@ export async function obtenerIndicadoresReproductivos(anio: number, fincaId?: st
     abortos,
     totalCelos,
     totalInseminaciones,
+    nacimientosAnio,
   ] = await Promise.all([
     prisma.animal.count({
       where: { sexo: Sexo.HEMBRA, estado: EstadoAnimal.ACTIVO, ...(fincaId && { lote: { fincaId } }) },
@@ -302,6 +315,12 @@ export async function obtenerIndicadoresReproductivos(anio: number, fincaId?: st
         ...(fincaId && { animal: { lote: { fincaId } } }),
       },
     }),
+    prisma.nacimiento.count({
+      where: {
+        fechaNacimiento: { gte: inicioAnio, lte: finAnio },
+        ...(fincaId && { gestacion: { madre: { lote: { fincaId } } } }),
+      },
+    }),
   ]);
 
   // Tasa de repetición de celo: animales con 2+ detecciones en el período
@@ -320,6 +339,26 @@ export async function obtenerIndicadoresReproductivos(anio: number, fincaId?: st
   }
   const animalesConRepeticion = Object.values(conteoCelosPorAnimal).filter((c) => c >= 2).length;
 
+  // Tasa de mortalidad de crías: animales fallecidos antes de cumplir su primer
+  // año de vida, dentro del período, sobre el total de nacimientos del período.
+  // No existe un campo "fechaMuerte" dedicado; se usa actualizadoEn como la
+  // fecha del último cambio de estado del animal (igual que en el dashboard).
+  const animalesFallecidos = await prisma.animal.findMany({
+    where: {
+      estado: EstadoAnimal.MUERTO,
+      fechaNacimiento: { not: null },
+      actualizadoEn: { gte: inicioAnio, lte: finAnio },
+      ...(fincaId && { lote: { fincaId } }),
+    },
+    select: { fechaNacimiento: true, actualizadoEn: true },
+  });
+  const criasFallecidas = animalesFallecidos.filter((a) => {
+    const edadDias = (a.actualizadoEn.getTime() - a.fechaNacimiento!.getTime()) / (1000 * 60 * 60 * 24);
+    return edadDias <= 365;
+  }).length;
+
+  const intervaloPartosPromedioDias = await calcularIntervaloPartosPromedio(fincaId);
+
   return {
     anio,
     totalHembras,
@@ -327,14 +366,99 @@ export async function obtenerIndicadoresReproductivos(anio: number, fincaId?: st
     gestacionesAnio,
     gestacionesParto,
     abortos,
+    nacimientosAnio,
+    criasFallecidas,
     tasaPreniez:        totalHembras > 0 ? +((gestacionesEnCurso / totalHembras) * 100).toFixed(1) : 0,
     tasaNatalidad:      gestacionesAnio > 0 ? +((gestacionesParto / gestacionesAnio) * 100).toFixed(1) : 0,
     tasaAborto:         gestacionesAnio > 0 ? +((abortos / gestacionesAnio) * 100).toFixed(1) : 0,
+    tasaMortalidadCrias: nacimientosAnio > 0 ? +((criasFallecidas / nacimientosAnio) * 100).toFixed(1) : 0,
     totalCelos,
     totalInseminaciones,
     animalesConRepeticion,
     tasaRepeticionCelo: totalInseminaciones > 0 ? +((animalesConRepeticion / totalInseminaciones) * 100).toFixed(1) : 0,
+    intervaloPartosPromedioDias,
   };
+}
+
+// Intervalo entre partos: promedio de días transcurridos entre partos
+// consecutivos de una misma hembra, sobre la totalidad de su historial
+// (no se acota al año consultado, ya que es un indicador de ciclo de vida).
+async function calcularIntervaloPartosPromedio(fincaId?: string): Promise<number | null> {
+  const partos = await prisma.gestacion.findMany({
+    where: {
+      estadoGestacion: EstadoGestacion.FINALIZADA_PARTO,
+      fechaPartoReal: { not: null },
+      ...(fincaId && { madre: { lote: { fincaId } } }),
+    },
+    select: { madreId: true, fechaPartoReal: true },
+    orderBy: { fechaPartoReal: 'asc' },
+  });
+
+  const fechasPorMadre = new Map<string, Date[]>();
+  for (const p of partos) {
+    if (!p.fechaPartoReal) continue;
+    const lista = fechasPorMadre.get(p.madreId) ?? [];
+    lista.push(p.fechaPartoReal);
+    fechasPorMadre.set(p.madreId, lista);
+  }
+
+  const intervalos: number[] = [];
+  for (const fechas of fechasPorMadre.values()) {
+    for (let i = 1; i < fechas.length; i++) {
+      intervalos.push((fechas[i]!.getTime() - fechas[i - 1]!.getTime()) / (1000 * 60 * 60 * 24));
+    }
+  }
+
+  if (!intervalos.length) return null;
+  return +(intervalos.reduce((a, b) => a + b, 0) / intervalos.length).toFixed(1);
+}
+
+// ─── Efectividad de la inseminación artificial por semental ──────────────────
+// Efectiva = la inseminación derivó en una gestación que no terminó en aborto
+// ni en pérdida (sigue en curso o finalizó en parto).
+
+export async function obtenerEfectividadInseminacion(fincaId?: string) {
+  const inseminaciones = await prisma.inseminacionArtificial.findMany({
+    where: {
+      inventarioSemen: { isNot: null },
+      ...(fincaId && { eventoReproductivo: { animal: { lote: { fincaId } } } }),
+    },
+    select: {
+      inventarioSemen: {
+        select: { sementalId: true, semental: { select: { nombre: true } } },
+      },
+      eventoReproductivo: {
+        select: { gestacion: { select: { estadoGestacion: true } } },
+      },
+    },
+  });
+
+  const porSemental = new Map<string, { nombre: string; total: number; efectivas: number }>();
+  for (const ins of inseminaciones) {
+    const sementalId = ins.inventarioSemen?.sementalId;
+    if (!sementalId) continue;
+    const entrada = porSemental.get(sementalId) ?? {
+      nombre: ins.inventarioSemen!.semental.nombre,
+      total: 0,
+      efectivas: 0,
+    };
+    entrada.total += 1;
+    const estadoGestacion = ins.eventoReproductivo.gestacion?.estadoGestacion;
+    if (estadoGestacion && estadoGestacion !== 'FINALIZADA_ABORTO' && estadoGestacion !== 'PERDIDA') {
+      entrada.efectivas += 1;
+    }
+    porSemental.set(sementalId, entrada);
+  }
+
+  return Array.from(porSemental.entries())
+    .map(([sementalId, v]) => ({
+      sementalId,
+      sementalNombre: v.nombre,
+      totalInseminaciones: v.total,
+      inseminacionesEfectivas: v.efectivas,
+      tasaEfectividad: v.total > 0 ? +((v.efectivas / v.total) * 100).toFixed(1) : 0,
+    }))
+    .sort((a, b) => b.totalInseminaciones - a.totalInseminaciones);
 }
 
 export async function cerrarGestacion(

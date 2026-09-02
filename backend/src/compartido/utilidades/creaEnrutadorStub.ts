@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 
-// Crea un enrutador temporal para módulos aún no implementados
+// Placeholder para un módulo que todavía no tiene rutas propias: cualquier
+// petición a él responde 501 en vez de un 404 genérico, dejando claro que
+// el módulo existe pero está pendiente.
 export function crearEnrutadorStub(nombreModulo: string): Router {
   const enrutador = Router();
   enrutador.all('*', (_req: Request, res: Response) => {

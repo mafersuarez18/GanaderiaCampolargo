@@ -14,25 +14,29 @@ const enrutador = Router();
 
 enrutador.use(verificarToken);
 
-// GET /api/v1/notificaciones
+// "abordar" (estado DESCARTADA) es distinto de "leer": una notificación
+// leída sigue contando como pendiente hasta que el usuario la resuelve o
+// el sistema la resuelve automáticamente (ver resolverNotificacionesDeEntidad).
+
+// GET /api/notificaciones
 enrutador.get('/', autenticado, controladorListarNotificaciones);
 
-// GET /api/v1/notificaciones/no-leidas/conteo
+// GET /api/notificaciones/no-leidas/conteo
 enrutador.get('/no-leidas/conteo', autenticado, controladorContarNoLeidas);
 
-// PATCH /api/v1/notificaciones/marcar-todas-leidas
+// PATCH /api/notificaciones/marcar-todas-leidas
 enrutador.patch('/marcar-todas-leidas', autenticado, controladorMarcarTodasLeidas);
 
-// PATCH /api/v1/notificaciones/:id/leer
+// PATCH /api/notificaciones/:id/leer
 enrutador.patch('/:id/leer', autenticado, controladorMarcarLeida);
 
-// PATCH /api/v1/notificaciones/abordar-todas
+// PATCH /api/notificaciones/abordar-todas
 enrutador.patch('/abordar-todas', autenticado, controladorAbordarTodasNotificaciones);
 
-// PATCH /api/v1/notificaciones/:id/abordar
+// PATCH /api/notificaciones/:id/abordar
 enrutador.patch('/:id/abordar', autenticado, controladorAbordarNotificacion);
 
-// DELETE /api/v1/notificaciones/:id
+// DELETE /api/notificaciones/:id
 enrutador.delete('/:id', autenticado, controladorEliminarNotificacion);
 
 export default enrutador;

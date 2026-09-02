@@ -15,6 +15,9 @@ import {
   ErrorValidacionDatos,
 } from '../../compartido/tipos/respuesta';
 
+// Reglas de negocio del módulo de fincas: nombre único y protección contra
+// el borrado de una finca que todavía tiene animales en alguno de sus lotes.
+
 export async function servicioListarFincas(filtros: FiltrosFinca) {
   return listarFincas(filtros);
 }

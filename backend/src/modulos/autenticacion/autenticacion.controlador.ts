@@ -6,6 +6,9 @@ import { TipoAccionAuditoria } from '@prisma/client';
 import prisma from '../../compartido/prisma/clientePrisma';
 import { logger } from '../../config/logger';
 
+// La autenticación se audita aparte del middleware genérico registrarAuditoria
+// porque, a diferencia del resto de los módulos, también interesa dejar
+// constancia de los intentos fallidos (no solo de las mutaciones exitosas).
 function registrarEnAuditoria(
   accion: TipoAccionAuditoria,
   descripcion: string,

@@ -19,6 +19,9 @@ import {
 } from '../../compartido/utilidades/respuestaHttp';
 import { construirMeta } from '../../compartido/utilidades/paginacion';
 
+// Valida la entrada HTTP con Zod y delega en el servicio; no contiene
+// lógica de negocio propia.
+
 const esquemaCrearAnimal = z.object({
   numeroArete:     z.string().min(1, 'El arete es requerido').max(50),
   nombre:          z.string().max(100).optional(),

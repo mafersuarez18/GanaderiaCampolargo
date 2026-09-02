@@ -16,6 +16,10 @@ import {
 } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
 
+// Una consulta médica puede traer, en el mismo POST, sus enfermedades
+// diagnosticadas, tratamientos y desparasitaciones asociadas — de ahí los
+// varios sub-esquemas que se anidan en esquemaHistorial.
+
 const esquemaDesparasitacion = z.object({
   medicamentoId:   z.string().min(1, 'El medicamento es requerido'),
   tipo:            z.nativeEnum(TipoDesparasitante),

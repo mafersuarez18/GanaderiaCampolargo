@@ -1,6 +1,9 @@
 import { Prisma, EstadoAnimal } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 
+// Acceso a datos puro (consultas Prisma); las reglas de negocio viven en
+// fincas.servicio.ts.
+
 export interface FiltrosFinca {
   busqueda?: string;
   pagina?: number;

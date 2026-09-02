@@ -16,7 +16,8 @@ const enrutador = Router();
 
 enrutador.use(verificarToken, requerirPrivilegio('roles.gestionar'));
 
-// ── Privilegios (catálogo) — deben ir antes de /:id para no ser capturadas ───
+// Las rutas de privilegios ("/privilegios/catalogo") van antes que "/:id"
+// para que Express no las confunda con un id de rol.
 enrutador.get('/privilegios/catalogo', controladorListarPrivilegios);
 enrutador.post('/privilegios/catalogo', registrarAuditoria('Crear privilegio', 'Privilegio'), controladorCrearPrivilegio);
 

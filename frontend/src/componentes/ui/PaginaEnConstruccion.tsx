@@ -6,6 +6,7 @@ interface PropiedadesPaginaEnConstruccion {
   nombreIcono?: string;
 }
 
+// Marcador de posición para un módulo que todavía no tiene página propia.
 export default function PaginaEnConstruccion({
   titulo,
   descripcion,
