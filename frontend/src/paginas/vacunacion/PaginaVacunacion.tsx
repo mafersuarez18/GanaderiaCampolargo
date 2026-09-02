@@ -671,7 +671,7 @@ export default function PaginaVacunacion() {
               </div>
             ) : (
               <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_90px_90px_110px] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
                   {['Lote', 'Animales', 'Al día', 'Cumplimiento'].map((h) => (
                     <span key={h} className={h === 'Lote' ? '' : 'text-center'}>{h}</span>
                   ))}
@@ -679,7 +679,7 @@ export default function PaginaVacunacion() {
                 {cumplimientoPorLote.map((l, idx) => (
                   <div
                     key={l.loteId}
-                    className={`grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-5 py-3.5 text-sm
+                    className={`grid grid-cols-[1fr_90px_90px_110px] gap-3 items-center px-5 py-3.5 text-sm
                       hover:bg-surface-container-low transition-colors
                       ${idx < cumplimientoPorLote.length - 1 ? 'border-b border-outline-variant/10' : ''}`}
                   >

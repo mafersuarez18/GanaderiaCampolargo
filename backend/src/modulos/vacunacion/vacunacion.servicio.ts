@@ -85,7 +85,6 @@ export async function actualizarCalendario(id: string, datos: Partial<DatosCalen
 export interface FiltrosRegistroVacunacion {
   animalId?:              string;
   calendarioVacunacionId?: string;
-  historialMedicoId?:     string;
   fincaId?:               string;
   desde?:                 Date;
   hasta?:                 Date;
@@ -94,10 +93,9 @@ export interface FiltrosRegistroVacunacion {
 }
 
 export async function listarRegistrosVacunacion(filtros: FiltrosRegistroVacunacion = {}) {
-  const { animalId, calendarioVacunacionId, historialMedicoId, fincaId, desde, hasta, pagina = 1, porPagina = 20 } = filtros;
+  const { animalId, calendarioVacunacionId, fincaId, desde, hasta, pagina = 1, porPagina = 20 } = filtros;
 
   const donde: Prisma.RegistroVacunacionWhereInput = {
-    ...(historialMedicoId     && { historialMedicoId }),
     ...(calendarioVacunacionId && { calendarioVacunacionId }),
     ...(animalId  && { animalId }),
     ...(fincaId   && { animal: { lote: { fincaId } } }),
@@ -133,7 +131,6 @@ export async function listarRegistrosVacunacion(filtros: FiltrosRegistroVacunaci
 export interface DatosRegistroVacunacion {
   animalId:               string;
   calendarioVacunacionId: string;
-  historialMedicoId?:     string;
   medicamentoId?:         string;
   fechaAplicacion:        Date;
   dosis?:                 string;
@@ -153,20 +150,12 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
   const animal = await prisma.animal.findUnique({ where: { id: datos.animalId }, select: { id: true } });
   if (!animal) throw new ErrorNoEncontrado('Animal no encontrado');
 
-  if (datos.historialMedicoId) {
-    const historial = await prisma.historialMedico.findUnique({
-      where: { id: datos.historialMedicoId },
-      select: { id: true },
-    });
-    if (!historial) throw new ErrorNoEncontrado('Historial médico no encontrado');
-  }
-
   // Calcular próxima fecha de aplicación sugerida
   const proximaFecha = new Date(
     datos.fechaAplicacion.getTime() + calendario.intervaloDias * 24 * 60 * 60 * 1000,
   );
 
-  const { aplicadoPorId, animalId, historialMedicoId, medicamentoId, calendarioVacunacionId, ...resto } = datos;
+  const { aplicadoPorId, animalId, medicamentoId, calendarioVacunacionId, ...resto } = datos;
 
   const registro = await prisma.registroVacunacion.create({
     data: {
@@ -175,7 +164,6 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
       animal: { connect: { id: animalId } },
       aplicadoPor: { connect: { id: aplicadoPorId } },
       calendarioVacunacion: { connect: { id: datos.calendarioVacunacionId } },
-      ...(historialMedicoId && { historialMedico: { connect: { id: historialMedicoId } } }),
       ...(medicamentoId && { medicamento: { connect: { id: medicamentoId } } }),
     },
     include: {

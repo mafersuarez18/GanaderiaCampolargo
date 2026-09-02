@@ -13,9 +13,8 @@ datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   // Las coordenadas GPS se guardan como Float (latitud/longitud), no como
-  // tipos geométricos nativos, así que no se depende de la extensión
-  // PostGIS — solo de unaccent (búsquedas sin distinguir tildes) y pg_trgm
-  // (búsquedas por similitud de texto).
+  // tipos geométricos nativos, así que solo hacen falta unaccent (búsquedas
+  // sin distinguir tildes) y pg_trgm (búsquedas por similitud de texto).
   extensions = [unaccent, pg_trgm]
 }
 
@@ -324,6 +323,7 @@ model Animal {
   // Relaciones con otros módulos
   historialesMedicos     HistorialMedico[]
   registrosVacunacion    RegistroVacunacion[]
+  programasDesparasitacion ProgramaDesparasitacion[]
   eventosReproductivos   EventoReproductivo[]
   gestacionesComoMadre   Gestacion[]          @relation("GestacionMadre")
   nacimientosComoCria    Nacimiento?          @relation("NacimientoCria")
@@ -387,9 +387,7 @@ model HistorialMedico {
   // Relaciones
   enfermedades              EnfermedadDiagnosticada[]
   tratamientos              Tratamiento[]
-  registrosVacunacion       RegistroVacunacion[]
   informacionEpidemiologica InformacionEpidemiologica?
-  desparasitaciones         ProgramaDesparasitacion[]
 
   @@index([animalId])
   @@index([veterinarioId])
@@ -409,7 +407,7 @@ model EnfermedadDiagnosticada {
   // Campos trasladados desde REGISTRO_MEDICO: en el modelo lógico del tomo,
   // el diagnóstico/pronóstico/plan/síntomas/tiempo de evolución se registran
   // por cada condición diagnosticada, no a nivel de la consulta general.
-  diagnostico     String?
+  diagnosticoDefinitivo String?
   pronostico      String?
   planDiagnostico String?
   tiempoEvolucion String?
@@ -486,8 +484,10 @@ model ProgramaDesparasitacion {
   via             String?
   observaciones   String?
 
-  historialMedicoId String @map("registro_medico_id")
-  historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+  // Igual que en vacunación: se identifica al animal directamente, sin
+  // depender de que la desparasitación haya nacido de una consulta médica.
+  animalId String @map("animal_id")
+  animal   Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
 
   // El producto usado siempre es un medicamento del catálogo (se crea al vuelo
   // si el veterinario escribe uno que aún no existe)
@@ -498,7 +498,7 @@ model ProgramaDesparasitacion {
   veterinarioId String? @map("veterinario_id")
   veterinario   Usuario? @relation("DesparasitacionesAplicadas", fields: [veterinarioId], references: [id], onDelete: SetNull)
 
-  @@index([historialMedicoId])
+  @@index([animalId])
   @@index([medicamentoId])
   @@map("programa_desparasitacion")
 }
@@ -537,24 +537,20 @@ model RegistroVacunacion {
   observaciones    String?
 
   // Vínculo directo al animal: una aplicación de vacuna no siempre nace de
-  // una consulta médica (p. ej. una jornada de vacunación en campo), así
-  // que no puede depender únicamente de historialMedico para saber a quién
-  // se le aplicó — de lo contrario el registro queda "huérfano" y el motor
-  // de alertas nunca puede evaluarlo.
+  // una consulta médica (p. ej. una jornada de vacunación en campo), así que
+  // el animal al que se le aplicó se identifica solo por esta columna, sin
+  // pasar por ningún historial médico.
   animalId               String   @map("animal_id")
-  historialMedicoId      String?  @map("registro_medico_id")
   calendarioVacunacionId String   @map("calendario_vacunacion_id")
   medicamentoId          String?
   aplicadoPorId          String   @map("veterinario_id")
 
   animal               Animal                @relation(fields: [animalId], references: [id], onDelete: Cascade)
-  historialMedico      HistorialMedico?      @relation(fields: [historialMedicoId], references: [id], onDelete: SetNull)
   calendarioVacunacion CalendarioVacunacion  @relation(fields: [calendarioVacunacionId], references: [id], onDelete: Restrict)
   medicamento          Medicamento?          @relation(fields: [medicamentoId], references: [id], onDelete: SetNull)
   aplicadoPor          Usuario              @relation("VacunasAplicadas", fields: [aplicadoPorId], references: [id], onDelete: Restrict)
 
   @@index([animalId])
-  @@index([historialMedicoId])
   @@index([calendarioVacunacionId])
   @@index([fechaAplicacion])
   @@map("registro_vacunacion")
@@ -753,7 +749,6 @@ model RegistroUbicacion {
   velocidad       Float?   // km/h (si el GPS lo provee)
   rumbo           Float?   // Dirección en grados
   fechaRegistro   DateTime @default(now())
-  esDatoSimulado  Boolean  @default(false) // false cuando venga de GPS real
 
   animalId         String
   dispositivoGPSId String? @map("dispositivo_gps_id")
@@ -911,16 +906,23 @@ model Notificacion {
   entidadId     String?            // ID de la entidad relacionada
   creadoEn      DateTime           @default(now())
 
-  usuarioId   String
+  // El destinatario se identifica de una de dos formas, nunca ambas ni
+  // ninguna (constraint "notificacion_destinatario_unico" a nivel de base de
+  // datos): directamente por usuarioId (notificación de sistema sin regla,
+  // p.ej. un correo de bienvenida) o, si la notificación nace de una regla de
+  // alerta, por reglaUsuarioId — la asignación regla-usuario (REGLA_USUARIO
+  // del modelo lógico del tomo) de la que se deriva el destinatario.
+  usuarioId   String?
   reglaId     String?
-  // Asignación regla-usuario que originó esta notificación, según el modelo
-  // lógico del tomo (REGLA_USUARIO). No reemplaza usuarioId/reglaId, que ya
-  // identifican directamente al destinatario y a la regla.
   reglaUsuarioId String? @map("regla_usuario_id")
 
-  usuario Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  regla   ReglaAlerta? @relation(fields: [reglaId], references: [id], onDelete: SetNull)
-  reglaUsuario ReglaAlertaUsuario? @relation(fields: [reglaUsuarioId], references: [id], onDelete: SetNull)
+  // Cascade en ambos: si desaparece el usuario directo o la asignación
+  // regla-usuario que dio origen a la notificación, no queda forma válida de
+  // conservarla (dejaría usuarioId y reglaUsuarioId nulos a la vez, lo que
+  // viola el CHECK), así que se elimina junto con su origen.
+  usuario      Usuario?            @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  regla        ReglaAlerta?        @relation(fields: [reglaId], references: [id], onDelete: SetNull)
+  reglaUsuario ReglaAlertaUsuario? @relation(fields: [reglaUsuarioId], references: [id], onDelete: Cascade)
 
   @@index([usuarioId])
   @@index([estado])

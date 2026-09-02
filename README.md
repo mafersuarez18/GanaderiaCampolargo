@@ -57,7 +57,6 @@ Reemplaza los registros físicos dispersos con un sistema web moderno que permit
 | Express | 4.x | Framework HTTP |
 | Prisma ORM | 6.x | Acceso a base de datos |
 | PostgreSQL | 18 | Base de datos relacional |
-| PostGIS | 3.6 | Extensión geoespacial habilitada para el módulo de geolocalización |
 | JWT (jsonwebtoken) | 9.x | Autenticación con tokens |
 | Zod | 3.x | Validación de esquemas |
 | PDFKit | 0.15+ | Generación de reportes en PDF |
@@ -106,8 +105,7 @@ Reemplaza los registros físicos dispersos con un sistema web moderno que permit
 ┌──────────────────────────────────────┐
 │        PostgreSQL 18                 │
 │   Base de datos: campolargo          │
-│   Extensiones: PostGIS, unaccent,    │
-│                pg_trgm               │
+│   Extensiones: unaccent, pg_trgm     │
 └──────────────────────────────────────┘
 ```
 

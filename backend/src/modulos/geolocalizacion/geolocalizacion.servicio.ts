@@ -92,7 +92,6 @@ export async function registrarUbicacionDispositivo(apiKey: string, datos: Datos
         animalId: dispositivo.animalId,
         dispositivoGPSId: dispositivo.id,
         ...datos,
-        esDatoSimulado: false,
       },
     }),
     // Cada posición recibida es, por definición, una señal del dispositivo:
@@ -347,7 +346,7 @@ export async function importarUbicacionesDesdeArchivo(
 
   const registros: {
     animalId: string; dispositivoGPSId: string; latitud: number; longitud: number;
-    altitud?: number; velocidad?: number; fechaRegistro?: Date; esDatoSimulado: boolean;
+    altitud?: number; velocidad?: number; fechaRegistro?: Date;
   }[] = [];
   const errores: string[] = [];
   let filasProcesadas = 0;
@@ -376,7 +375,6 @@ export async function importarUbicacionesDesdeArchivo(
       ...(altitud != null && { altitud }),
       ...(velocidad != null && { velocidad }),
       ...(fecha != null && { fechaRegistro: fecha }),
-      esDatoSimulado: false,
     });
   }
 

@@ -365,9 +365,9 @@ export default function PaginaInseminacion() {
           ) : (
             <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
               {/* Cabecera tabla */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
+              <div className="grid grid-cols-[1fr_90px_90px_100px_90px] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
                 {['Semental / Código', 'Disponibles', 'Motilidad', 'Vence', 'Estado'].map((h) => (
-                  <span key={h}>{h}</span>
+                  <span key={h} className={h === 'Semental / Código' ? '' : 'text-center'}>{h}</span>
                 ))}
               </div>
 
@@ -381,7 +381,7 @@ export default function PaginaInseminacion() {
                 return (
                   <div
                     key={lote.id}
-                    className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 items-center px-5 py-4 text-sm
+                    className={`grid grid-cols-[1fr_90px_90px_100px_90px] gap-3 items-center px-5 py-4 text-sm
                       hover:bg-surface-container-low transition-colors
                       ${idx < lotes.length - 1 ? 'border-b border-outline-variant/10' : ''}
                       ${vencido ? 'bg-error-container/10' : ''}`}
@@ -426,7 +426,7 @@ export default function PaginaInseminacion() {
                       ) : <span className="text-outline">—</span>}
                     </div>
 
-                    <div>
+                    <div className="text-center">
                       {vencido ? (
                         <Badge variante="rojo"     tamano="xs">Vencido</Badge>
                       ) : disponibles === 0 ? (
@@ -491,7 +491,7 @@ export default function PaginaInseminacion() {
             <VacioPanel icono="insights" texto="Sin datos de efectividad" subtexto="Se calcula a partir de las inseminaciones registradas con dosis vinculada a un semental" />
           ) : (
             <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
+              <div className="grid grid-cols-[1fr_110px_90px_100px] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
                 {['Semental', 'Inseminaciones', 'Efectivas', 'Efectividad'].map((h) => (
                   <span key={h} className={h === 'Semental' ? '' : 'text-center'}>{h}</span>
                 ))}
@@ -499,7 +499,7 @@ export default function PaginaInseminacion() {
               {efectividad.map((e, idx) => (
                 <div
                   key={e.sementalId}
-                  className={`grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-5 py-3.5 text-sm
+                  className={`grid grid-cols-[1fr_110px_90px_100px] gap-3 items-center px-5 py-3.5 text-sm
                     hover:bg-surface-container-low transition-colors
                     ${idx < efectividad.length - 1 ? 'border-b border-outline-variant/10' : ''}`}
                 >

@@ -459,6 +459,7 @@ function FormularioUsuario({
                 type="email" value={form.correo}
                 onChange={(e) => setForm((f) => ({ ...f, correo: e.target.value }))}
                 className="campo-entrada"
+                autoComplete="off"
               />
             </div>
 
@@ -474,6 +475,7 @@ function FormularioUsuario({
                   onChange={(e) => setForm((f) => ({ ...f, contrasena: e.target.value }))}
                   placeholder="Mínimo 8 caracteres"
                   className="campo-entrada pr-11"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"

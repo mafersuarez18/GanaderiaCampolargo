@@ -46,7 +46,7 @@ interface HistorialMedico {
     fechaInicio: string;
     activa: boolean;
     descripcionClinica?: string;
-    diagnostico?: string;
+    diagnosticoDefinitivo?: string;
     pronostico?: string;
     planDiagnostico?: string;
     tiempoEvolucion?: string;
@@ -72,15 +72,6 @@ interface HistorialMedico {
     otrosVectores?: string;
     descripcion?: string;
   };
-  desparasitaciones: Array<{
-    id: string;
-    tipo: string;
-    fecha: string;
-    dosis?: string;
-    via?: string;
-    medicamentoId: string;
-    medicamento: { nombre: string; principioActivo?: string };
-  }>;
 }
 
 interface RespuestaHistorial {
@@ -103,7 +94,7 @@ interface EnfermedadForm {
   nivelGravedad: string;
   fechaInicio: string;
   descripcionClinica: string;
-  diagnostico: string;
+  diagnosticoDefinitivo: string;
   pronostico: string;
   planDiagnostico: string;
   tiempoEvolucion: string;
@@ -417,7 +408,7 @@ export default function PaginaHistorialMedico() {
 
                   {reg.enfermedades.length > 0 && (
                     <p className="text-sm text-on-surface-variant line-clamp-2 mb-3">
-                      {reg.enfermedades[0].diagnostico || reg.enfermedades[0].nombreEnfermedad}
+                      {reg.enfermedades[0].diagnosticoDefinitivo || reg.enfermedades[0].nombreEnfermedad}
                     </p>
                   )}
 
@@ -739,8 +730,8 @@ export default function PaginaHistorialMedico() {
                           {e.sintomas && (
                             <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Síntomas:</span> {e.sintomas}</p>
                           )}
-                          {e.diagnostico && (
-                            <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Diagnóstico:</span> {e.diagnostico}</p>
+                          {e.diagnosticoDefinitivo && (
+                            <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Diagnóstico:</span> {e.diagnosticoDefinitivo}</p>
                           )}
                           {e.tiempoEvolucion && (
                             <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Tiempo de evolución:</span> {e.tiempoEvolucion}</p>
@@ -796,30 +787,10 @@ export default function PaginaHistorialMedico() {
                   </section>
                 )}
 
-                {/* ── Desparasitaciones ── */}
-                {historialSeleccionado.desparasitaciones.length > 0 && (
-                  <section>
-                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-2 flex items-center gap-1.5">
-                      <Icono nombre="science" clase="text-[13px]" /> Desparasitaciones
-                    </p>
-                    <div className="space-y-2">
-                      {historialSeleccionado.desparasitaciones.map((d: any) => (
-                        <div key={d.id} className="p-3 rounded-xl bg-surface-container border border-outline-variant/20">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-semibold text-on-surface">{d.medicamento?.nombre}</span>
-                            <span className="text-[10px] text-on-surface-variant">{new Date(d.fecha).toLocaleDateString('es-VE')}</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-x-4 text-xs text-on-surface-variant">
-                            {d.medicamento?.principioActivo && <span>P. activo: <strong className="text-on-surface">{d.medicamento.principioActivo}</strong></span>}
-                            {d.tipo && <span>Tipo: <strong className="text-on-surface">{(d.tipo as string).replace(/_/g, ' ')}</strong></span>}
-                            {d.dosis && <span>Dosis: <strong className="text-on-surface">{d.dosis}</strong></span>}
-                            {d.via && <span>Vía: <strong className="text-on-surface">{d.via}</strong></span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                {/* Las desparasitaciones ya no se muestran aquí: se identifican
+                    directamente por el animal (no por esta consulta puntual),
+                    así que se consultan desde el historial completo del animal
+                    (PDF "Historial Médico por Animal") en vez de por consulta. */}
 
                 {historialSeleccionado.observaciones && (
                   <section>
@@ -1123,7 +1094,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
           nivelGravedad: en.nivelGravedad || undefined,
           fechaInicio: new Date(en.fechaInicio).toISOString(),
           descripcionClinica: en.descripcionClinica || undefined,
-          diagnostico: en.diagnostico || undefined,
+          diagnosticoDefinitivo: en.diagnosticoDefinitivo || undefined,
           pronostico: en.pronostico || undefined,
           planDiagnostico: en.planDiagnostico || undefined,
           tiempoEvolucion: en.tiempoEvolucion || undefined,
@@ -1154,7 +1125,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
       ...f,
       enfermedades: [...f.enfermedades, {
         nombreEnfermedad: '', nivelGravedad: '', fechaInicio: new Date().toISOString().split('T')[0], descripcionClinica: '',
-        diagnostico: '', pronostico: '', planDiagnostico: '', tiempoEvolucion: '', sintomas: '', pruebasDiagnostico: '',
+        diagnosticoDefinitivo: '', pronostico: '', planDiagnostico: '', tiempoEvolucion: '', sintomas: '', pruebasDiagnostico: '',
       }],
     }));
 
@@ -1398,8 +1369,8 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                         placeholder="Ej: 3 días, 2 semanas" className="campo-entrada text-sm" />
                     </CampoLabel>
                     <CampoLabel etiqueta="Diagnóstico">
-                      <input type="text" value={enf.diagnostico}
-                        onChange={(e) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].diagnostico = e.target.value; return { ...f, enfermedades: arr }; })}
+                      <input type="text" value={enf.diagnosticoDefinitivo}
+                        onChange={(e) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].diagnosticoDefinitivo = e.target.value; return { ...f, enfermedades: arr }; })}
                         placeholder="Diagnóstico de esta condición..." className="campo-entrada text-sm" />
                     </CampoLabel>
                     <CampoLabel etiqueta="Pronóstico">

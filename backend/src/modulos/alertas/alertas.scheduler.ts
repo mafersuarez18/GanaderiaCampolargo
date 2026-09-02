@@ -29,7 +29,7 @@ export async function evaluarTodasLasReglas(
     where: { estado: 'ACTIVA' },
     include: {
       usuariosNotificados: {
-        select: { usuario: { select: { id: true, correo: true, nombre: true, estado: true } } },
+        select: { id: true, usuario: { select: { id: true, correo: true, nombre: true, estado: true } } },
       },
     },
   });
@@ -117,7 +117,10 @@ function defaultUmbral(tipo: TipoAlertaRegla): number {
 type ReglaDb = {
   id: string;
   nombre: string;
-  usuariosNotificados: { usuario: { id: string; correo: string; nombre: string; estado: string } }[];
+  usuariosNotificados: {
+    id: string;
+    usuario: { id: string; correo: string; nombre: string; estado: string };
+  }[];
 };
 
 // ── Evaluadores individuales ──────────────────────────────────────────────────
@@ -173,58 +176,10 @@ async function evaluarVacunas(
   }
 }
 
-/** Desparasitaciones cuya próxima aplicación se aproxima o ya pasó */
-async function evaluarDesparasitaciones(
-  diasUmbral = 15,
-  prioridad: PrioridadAlerta = PrioridadAlerta.MEDIA,
-  regla?: ReglaDb,
-): Promise<void> {
-  const hoy    = new Date();
-  const limite = new Date(hoy.getTime() + diasUmbral * 86_400_000);
-
-  const ultimasDesp = await prisma.programaDesparasitacion.findMany({
-    where: { historialMedico: { animal: { estado: 'ACTIVO' } } },
-    include: {
-      historialMedico: {
-        include: {
-          animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
-        },
-      },
-      medicamento: { select: { nombre: true } },
-    },
-    orderBy: { fecha: 'desc' },
-  });
-
-  // Agrupar por animal y quedarse solo con la más reciente
-  const porAnimal = new Map<string, typeof ultimasDesp[0]>();
-  for (const desp of ultimasDesp) {
-    const animalId = desp.historialMedico.animal.id;
-    if (!porAnimal.has(animalId)) porAnimal.set(animalId, desp);
-  }
-
-  for (const [, desp] of porAnimal) {
-    const animal      = desp.historialMedico.animal;
-    const proximaFecha = new Date(desp.fecha.getTime() + 90 * 86_400_000);
-
-    if (proximaFecha > limite) continue;
-
-    const yaVencida = proximaFecha < hoy;
-
-    const titulo = yaVencida
-      ? `Desparasitación VENCIDA — ${animal.nombre ?? animal.numeroArete}`
-      : `Desparasitación próxima — ${animal.nombre ?? animal.numeroArete}`;
-
-    await crearNotificacionSiNoExiste(
-      titulo,
-      `Producto anterior: ${desp.medicamento.nombre} (${desp.fecha.toLocaleDateString('es-VE')}) | Próxima: ${proximaFecha.toLocaleDateString('es-VE')}`,
-      prioridad,
-      'ProgramaDesparasitacion',
-      desp.id,
-      animal.lote.fincaId,
-      regla,
-    );
-  }
-}
+// No hay un evaluador de alerta específico para desparasitaciones: cada una
+// ya deja un RegistroVacunacion sincronizado (ver crearHistorialMedico), así
+// que evaluarVacunas() las cubre igual que a cualquier otra vacuna próxima
+// a vencer, sin necesidad de una regla ni un cálculo aparte.
 
 /** Partos esperados en los próximos N días */
 async function evaluarPartosProximos(
@@ -574,18 +529,25 @@ async function crearNotificacionSiNoExiste(
   if (yaExiste) return;
 
   // Notificar a los usuarios específicos configurados como destinatarios de la
-  // regla, independientemente de su rol. Sin regla (disparo del sistema sin
-  // regla asociada), se notifica a administradores y veterinarios por defecto.
-  const usuarios = regla
+  // regla, independientemente de su rol, cada uno a través de su asignación
+  // regla-usuario (REGLA_USUARIO). Sin regla (disparo del sistema sin regla
+  // asociada, p.ej. un correo de bienvenida), se notifica directamente al
+  // usuario — administradores y veterinarios por defecto en este caso.
+  const destinatarios: Array<{
+    usuario: { id: string; correo: string; nombre: string; estado: string };
+    reglaUsuarioId: string | null;
+  }> = regla
     ? regla.usuariosNotificados
-        .map((ru) => ru.usuario)
-        .filter((u) => u.estado === 'ACTIVO')
-    : await prisma.usuario.findMany({
-        where: { estado: 'ACTIVO', rol: { nombre: { in: ['ADMINISTRADOR', 'VETERINARIO'] } } },
-        select: { id: true, correo: true, nombre: true, estado: true },
-      });
+        .filter((ru) => ru.usuario.estado === 'ACTIVO')
+        .map((ru) => ({ usuario: ru.usuario, reglaUsuarioId: ru.id }))
+    : (
+        await prisma.usuario.findMany({
+          where: { estado: 'ACTIVO', rol: { nombre: { in: ['ADMINISTRADOR', 'VETERINARIO'] } } },
+          select: { id: true, correo: true, nombre: true, estado: true },
+        })
+      ).map((usuario) => ({ usuario, reglaUsuarioId: null }));
 
-  for (const usuario of usuarios) {
+  for (const { usuario, reglaUsuarioId } of destinatarios) {
     await prisma.notificacion.create({
       data: {
         titulo,
@@ -594,7 +556,9 @@ async function crearNotificacionSiNoExiste(
         estado: EstadoNotificacion.PENDIENTE,
         entidadTipo,
         entidadId,
-        usuarioId: usuario.id,
+        // Exactamente uno de usuarioId / reglaUsuarioId, nunca ambos ni ninguno
+        // (ver CHECK "notificacion_destinatario_unico" en el esquema).
+        ...(reglaUsuarioId ? { reglaUsuarioId } : { usuarioId: usuario.id }),
         ...(regla && { reglaId: regla.id }),
       },
     });
@@ -610,7 +574,6 @@ async function crearNotificacionSiNoExiste(
 // ── Exportaciones para uso en rutas ──────────────────────────────────────────
 export {
   evaluarVacunas,
-  evaluarDesparasitaciones,
   evaluarPartosProximos,
   evaluarDiasAbiertos,
   evaluarEnfermedadesActivas,

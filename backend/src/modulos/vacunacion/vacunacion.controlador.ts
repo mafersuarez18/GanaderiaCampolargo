@@ -21,12 +21,10 @@ import {
   respuestaSinContenido,
 } from '../../compartido/utilidades/respuestaHttp';
 import { calcularPaginacion, construirMeta } from '../../compartido/utilidades/paginacion';
-import { prisma } from '../../compartido/prisma/clientePrisma';
 
-// El registro de vacunación normalmente cuelga de una consulta médica
-// (historialMedicoId), pero también se puede aplicar sin pasar por una
-// consulta formal (solo animalId) — en ese caso se busca el historial más
-// reciente del animal para vincularlo automáticamente.
+// El registro de vacunación se identifica únicamente por el animal
+// (animalId) — no depende de que exista una consulta médica previa, ya que
+// una jornada de vacunación en campo normalmente no pasa por una.
 
 const esquemaCalendario = z.object({
   nombreVacuna:    z.string().min(2).max(200),
@@ -41,7 +39,6 @@ const esquemaCalendario = z.object({
 const esquemaRegistro = z.object({
   animalId:               z.string().min(1, 'El animal es requerido'),
   calendarioVacunacionId: z.string().min(1),
-  historialMedicoId:      z.string().min(1).optional(),
   medicamentoId:          z.string().min(1).optional(),
   fechaAplicacion:        z.coerce.date(),
   dosis:                  z.string().max(100).optional(),
@@ -53,7 +50,6 @@ const esquemaRegistro = z.object({
 const esquemaFiltrosRegistro = z.object({
   animalId:               z.string().min(1).optional(),
   calendarioVacunacionId: z.string().min(1).optional(),
-  historialMedicoId:      z.string().min(1).optional(),
   fincaId:                z.string().min(1).optional(),
   desde:                  z.coerce.date().optional(),
   hasta:                  z.coerce.date().optional(),
@@ -116,26 +112,9 @@ export async function controladorRegistrarVacunacion(
   try {
     const datos = esquemaRegistro.parse(req.body);
 
-    let historialMedicoId = datos.historialMedicoId;
-
-    // Si no se indicó una consulta explícita, se enlaza como contexto la más
-    // reciente del animal (si existe) — es solo informativo: el vínculo real
-    // con el animal ya no depende de esto, viaja en animalId.
-    if (!historialMedicoId) {
-      const historial = await prisma.historialMedico.findFirst({
-        where:   { animalId: datos.animalId },
-        orderBy: { fechaConsulta: 'desc' },
-        select:  { id: true },
-      });
-      if (historial) {
-        historialMedicoId = historial.id;
-      }
-    }
-
     const registro = await registrarVacunacion({
       animalId: datos.animalId,
       calendarioVacunacionId: datos.calendarioVacunacionId,
-      historialMedicoId,
       medicamentoId:    datos.medicamentoId,
       fechaAplicacion:  datos.fechaAplicacion,
       dosis:            datos.dosis,

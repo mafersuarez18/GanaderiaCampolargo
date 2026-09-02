@@ -902,7 +902,6 @@ async function main() {
           altitud: 450 + Math.random() * 50,
           precision: 5 + Math.random() * 10,
           velocidad: +(Math.random() * 3).toFixed(1), // pastoreo: 0-3 km/h aprox.
-          esDatoSimulado: true,
           fechaRegistro,
         },
       });

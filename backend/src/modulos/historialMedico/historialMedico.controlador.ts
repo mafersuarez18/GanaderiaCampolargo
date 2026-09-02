@@ -57,7 +57,7 @@ const esquemaEnfermedad = z.object({
   descripcionClinica: z.string().max(500).optional(),
   observaciones:      z.string().max(500).optional(),
   // Diagnóstico/plan/pronóstico/síntomas de esta condición específica
-  diagnostico:        z.string().max(1000).optional(),
+  diagnosticoDefinitivo: z.string().max(1000).optional(),
   pronostico:         z.string().max(500).optional(),
   planDiagnostico:    z.string().max(1000).optional(),
   tiempoEvolucion:    z.string().max(200).optional(),

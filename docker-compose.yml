@@ -1,7 +1,7 @@
 services:
-  # Base de datos PostgreSQL con PostGIS
+  # Base de datos PostgreSQL
   base-datos:
-    image: postgis/postgis:16-3.4-alpine
+    image: postgres:16-alpine
     container_name: campolargo-db
     restart: unless-stopped
     environment:

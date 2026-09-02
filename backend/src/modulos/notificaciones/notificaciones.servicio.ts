@@ -7,6 +7,14 @@ import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
 // y de resolverlas automáticamente cuando la situación que las originó deja
 // de aplicar.
 
+// Una notificación pertenece a un usuario de dos formas posibles y mutuamente
+// excluyentes: de forma directa (usuarioId) o a través de la asignación
+// regla-usuario que la originó (reglaUsuario.usuarioId). Todas las consultas
+// "mías" deben cubrir ambos casos.
+function perteneceAUsuario(usuarioId: string): Prisma.NotificacionWhereInput {
+  return { OR: [{ usuarioId }, { reglaUsuario: { usuarioId } }] };
+}
+
 export interface FiltrosNotificacion {
   noLeidas?: boolean;
   prioridad?: PrioridadAlerta;
@@ -20,7 +28,7 @@ export async function listarNotificaciones(filtros: FiltrosNotificacion, usuario
   const { noLeidas, prioridad, pagina = 1, porPagina = 20, limite } = filtros;
 
   const donde: Prisma.NotificacionWhereInput = {
-    usuarioId: usuarioIdActual,
+    ...perteneceAUsuario(usuarioIdActual),
     // Por defecto excluir abordadas (DESCARTADA); si se pide "no leídas" también excluye leídas
     ...(noLeidas === true
       ? { estado: { not: 'DESCARTADA' }, leida: false }
@@ -48,13 +56,13 @@ export async function listarNotificaciones(filtros: FiltrosNotificacion, usuario
 export async function contarNoLeidas(usuarioId: string): Promise<number> {
   // Cuenta todas las notificaciones no abordadas (excluye DESCARTADA = abordada manualmente)
   return prisma.notificacion.count({
-    where: { usuarioId, estado: { not: 'DESCARTADA' } },
+    where: { ...perteneceAUsuario(usuarioId), estado: { not: 'DESCARTADA' } },
   });
 }
 
 export async function marcarLeida(id: string, usuarioId: string) {
   const notificacion = await prisma.notificacion.findFirst({
-    where: { id, usuarioId },
+    where: { id, ...perteneceAUsuario(usuarioId) },
     select: { id: true },
   });
   if (!notificacion) throw new ErrorNoEncontrado('Notificación no encontrada');
@@ -67,7 +75,7 @@ export async function marcarLeida(id: string, usuarioId: string) {
 
 export async function marcarTodasLeidas(usuarioId: string) {
   const resultado = await prisma.notificacion.updateMany({
-    where: { usuarioId, leida: false },
+    where: { ...perteneceAUsuario(usuarioId), leida: false },
     data: { leida: true, fechaLeida: new Date() },
   });
   return { actualizadas: resultado.count };
@@ -75,7 +83,7 @@ export async function marcarTodasLeidas(usuarioId: string) {
 
 export async function eliminarNotificacion(id: string, usuarioId: string) {
   const notificacion = await prisma.notificacion.findFirst({
-    where: { id, usuarioId },
+    where: { id, ...perteneceAUsuario(usuarioId) },
     select: { id: true },
   });
   if (!notificacion) throw new ErrorNoEncontrado('Notificación no encontrada');
@@ -88,7 +96,7 @@ export async function eliminarNotificacion(id: string, usuarioId: string) {
  */
 export async function abordarNotificacion(id: string, usuarioId: string) {
   const notificacion = await prisma.notificacion.findFirst({
-    where: { id, usuarioId },
+    where: { id, ...perteneceAUsuario(usuarioId) },
     select: { id: true },
   });
   if (!notificacion) throw new ErrorNoEncontrado('Notificación no encontrada');
@@ -103,7 +111,7 @@ export async function abordarNotificacion(id: string, usuarioId: string) {
  */
 export async function abordarTodasNotificaciones(usuarioId: string) {
   const resultado = await prisma.notificacion.updateMany({
-    where: { usuarioId, estado: { not: 'DESCARTADA' } },
+    where: { ...perteneceAUsuario(usuarioId), estado: { not: 'DESCARTADA' } },
     data: { estado: 'DESCARTADA', leida: true, fechaLeida: new Date() },
   });
   return { actualizadas: resultado.count };

@@ -17,9 +17,9 @@ import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
  */
 export async function obtenerPrefillConsulta(animalId: string) {
   const [ultimaDesparasitacion, calendarios, enfermedadesActivas] = await Promise.all([
-    // Última desparasitación del animal (cualquier historial)
+    // Última desparasitación del animal
     prisma.programaDesparasitacion.findFirst({
-      where: { historialMedico: { animalId } },
+      where: { animalId },
       orderBy: { fecha: 'desc' },
     }),
     // Calendarios de tipo desparasitación (nombre contiene la palabra)
@@ -91,17 +91,6 @@ const seleccionHistorial = {
     },
   },
   informacionEpidemiologica: true,
-  desparasitaciones: {
-    select: {
-      id: true,
-      tipo: true,
-      fecha: true,
-      dosis: true,
-      via: true,
-      medicamentoId: true,
-      medicamento: { select: { nombre: true, principioActivo: true } },
-    },
-  },
 } satisfies Prisma.HistorialMedicoSelect;
 
 export async function listarHistorialMedico(filtros: FiltrosHistorial = {}) {
@@ -193,7 +182,7 @@ export interface DatosCrearHistorial {
     observaciones?:      string;
     // Diagnóstico/plan/pronóstico/síntomas de esta condición específica,
     // según el modelo lógico del tomo (DETALLE_DIAGNOSTICO)
-    diagnostico?:        string;
+    diagnosticoDefinitivo?: string;
     pronostico?:         string;
     planDiagnostico?:    string;
     tiempoEvolucion?:    string;
@@ -247,7 +236,7 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
               fechaInicio:       enf.fechaInicio,
               descripcionClinica: enf.descripcionClinica,
               observaciones:     enf.observaciones,
-              diagnostico:       enf.diagnostico,
+              diagnosticoDefinitivo: enf.diagnosticoDefinitivo,
               pronostico:        enf.pronostico,
               planDiagnostico:   enf.planDiagnostico,
               tiempoEvolucion:   enf.tiempoEvolucion,
@@ -276,31 +265,50 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
       informacionEpidemiologica: informacionEpidemiologica
         ? { create: informacionEpidemiologica }
         : undefined,
-      desparasitaciones: desparasitaciones?.length
-        ? { create: desparasitaciones }
-        : undefined,
     },
     select: seleccionHistorial,
   });
 
-  // ── Sincronización automática con vacunación ─────────────────────────────────
-  // Si se registraron desparasitaciones nuevas, crear RegistroVacunacion en el
-  // calendario de desparasitación que corresponda (por nombre del producto).
+  // Las desparasitaciones ya no cuelgan del historial médico (se identifican
+  // solo por el animal), así que se crean aparte en vez de como relación
+  // anidada — el formulario de consulta las sigue enviando igual, solo
+  // cambia cómo quedan guardadas.
+  let desparasitacionesCreadas: Array<{
+    id: string; tipo: TipoDesparasitante; fecha: Date; dosis: string | null; via: string | null;
+    medicamento: { nombre: string; principioActivo: string | null };
+  }> = [];
+
   if (desparasitaciones?.length) {
-    // Buscar calendarios cuyo nombre mencione "desparasitación" o "desparasitacion"
+    desparasitacionesCreadas = await Promise.all(
+      desparasitaciones.map((d) =>
+        prisma.programaDesparasitacion.create({
+          data: {
+            tipo: d.tipo,
+            fecha: d.fecha,
+            dosis: d.dosis,
+            via: d.via,
+            observaciones: d.observaciones,
+            animal:      { connect: { id: animalId } },
+            medicamento: { connect: { id: d.medicamentoId } },
+            veterinario: { connect: { id: veterinarioId } },
+          },
+          include: { medicamento: { select: { nombre: true, principioActivo: true } } },
+        }),
+      ),
+    );
+
+    // ── Sincronización automática con vacunación ───────────────────────────
+    // Cada desparasitación registrada también deja un RegistroVacunacion en
+    // el calendario de desparasitación que corresponda (por nombre del
+    // producto), para que el motor de alertas la considere igual que
+    // cualquier otra vacuna próxima a vencer.
     const calendariosDesp = await prisma.calendarioVacunacion.findMany({
-      where: {
-        nombreVacuna: { contains: 'desparasit', mode: 'insensitive' },
-      },
+      where: { nombreVacuna: { contains: 'desparasit', mode: 'insensitive' } },
       select: { id: true, intervaloDias: true },
     });
 
     if (calendariosDesp.length > 0) {
-      // Usar el primer calendario encontrado
       const calendario = calendariosDesp[0];
-
-      // Crear un RegistroVacunacion por cada desparasitación registrada
-      const desparasitacionesCreadas = historial.desparasitaciones;
       await Promise.all(
         desparasitaciones.map((d, i) => {
           const proximaFecha = new Date(
@@ -315,7 +323,6 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
               viaAdministracion:    d.via,
               observaciones:        d.observaciones ?? `Auto-registrado desde consulta${nombreMedicamento ? `: ${nombreMedicamento}` : ''}`,
               animal:               { connect: { id: animalId } },
-              historialMedico:      { connect: { id: historial.id } },
               calendarioVacunacion: { connect: { id: calendario.id } },
               aplicadoPor:          { connect: { id: veterinarioId } },
             },
@@ -325,7 +332,7 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
     }
   }
 
-  return historial;
+  return { ...historial, desparasitaciones: desparasitacionesCreadas };
 }
 
 export async function eliminarHistorialMedico(id: string) {

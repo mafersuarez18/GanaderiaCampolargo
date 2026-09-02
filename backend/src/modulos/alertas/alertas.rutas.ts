@@ -1,7 +1,7 @@
 ﻿import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { TipoAlertaRegla, PrioridadAlerta } from '@prisma/client';
+import { TipoAlertaRegla, PrioridadAlerta, Prisma } from '@prisma/client';
 import {
   verificarToken,
   requerirPrivilegio,
@@ -44,8 +44,12 @@ enrutador.get('/resumen', requerirPrivilegio('alertas.ver'), async (req: Request
   try {
     const usuarioId = req.usuarioActual!.id;
 
-    // Conteos por prioridad (solo no leídas)
-    const noAbordada = { usuarioId, estado: { not: 'DESCARTADA' } } as const;
+    // Conteos por prioridad (solo no leídas). "Mía" cubre tanto notificación
+    // directa (usuarioId) como la que llega vía asignación regla-usuario.
+    const noAbordada = {
+      OR: [{ usuarioId }, { reglaUsuario: { usuarioId } }],
+      estado: { not: 'DESCARTADA' },
+    } satisfies Prisma.NotificacionWhereInput;
 
     const [critica, alta, media, baja, totalNoLeidas] = await prisma.$transaction([
       prisma.notificacion.count({ where: { ...noAbordada, prioridad: 'CRITICA' } }),

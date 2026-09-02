@@ -114,52 +114,77 @@ function guardarEspacio(doc: PDFKit.PDFDocument, px: number): void {
 }
 
 // ── Tabla PDF ─────────────────────────────────────────────────────────────────
-// anchos: array de anchos de columna (px). Sum ≈ page.width - ML - MR
+// `anchos` son pesos relativos entre columnas, no píxeles exactos: la función
+// siempre los reescala para que la tabla ocupe exactamente el ancho útil de
+// la página (evita que quede más ancha que el margen, como pasaba antes). La
+// altura de cada fila se calcula según el contenido más largo que le toque
+// envolver, así ninguna fila queda más baja que su propio texto.
 function tablaPDF(
   doc: PDFKit.PDFDocument,
   cabecera: string[],
   filas: string[][],   // filas[i] = array de celdas de esa fila
-  anchos: number[],
-  alturaFila = 18,
+  anchosBase: number[],
+  alturaMinima = 20,
 ): void {
-  const anchoTotal = anchos.reduce((a, b) => a + b, 0);
+  const anchoDisponible = doc.page.width - ML - MR;
+  const anchoTotalBase  = anchosBase.reduce((a, b) => a + b, 0);
+  const factor          = anchoDisponible / anchoTotalBase;
+  const anchos          = anchosBase.map((a) => a * factor);
+  const anchoTotal      = anchos.reduce((a, b) => a + b, 0);
+
+  const calcularAltura = (celdas: string[], esHeader: boolean): number => {
+    doc.font(esHeader ? 'Helvetica-Bold' : 'Helvetica').fontSize(esHeader ? 8 : 7.8);
+    const alturas = celdas.map((c, i) =>
+      doc.heightOfString(String(c ?? '—'), { width: anchos[i] - 8, lineBreak: true }),
+    );
+    return Math.max(alturaMinima, Math.max(...alturas) + 8);
+  };
 
   const dibujarFila = (
     celdas: string[],
     esHeader: boolean,
     esImpar: boolean,
   ) => {
-    guardarEspacio(doc, alturaFila + 4);
+    const altura = calcularAltura(celdas, esHeader);
+    guardarEspacio(doc, altura);
+
+    // Si el salto de página cayó justo antes de esta fila, se repite la
+    // cabecera al inicio de la página nueva para que la tabla siga siendo
+    // legible sin tener que volver atrás.
+    if (!esHeader && doc.y === MT) {
+      dibujarFila(cabecera, true, false);
+    }
+
     const y = doc.y;
 
     // Fondo
     if (esHeader) {
-      doc.rect(ML, y, anchoTotal, alturaFila).fill(VERDE);
+      doc.rect(ML, y, anchoTotal, altura).fill(VERDE);
     } else if (esImpar) {
-      doc.rect(ML, y, anchoTotal, alturaFila).fill(VERDE_BG);
+      doc.rect(ML, y, anchoTotal, altura).fill(VERDE_BG);
     } else {
-      doc.rect(ML, y, anchoTotal, alturaFila).fill(BLANCO);
+      doc.rect(ML, y, anchoTotal, altura).fill(BLANCO);
     }
 
-    // Texto de cada celda
+    // Texto de cada celda, centrado verticalmente dentro de la altura real
     let x = ML;
     celdas.forEach((celda, i) => {
+      const alturaTexto = doc.heightOfString(String(celda ?? '—'), { width: anchos[i] - 8, lineBreak: true });
       doc.fillColor(esHeader ? BLANCO : GRIS_TEXTO)
          .font(esHeader ? 'Helvetica-Bold' : 'Helvetica')
          .fontSize(esHeader ? 8 : 7.8)
-         .text(String(celda ?? '—'), x + 4, y + (alturaFila - 9) / 2, {
+         .text(String(celda ?? '—'), x + 4, y + Math.max(4, (altura - alturaTexto) / 2), {
            width: anchos[i] - 8,
-           lineBreak: false,
-           ellipsis: true,
+           lineBreak: true,
          });
       x += anchos[i];
     });
 
     // Borde inferior
-    doc.rect(ML, y, anchoTotal, alturaFila)
+    doc.rect(ML, y, anchoTotal, altura)
        .strokeColor(GRIS_LINEA).lineWidth(0.4).stroke();
 
-    doc.y = y + alturaFila;
+    doc.y = y + altura;
   };
 
   // Cabecera
@@ -171,6 +196,46 @@ function tablaPDF(
   });
 
   doc.moveDown(0.4);
+}
+
+// ── Tarjetas de indicadores (KPI) ────────────────────────────────────────────
+// La cuadrícula se calcula toda de una vez a partir de un punto Y fijo,
+// capturado ANTES de dibujar nada: si en vez de eso se usara doc.y dentro
+// del mismo ciclo que también dibuja texto, cada texto desplaza doc.y y las
+// tarjetas se van desalineando fila tras fila (así se veía roto antes).
+function tarjetasKPI(
+  doc: PDFKit.PDFDocument,
+  items: [string, string][],
+  columnas = 2,
+): void {
+  const anchoDisponible = doc.page.width - ML - MR;
+  const espacio      = 8;
+  const anchoTarjeta = (anchoDisponible - espacio * (columnas - 1)) / columnas;
+  const altoTarjeta  = 42;
+  const filas        = Math.ceil(items.length / columnas);
+
+  guardarEspacio(doc, filas * (altoTarjeta + espacio));
+  const baseY = doc.y;
+
+  items.forEach(([etiqueta, valor], i) => {
+    const col  = i % columnas;
+    const fila = Math.floor(i / columnas);
+    const x = ML + col * (anchoTarjeta + espacio);
+    const y = baseY + fila * (altoTarjeta + espacio);
+
+    doc.roundedRect(x, y, anchoTarjeta, altoTarjeta, 4).fill(VERDE_BG);
+    doc.roundedRect(x, y, anchoTarjeta, altoTarjeta, 4)
+       .strokeColor(GRIS_LINEA).lineWidth(0.5).stroke();
+
+    doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(7)
+       .text(etiqueta.toUpperCase(), x + 10, y + 10, {
+         width: anchoTarjeta - 20, lineBreak: false, ellipsis: true, characterSpacing: 0.2,
+       });
+    doc.fillColor(VERDE).font('Helvetica-Bold').fontSize(16)
+       .text(valor, x + 10, y + 21, { width: anchoTarjeta - 20, lineBreak: false, ellipsis: true });
+  });
+
+  doc.y = baseY + filas * (altoTarjeta + espacio) + 6;
 }
 
 // ── Bloque de par clave / valor (dos columnas) ─────────────────────────────────
@@ -414,7 +479,7 @@ export async function generarSanitario(
           },
         },
         veterinario: { select: { nombre: true, apellido: true } },
-        enfermedades: { select: { nombreEnfermedad: true, activa: true, diagnostico: true, pronostico: true } },
+        enfermedades: { select: { nombreEnfermedad: true, activa: true, diagnosticoDefinitivo: true, pronostico: true } },
       },
       orderBy: { fechaConsulta: 'desc' },
     }),
@@ -461,7 +526,7 @@ export async function generarSanitario(
           `${c.animal.nombre ? c.animal.nombre + ' ' : ''}#${c.animal.numeroArete}`,
           c.animal.lote?.finca?.nombre ?? '—',
           c.motivoConsulta,
-          c.enfermedades.map((e) => e.diagnostico).filter(Boolean).join('; ') || '—',
+          c.enfermedades.map((e) => e.diagnosticoDefinitivo).filter(Boolean).join('; ') || '—',
           `${c.veterinario.nombre} ${c.veterinario.apellido}`,
         ]),
         [56, 95, 80, 105, 105, 95],
@@ -522,7 +587,7 @@ export async function generarSanitario(
         animal:       c.animal.nombre ?? '',
         finca:        c.animal.lote?.finca?.nombre ?? '',
         motivo:       c.motivoConsulta,
-        diagnostico:  c.enfermedades.map((e) => e.diagnostico).filter(Boolean).join('; '),
+        diagnostico:  c.enfermedades.map((e) => e.diagnosticoDefinitivo).filter(Boolean).join('; '),
         pronostico:   c.enfermedades.map((e) => e.pronostico).filter(Boolean).join('; '),
         vet:          `${c.veterinario.nombre} ${c.veterinario.apellido}`,
         enfermedades: c.enfermedades.map((e) => e.nombreEnfermedad).join('; '),
@@ -636,20 +701,7 @@ export async function generarVacunacion(
       ['Próximas en 30 días',     String(proximas)],
       ['Al día',                  String(alDia)],
     ];
-    const anchoKPI = (doc.page.width - ML - MR) / 2;
-    kpis.forEach(([lbl, val], i) => {
-      const col = i % 2;
-      const fila = Math.floor(i / 2);
-      const x = ML + col * anchoKPI;
-      const y = doc.y + fila * 24;
-      doc.rect(x, y, anchoKPI - 4, 20)
-         .fill(col === 0 && i === 0 ? VERDE_BG : VERDE_BG);
-      doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(8)
-         .text(lbl, x + 6, y + 5, { width: anchoKPI - 60, lineBreak: false });
-      doc.fillColor(VERDE).font('Helvetica-Bold').fontSize(11)
-         .text(val, x + anchoKPI - 55, y + 3, { width: 48, align: 'right', lineBreak: false });
-    });
-    doc.y = doc.y + Math.ceil(kpis.length / 2) * 24 + 14;
+    tarjetasKPI(doc, kpis);
 
     // Tabla
     seccionPDF(doc, 'Detalle por Animal');
@@ -758,8 +810,13 @@ export async function generarReproductivo(
   const tasaPrenez   = totalHembras > 0
     ? ((gestaciones.length / totalHembras) * 100).toFixed(1) + '%'
     : '—';
-  const machosCrias  = nacimientos.filter((n) => n.cria?.sexo === 'MACHO').length;
-  const hembrasCrias = nacimientos.filter((n) => n.cria?.sexo === 'HEMBRA').length;
+  // El sexo de la cría se registra directo en el nacimiento (sexoCria); la
+  // relación `cria` (el animal ya dado de alta en el sistema a partir de ese
+  // nacimiento) es un paso posterior y manual que casi nunca existe todavía,
+  // así que no puede ser la fuente principal para este conteo.
+  const sexoDeCria    = (n: (typeof nacimientos)[number]) => n.sexoCria ?? n.cria?.sexo ?? null;
+  const machosCrias   = nacimientos.filter((n) => sexoDeCria(n) === 'MACHO').length;
+  const hembrasCrias  = nacimientos.filter((n) => sexoDeCria(n) === 'HEMBRA').length;
 
   const kpis: [string, string][] = [
     ['Total hembras activas',           String(totalHembras)],
@@ -784,21 +841,7 @@ export async function generarReproductivo(
 
     // KPIs en cuadrícula 2×4
     seccionPDF(doc, 'Indicadores Clave');
-    const anchoKPI = (doc.page.width - ML - MR) / 2 - 4;
-    const altoKPI  = 28;
-    kpis.forEach(([lbl, val], i) => {
-      const col  = i % 2;
-      const fila = Math.floor(i / 2);
-      const x    = ML + col * (anchoKPI + 8);
-      const y    = doc.y + fila * (altoKPI + 4);
-      doc.rect(x, y, anchoKPI, altoKPI).fill(VERDE_BG)
-         .rect(x, y, anchoKPI, altoKPI).strokeColor(GRIS_LINEA).lineWidth(0.4).stroke();
-      doc.fillColor(GRIS_SUAVE).font('Helvetica').fontSize(8)
-         .text(lbl, x + 6, y + 5, { width: anchoKPI - 60, lineBreak: false });
-      doc.fillColor(VERDE).font('Helvetica-Bold').fontSize(14)
-         .text(val, x + anchoKPI - 58, y + 4, { width: 52, align: 'right', lineBreak: false });
-    });
-    doc.y = doc.y + Math.ceil(kpis.length / 2) * (altoKPI + 4) + 16;
+    tarjetasKPI(doc, kpis);
 
     // Gestaciones
     doc.moveDown(0.5);
@@ -835,7 +878,7 @@ export async function generarReproductivo(
         nacimientos.map((n) => [
           n.cria?.numeroArete ?? '—',
           n.cria?.nombre      ?? '—',
-          n.cria?.sexo === 'MACHO' ? 'Macho' : 'Hembra',
+          sexoDeCria(n) === 'MACHO' ? 'Macho' : sexoDeCria(n) === 'HEMBRA' ? 'Hembra' : '—',
           n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
           n.gestacion.madre.lote?.finca?.nombre ?? '—',
           fmtFecha(n.fechaNacimiento),
@@ -905,7 +948,7 @@ export async function generarReproductivo(
       estiloFilaExcel(wsN.addRow({
         arete:     n.cria?.numeroArete ?? '',
         nombre:    n.cria?.nombre ?? '',
-        sexo:      n.cria?.sexo === 'MACHO' ? 'Macho' : 'Hembra',
+        sexo:      sexoDeCria(n) === 'MACHO' ? 'Macho' : sexoDeCria(n) === 'HEMBRA' ? 'Hembra' : '',
         madre:     n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
         finca:     n.gestacion.madre.lote?.finca?.nombre ?? '',
         fecha:     fmtFecha(n.fechaNacimiento),
@@ -943,17 +986,25 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
     return;
   }
 
-  const consultas = await prisma.historialMedico.findMany({
-    where: { animalId },
-    include: {
-      veterinario:             { select: { nombre: true, apellido: true } },
-      enfermedades:            true,
-      tratamientos:            { include: { medicamento: { select: { nombre: true } } } },
-      informacionEpidemiologica: true,
-      desparasitaciones:       { include: { medicamento: { select: { nombre: true, principioActivo: true } } } },
-    },
-    orderBy: { fechaConsulta: 'desc' },
-  });
+  const [consultas, desparasitacionesAnimal] = await Promise.all([
+    prisma.historialMedico.findMany({
+      where: { animalId },
+      include: {
+        veterinario:             { select: { nombre: true, apellido: true } },
+        enfermedades:            true,
+        tratamientos:            { include: { medicamento: { select: { nombre: true } } } },
+        informacionEpidemiologica: true,
+      },
+      orderBy: { fechaConsulta: 'desc' },
+    }),
+    // Las desparasitaciones se identifican por el animal directamente (no
+    // por una consulta puntual), así que se listan aparte.
+    prisma.programaDesparasitacion.findMany({
+      where: { animalId },
+      include: { medicamento: { select: { nombre: true, principioActivo: true } } },
+      orderBy: { fecha: 'desc' },
+    }),
+  ]);
 
   const doc = new PDFDocument({ margin: ML, size: 'A4', bufferPages: true, autoFirstPage: true });
   res.setHeader('Content-Type', 'application/pdf');
@@ -1038,7 +1089,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
         c.enfermedades.map((e) => {
           const linea = `${e.nombreEnfermedad} — ${e.activa ? 'Activa' : 'Resuelta'}${e.fechaResolucion ? ` (${fmtFecha(e.fechaResolucion)})` : ''}`;
           const detalle = [
-            e.diagnostico && `Dx: ${e.diagnostico}`,
+            e.diagnosticoDefinitivo && `Dx: ${e.diagnosticoDefinitivo}`,
             e.pronostico && `Pronóstico: ${e.pronostico}`,
             e.planDiagnostico && `Plan: ${e.planDiagnostico}`,
             e.pruebasDiagnostico && `Pruebas: ${e.pruebasDiagnostico}`,
@@ -1067,24 +1118,6 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
       );
     }
 
-    // Desparasitaciones — tabla
-    if (c.desparasitaciones.length) {
-      guardarEspacio(doc, 40);
-      doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8)
-         .text('Desparasitaciones', ML, doc.y).moveDown(0.3);
-      tablaPDF(
-        doc,
-        ['Producto', 'Principio activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'],
-        (c.desparasitaciones as any[]).map((d) => [
-          d.medicamento?.nombre ?? '—', d.medicamento?.principioActivo ?? '—',
-          (d.tipo as string).replace(/_/g, ' '),
-          fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
-        ]),
-        [110, 110, 68, 60, 60, 68],
-        16,
-      );
-    }
-
     // Info epidemiológica
     if (c.informacionEpidemiologica) {
       const ep = c.informacionEpidemiologica as any;
@@ -1099,6 +1132,23 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
 
     doc.moveDown(0.8);
   });
+
+  // ── Desparasitaciones del animal (no atadas a una consulta puntual) ──
+  if (desparasitacionesAnimal.length) {
+    doc.moveDown(0.5);
+    guardarEspacio(doc, 50);
+    seccionPDF(doc, 'Desparasitaciones');
+    tablaPDF(
+      doc,
+      ['Producto', 'Principio activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'],
+      desparasitacionesAnimal.map((d) => [
+        d.medicamento?.nombre ?? '—', d.medicamento?.principioActivo ?? '—',
+        d.tipo.replace(/_/g, ' '),
+        fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
+      ]),
+      [110, 110, 68, 60, 60, 68],
+    );
+  }
 
   piePaginaPDF(doc);
   doc.end();
@@ -1123,7 +1173,6 @@ export async function generarConsulta(res: Response, consultaId: string) {
       enfermedades:             true,
       tratamientos:             { include: { medicamento: { select: { nombre: true } } } },
       informacionEpidemiologica: true,
-      desparasitaciones:        { include: { medicamento: { select: { nombre: true, principioActivo: true } } } },
     },
   });
 
@@ -1263,24 +1312,9 @@ export async function generarConsulta(res: Response, consultaId: string) {
     );
   }
 
-  // ── Desparasitaciones ──
-  if (c.desparasitaciones.length) {
-    doc.moveDown(0.6);
-    guardarEspacio(doc, 50);
-    doc.fillColor(GRIS_SUAVE).font('Helvetica-Bold').fontSize(8.5)
-       .text('DESPARASITACIONES', ML, doc.y).moveDown(0.3);
-    tablaPDF(
-      doc,
-      ['Producto', 'Principio activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'],
-      (c.desparasitaciones as any[]).map((d) => [
-        d.medicamento?.nombre ?? '—', d.medicamento?.principioActivo ?? '—',
-        (d.tipo as string).replace(/_/g, ' '),
-        fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
-      ]),
-      [110, 110, 68, 60, 60, 68],
-      16,
-    );
-  }
+  // Las desparasitaciones ya no se atan a una consulta puntual (se
+  // identifican solo por el animal), así que no tienen sección aquí — se
+  // consultan desde el historial completo del animal.
 
   // ── Info epidemiológica ──
   if (c.informacionEpidemiologica) {
