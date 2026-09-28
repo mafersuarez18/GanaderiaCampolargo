@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import Icono from '../../componentes/ui/Icono';
+import SelectorRaza from '../../componentes/ui/SelectorRaza';
 import { clienteHttp } from '../../servicios/clienteAxios';
 import toast from 'react-hot-toast';
 
@@ -61,10 +62,6 @@ async function obtenerLotesPorFinca(fincaId: string) {
   const { data } = await clienteHttp.get(`/lotes?fincaId=${fincaId}&porPagina=100`);
   return data.datos ?? [];
 }
-async function obtenerRazas() {
-  const { data } = await clienteHttp.get('/animales/razas');
-  return data.datos ?? [];
-}
 async function obtenerAnimalesPorSexo(sexo: 'MACHO' | 'HEMBRA') {
   const { data } = await clienteHttp.get('/animales', {
     params: { sexo, estado: 'ACTIVO', porPagina: 200, ordenPor: 'numeroArete', direccionOrden: 'asc' },
@@ -85,7 +82,6 @@ export default function PaginaFormAnimal() {
   });
 
   const { data: fincas = [] } = useQuery({ queryKey: ['fincas-select'], queryFn: obtenerFincas });
-  const { data: razas = [] }  = useQuery({ queryKey: ['razas-select'],  queryFn: obtenerRazas });
   const { data: machos = [] } = useQuery({ queryKey: ['machos-select'], queryFn: () => obtenerAnimalesPorSexo('MACHO') });
   const { data: hembras = [] } = useQuery({ queryKey: ['hembras-select'], queryFn: () => obtenerAnimalesPorSexo('HEMBRA') });
 
@@ -238,7 +234,6 @@ export default function PaginaFormAnimal() {
               </select>
             </CampoForm>
             <SelectorRaza
-              razas={razas}
               razaId={razaIdActual ?? ''}
               razaNombreNueva={razaNombreNuevaActual ?? ''}
               error={errors.razaId?.message ?? errors.razaNombreNueva?.message}
@@ -442,97 +437,6 @@ function SeccionFormulario({ titulo, children }: { titulo: string; children: Rea
         {titulo}
       </h2>
       {children}
-    </div>
-  );
-}
-
-interface RazaOpcion { id: string; nombre: string; }
-
-function SelectorRaza({
-  razas, razaId, razaNombreNueva, onSeleccionar, onEscribir, error,
-}: {
-  razas: RazaOpcion[];
-  razaId: string;
-  razaNombreNueva: string;
-  onSeleccionar: (id: string, nombre: string) => void;
-  onEscribir: (texto: string) => void;
-  error?: string;
-}) {
-  const [abierto, setAbierto] = useState(false);
-  const refContenedor = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const manejador = (e: MouseEvent) => {
-      if (refContenedor.current && !refContenedor.current.contains(e.target as Node)) {
-        setAbierto(false);
-      }
-    };
-    document.addEventListener('mousedown', manejador);
-    return () => document.removeEventListener('mousedown', manejador);
-  }, []);
-
-  const razaSeleccionada = razas.find((r) => r.id === razaId);
-  const texto = razaSeleccionada ? razaSeleccionada.nombre : razaNombreNueva;
-  const textoNormalizado = texto.trim().toLowerCase();
-
-  const coincidencias = textoNormalizado
-    ? razas.filter((r) => r.nombre.toLowerCase().includes(textoNormalizado))
-    : razas;
-  const coincideExacta = razas.some((r) => r.nombre.toLowerCase() === textoNormalizado);
-
-  return (
-    <div>
-      <label className="block text-xs font-medium text-[var(--color-piedra-600)] mb-1.5">Raza *</label>
-      <div ref={refContenedor} className="relative">
-        <input
-          type="text"
-          value={texto}
-          onChange={(e) => { onEscribir(e.target.value); setAbierto(true); }}
-          onFocus={() => setAbierto(true)}
-          placeholder="Seleccione o escriba una raza..."
-          className="campo-entrada"
-          autoComplete="off"
-        />
-        {abierto && (
-          <div
-            className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-xl shadow-xl
-                       border border-outline-variant/30 z-50 overflow-hidden max-h-52 overflow-y-auto"
-          >
-            {coincidencias.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => { onSeleccionar(r.id, r.nombre); setAbierto(false); }}
-                className="w-full text-left px-4 py-2.5 hover:bg-surface-container-low transition-colors
-                           border-b border-outline-variant/10 last:border-0 flex items-center gap-2"
-              >
-                <Icono nombre="pets" clase="text-[14px] text-outline flex-shrink-0" />
-                <span className="text-sm text-on-surface">{r.nombre}</span>
-              </button>
-            ))}
-            {!!textoNormalizado && !coincideExacta && (
-              <div className="w-full text-left px-4 py-2.5 flex items-center gap-2 text-primary text-sm bg-primary/5">
-                <Icono nombre="add_circle" clase="text-[14px] flex-shrink-0" />
-                Se creará una raza nueva: "{texto.trim()}"
-              </div>
-            )}
-            {!coincidencias.length && !textoNormalizado && (
-              <div className="px-4 py-3 text-xs text-on-surface-variant">
-                Escriba para buscar o registrar una raza nueva
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      {error && (
-        <motion.p
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-red-500 text-xs mt-1"
-        >
-          {error}
-        </motion.p>
-      )}
     </div>
   );
 }

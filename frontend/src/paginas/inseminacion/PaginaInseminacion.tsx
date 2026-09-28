@@ -10,6 +10,7 @@ import Badge from '../../componentes/ui/Badge';
 import Modal from '../../componentes/ui/Modal';
 import Icono from '../../componentes/ui/Icono';
 import Paginacion from '../../componentes/ui/Paginacion';
+import SelectorRaza from '../../componentes/ui/SelectorRaza';
 import toast from 'react-hot-toast';
 
 // Laboratorio de inseminación artificial: catálogo de sementales,
@@ -1004,25 +1005,37 @@ function ModalLoteSemen({
 // ── Modal: Registrar semental ─────────────────────────────────────────────────
 
 function ModalSemental({ onCerrar, onExito }: { onCerrar: () => void; onExito: () => void }) {
+  const qc = useQueryClient();
   const [form, setForm] = useState({
-    nombre: '', registro: '', razaId: '', origen: '', observaciones: '',
+    nombre: '', registro: '', razaId: '', razaNombreNueva: '', razaTipoCruce: '', razaOrigen: '',
+    origen: '', observaciones: '',
   });
   const [error, setError] = useState('');
 
-  const { data: razas = [] } = useQuery({
-    queryKey: ['razas-select'],
-    queryFn: () => clienteHttp.get('/animales/razas').then((r) => r.data.datos ?? []),
-  });
+  const esRazaNueva = !form.razaId && !!form.razaNombreNueva;
 
   const mutacion = useMutation({
-    mutationFn: () =>
-      clienteHttp.post('/inseminacion/sementales', {
+    mutationFn: async () => {
+      // Igual que en el alta de animales: si la raza escrita no existe en el
+      // catálogo, se crea primero y luego se usa su id para el semental.
+      let razaId = form.razaId;
+      if (!razaId && form.razaNombreNueva) {
+        const { data: dataRaza } = await clienteHttp.post('/animales/razas', {
+          nombre: form.razaNombreNueva,
+          tipoCruce: form.razaTipoCruce,
+          ...(form.razaOrigen && { origen: form.razaOrigen }),
+        });
+        razaId = dataRaza.datos.id;
+        qc.invalidateQueries({ queryKey: ['razas-select'] });
+      }
+      return clienteHttp.post('/inseminacion/sementales', {
         nombre:  form.nombre.trim(),
-        razaId:  form.razaId,
+        razaId,
         ...(form.registro     && { registro:      form.registro.trim() }),
         ...(form.origen       && { origen:        form.origen.trim() }),
         ...(form.observaciones && { observaciones: form.observaciones }),
-      }),
+      });
+    },
     onSuccess: () => { toast.success('Semental registrado correctamente'); onExito(); },
     onError: (e: any) => setError(e?.response?.data?.mensaje ?? 'Error al registrar el semental'),
   });
@@ -1054,7 +1067,8 @@ function ModalSemental({ onCerrar, onExito }: { onCerrar: () => void; onExito: (
             onSubmit={(e) => {
               e.preventDefault();
               if (!form.nombre.trim()) { setError('El nombre es requerido'); return; }
-              if (!form.razaId)        { setError('Seleccione la raza'); return; }
+              if (!form.razaId && !form.razaNombreNueva) { setError('Seleccione o escriba una raza'); return; }
+              if (esRazaNueva && !form.razaTipoCruce) { setError('Indique el tipo de cruce de la nueva raza'); return; }
               setError('');
               mutacion.mutate();
             }}
@@ -1079,31 +1093,47 @@ function ModalSemental({ onCerrar, onExito }: { onCerrar: () => void; onExito: (
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-                  Raza <span className="text-error">*</span>
-                </label>
-                <select
-                  value={form.razaId}
-                  onChange={(e) => setForm((f) => ({ ...f, razaId: e.target.value }))}
-                  className="campo-entrada"
-                >
-                  <option value="">Seleccionar...</option>
-                  {(razas as any[]).map((r: any) => (
-                    <option key={r.id} value={r.id}>{r.nombre}</option>
-                  ))}
-                </select>
+            <SelectorRaza
+              razaId={form.razaId}
+              razaNombreNueva={form.razaNombreNueva}
+              onSeleccionar={(idRaza) => setForm((f) => ({
+                ...f, razaId: idRaza, razaNombreNueva: '', razaTipoCruce: '', razaOrigen: '',
+              }))}
+              onEscribir={(texto) => setForm((f) => ({ ...f, razaId: '', razaNombreNueva: texto }))}
+            />
+            {esRazaNueva && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+                    Tipo de cruce (raza nueva) <span className="text-error">*</span>
+                  </label>
+                  <input type="text"
+                    value={form.razaTipoCruce}
+                    onChange={(e) => setForm((f) => ({ ...f, razaTipoCruce: e.target.value }))}
+                    placeholder="Ej: F1, Sangre pura..."
+                    className="campo-entrada"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Origen de la raza</label>
+                  <input type="text"
+                    value={form.razaOrigen}
+                    onChange={(e) => setForm((f) => ({ ...f, razaOrigen: e.target.value }))}
+                    placeholder="Ej: India, Europa..."
+                    className="campo-entrada"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">N° Registro</label>
-                <input type="text"
-                  value={form.registro}
-                  onChange={(e) => setForm((f) => ({ ...f, registro: e.target.value }))}
-                  placeholder="Registro oficial"
-                  className="campo-entrada"
-                />
-              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">N° Registro</label>
+              <input type="text"
+                value={form.registro}
+                onChange={(e) => setForm((f) => ({ ...f, registro: e.target.value }))}
+                placeholder="Registro oficial"
+                className="campo-entrada"
+              />
             </div>
 
             <div>
