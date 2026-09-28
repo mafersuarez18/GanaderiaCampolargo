@@ -6,7 +6,9 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 
 COPY package*.json ./
-RUN npm ci
+# --ignore-scripts: el postinstall (`prisma generate`) necesita prisma/schema.prisma,
+# que todavía no existe en esta capa (se copia recién abajo con `COPY . .`).
+RUN npm ci --ignore-scripts
 
 COPY . .
 RUN npx prisma generate
@@ -20,7 +22,10 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 
 COPY package*.json ./
-RUN npm ci --only=production
+# El cliente de Prisma ya generado se copia más abajo desde la etapa de
+# construcción, así que aquí tampoco hace falta (ni es posible) correr el
+# postinstall.
+RUN npm ci --only=production --ignore-scripts
 
 COPY --from=construccion /app/dist ./dist
 COPY --from=construccion /app/node_modules/.prisma ./node_modules/.prisma
