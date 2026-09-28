@@ -79,7 +79,6 @@ export default defineConfig({
       '@servicios': path.resolve(__dirname, './src/servicios'),
       '@tipos': path.resolve(__dirname, './src/tipos'),
       '@utilidades': path.resolve(__dirname, './src/utilidades'),
-      '@tanstack/react-query': path.resolve(__dirname, 'node_modules/@tanstack/react-query'),
     },
   },
 

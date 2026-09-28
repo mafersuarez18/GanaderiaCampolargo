@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { AxiosResponse } from 'axios';
 import { clienteHttp } from '../../servicios/clienteAxios';
 import Badge, { BadgeRol } from '../../componentes/ui/Badge';
 import Modal, { ModalConfirmacion } from '../../componentes/ui/Modal';
@@ -374,7 +375,7 @@ function FormularioUsuario({
   const [error, setError] = useState('');
 
   const mutacion = useMutation({
-    mutationFn: (datos: FormUsuario) => {
+    mutationFn: (datos: FormUsuario): Promise<AxiosResponse> => {
       if (esEdicion) {
         const { contrasena, ...resto } = datos;
         return clienteHttp.patch(`/usuarios/${usuarioEditar.id}`, {
