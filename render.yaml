@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: campolargo-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Connection string *pooled* de Neon (la que trae "-pooler" en el host).
+      - key: DATABASE_URL
+        sync: false
+      # Connection string directa de Neon (sin pooler): la usa `prisma migrate`.
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRETO
+        generateValue: true
+      - key: JWT_SECRETO_REFRESH
+        generateValue: true
+      - key: JWT_EXPIRACION
+        value: 15m
+      - key: JWT_EXPIRACION_REFRESH
+        value: 7d
+      # URL del frontend en Vercel, para que CORS la acepte.
+      - key: URL_FRONTEND
+        sync: false
+      - key: EMAIL_SERVIDOR
+        value: smtp.gmail.com
+      - key: EMAIL_PUERTO
+        value: "587"
+      - key: EMAIL_USUARIO
+        sync: false
+      - key: EMAIL_CLAVE
+        sync: false
+      - key: EMAIL_REMITENTE
+        sync: false

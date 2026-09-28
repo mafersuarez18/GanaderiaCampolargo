@@ -12,6 +12,11 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  // DIRECT_URL es opcional: solo hace falta cuando DATABASE_URL apunta a un
+  // pooler (p. ej. el de Neon), porque prisma migrate usa locks a nivel de
+  // sesión que no funcionan a través de un pool en modo transacción. Si no
+  // se define, Prisma usa DATABASE_URL también para migrar.
+  directUrl  = env("DIRECT_URL")
   // Las coordenadas GPS se guardan como Float (latitud/longitud), no como
   // tipos geométricos nativos, así que solo hacen falta unaccent (búsquedas
   // sin distinguir tildes) y pg_trgm (búsquedas por similitud de texto).

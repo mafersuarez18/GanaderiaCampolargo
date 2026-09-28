@@ -17,6 +17,10 @@ try {
   }
 } catch { /* No hay .env (típico en producción): se usan las variables del sistema */ }
 
+// Plataformas como Render asignan el puerto vía PORT (no lo elige la app),
+// así que esa variable manda sobre PUERTO cuando está presente.
+if (process.env.PORT) process.env.PUERTO = process.env.PORT;
+
 // Todas las variables que la aplicación necesita para arrancar, con sus
 // valores por defecto donde tiene sentido tenerlos. Si falta algo
 // obligatorio (como los secretos JWT), el proceso no debe arrancar.
