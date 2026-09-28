@@ -30,6 +30,15 @@ const fmtFecha = (d: Date | string | null | undefined): string =>
 const fmtFechaLarga = (d: Date | string | null | undefined): string =>
   d ? new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
 
+// Convierte un valor de enum (p. ej. "EN_TRATAMIENTO", "FINALIZADA_PARTO") en
+// una etiqueta legible ("En tratamiento", "Finalizada parto") para que los
+// reportes no muestren el nombre técnico tal cual viene de la base de datos.
+const etiquetaEnum = (valor: string | null | undefined): string => {
+  if (!valor) return '—';
+  const palabras = valor.toLowerCase().split('_');
+  return palabras.map((p, i) => (i === 0 ? p.charAt(0).toUpperCase() + p.slice(1) : p)).join(' ');
+};
+
 // ── Encabezado de página ───────────────────────────────────────────────────────
 function encabezadoPDF(
   doc: PDFKit.PDFDocument,
@@ -83,6 +92,15 @@ function piePaginaPDF(doc: PDFKit.PDFDocument): void {
     doc.switchToPage(i);
     const W = doc.page.width;
     const y = doc.page.height - 32;
+
+    // El pie va a propósito dentro del margen inferior de la página; con ese
+    // margen activo, PDFKit interpreta el y explícito como que el contenido
+    // "no cabe" y agrega una página en blanco extra solo para el pie. Se
+    // desactiva momentáneamente para dibujarlo en la página que le
+    // corresponde de verdad.
+    const margenInferiorOriginal = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+
     doc.moveTo(ML, y).lineTo(W - MR, y)
        .strokeColor(GRIS_LINEA).lineWidth(0.5).stroke();
     doc.fontSize(7.5).fillColor(GRIS_SUAVE)
@@ -90,6 +108,8 @@ function piePaginaPDF(doc: PDFKit.PDFDocument): void {
          `Página ${i - rango.start + 1} de ${rango.count}   ·   Sistema Campolargo — Confidencial`,
          ML, y + 6, { align: 'center', width: W - ML - MR, lineBreak: false },
        );
+
+    doc.page.margins.bottom = margenInferiorOriginal;
   }
 }
 
@@ -359,7 +379,7 @@ export async function generarInventario(
         a.raza?.nombre  ?? '—',
         a.lote?.finca?.nombre ?? '—',
         a.lote?.nombre  ?? '—',
-        a.estado === 'ACTIVO' ? 'Activo' : a.estado === 'VENDIDO' ? 'Vendido' : a.estado === 'MUERTO' ? 'Muerto' : a.estado,
+        etiquetaEnum(a.estado),
         a.pesoActual != null ? String(a.pesoActual) : '—',
       ]),
       anchos,
@@ -417,12 +437,12 @@ export async function generarInventario(
         raza:        a.raza?.nombre ?? '',
         finca:       a.lote?.finca?.nombre ?? '',
         lote:        a.lote?.nombre  ?? '',
-        estado:      a.estado,
-        sanitario:   a.estadoSanitario,
+        estado:      etiquetaEnum(a.estado),
+        sanitario:   etiquetaEnum(a.estadoSanitario),
         peso:        a.pesoActual ?? '',
         nacimiento:  fmtFecha(a.fechaNacimiento),
         color:       a.color ?? '',
-        proposito:   a.proposito ?? '',
+        proposito:   a.proposito ? etiquetaEnum(a.proposito) : '',
       }), i % 2 === 0);
     });
 
@@ -769,7 +789,7 @@ export async function generarReproductivo(
   const hasta = new Date(filtros.anio, 11, 31, 23, 59, 59);
   const dF    = filtros.fincaId ? { lote: { fincaId: filtros.fincaId } } : {};
 
-  const [gestaciones, nacimientos, totalHembras] = await Promise.all([
+  const [gestaciones, gestacionesFinalizadasEnAnio, nacimientos, totalHembras] = await Promise.all([
     prisma.gestacion.findMany({
       where: { fechaInicio: { gte: desde, lte: hasta }, madre: { ...dF } },
       include: {
@@ -781,6 +801,19 @@ export async function generarReproductivo(
         },
       },
       orderBy: { fechaInicio: 'desc' },
+    }),
+    // A diferencia de "gestaciones" (cohorte que INICIÓ en el año), este
+    // conteo usa fechaPartoReal: la gestación dura ~9 meses, así que casi
+    // ninguna que inicia en el año también termina en el año — de ahí que
+    // se necesite esta consulta aparte, igual que hace el indicador en vivo
+    // (obtenerIndicadoresReproductivos), para no reportar "0 partos" cuando
+    // en realidad sí hubo nacimientos ese año.
+    prisma.gestacion.count({
+      where: {
+        estadoGestacion: 'FINALIZADA_PARTO',
+        fechaPartoReal: { gte: desde, lte: hasta },
+        madre: { ...dF },
+      },
     }),
     prisma.nacimiento.findMany({
       where: {
@@ -806,7 +839,7 @@ export async function generarReproductivo(
   ]);
 
   const enCurso      = gestaciones.filter((g) => g.estadoGestacion === 'EN_CURSO').length;
-  const finalizadas  = gestaciones.filter((g) => g.estadoGestacion === 'FINALIZADA_PARTO').length;
+  const finalizadas  = gestacionesFinalizadasEnAnio;
   const tasaPrenez   = totalHembras > 0
     ? ((gestaciones.length / totalHembras) * 100).toFixed(1) + '%'
     : '—';
@@ -861,7 +894,7 @@ export async function generarReproductivo(
           fmtFecha(g.fechaInicio),
           fmtFecha(g.fechaPartoEsperado),
           fmtFecha(g.fechaPartoReal),
-          g.estadoGestacion.replace(/_/g, ' '),
+          etiquetaEnum(g.estadoGestacion),
         ]),
         [52, 90, 80, 58, 72, 62, 122],
       );
@@ -882,7 +915,7 @@ export async function generarReproductivo(
           n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
           n.gestacion.madre.lote?.finca?.nombre ?? '—',
           fmtFecha(n.fechaNacimiento),
-          n.tipoParto ?? '—',
+          etiquetaEnum(n.tipoParto),
         ]),
         [60, 90, 46, 90, 76, 62, 112],
       );
@@ -928,7 +961,7 @@ export async function generarReproductivo(
         inicio: fmtFecha(g.fechaInicio),
         parto:  fmtFecha(g.fechaPartoEsperado),
         partoR: fmtFecha(g.fechaPartoReal),
-        estado: g.estadoGestacion.replace(/_/g, ' '),
+        estado: etiquetaEnum(g.estadoGestacion),
       }), i % 2 === 0);
     });
 
@@ -952,8 +985,8 @@ export async function generarReproductivo(
         madre:     n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
         finca:     n.gestacion.madre.lote?.finca?.nombre ?? '',
         fecha:     fmtFecha(n.fechaNacimiento),
-        tipo:      n.tipoParto ?? '',
-        estadoCria: n.estadoCria ?? '',
+        tipo:      n.tipoParto ? etiquetaEnum(n.tipoParto) : '',
+        estadoCria: n.estadoCria ? etiquetaEnum(n.estadoCria) : '',
       }), i % 2 === 0);
     });
 
@@ -1030,7 +1063,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
     ['Fecha nacimiento', fmtFechaLarga(animal.fechaNacimiento)],
     ['Peso actual',      animal.pesoActual != null ? `${animal.pesoActual} kg` : '—'],
     ['Color',            animal.color ?? '—'],
-    ['Estado sanitario', animal.estadoSanitario ?? '—'],
+    ['Estado sanitario', etiquetaEnum(animal.estadoSanitario)],
   ];
   ficha.forEach(([k, v], i) => parKV(doc, k, v, i % 2 === 0));
 
@@ -1143,7 +1176,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
       ['Producto', 'Principio activo', 'Tipo', 'Fecha', 'Dosis', 'Vía'],
       desparasitacionesAnimal.map((d) => [
         d.medicamento?.nombre ?? '—', d.medicamento?.principioActivo ?? '—',
-        d.tipo.replace(/_/g, ' '),
+        etiquetaEnum(d.tipo),
         fmtFecha(d.fecha), d.dosis ?? '—', d.via ?? '—',
       ]),
       [110, 110, 68, 60, 60, 68],
@@ -1207,7 +1240,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
     ['Lote',             c.animal.lote?.nombre  ?? '—'],
     ['Fecha nacimiento', fmtFechaLarga(c.animal.fechaNacimiento)],
     ['Peso',             c.animal.pesoActual != null ? `${c.animal.pesoActual} kg` : '—'],
-    ['Estado sanitario', c.animal.estadoSanitario ?? '—'],
+    ['Estado sanitario', etiquetaEnum(c.animal.estadoSanitario)],
   ];
   fichaA.forEach(([k, v], i) => parKV(doc, k, v, i % 2 === 0));
 
