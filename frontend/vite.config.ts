@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'logo-campolargo.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'logo-campolargo.png'],
       manifest: {
         name: 'Sistema Campolargo — Gestión Veterinaria',
         short_name: 'Campolargo',
@@ -61,6 +61,8 @@ export default defineConfig({
         // Precachear páginas principales para funcionamiento offline
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: '/index.html',
+        // El font de material-symbols pesa ~4 MB, por encima del límite por defecto (2 MB)
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       devOptions: { enabled: false },
     }),
@@ -94,6 +96,14 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+
+  preview: {
+    port: 4173,
+    host: true,
+    // Permite acceder al preview a través del túnel HTTPS de Cloudflare
+    // (necesario para probar la PWA en el teléfono con un contexto seguro).
+    allowedHosts: ['.trycloudflare.com'],
   },
 
   build: {

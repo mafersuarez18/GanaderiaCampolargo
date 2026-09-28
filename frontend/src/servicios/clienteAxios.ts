@@ -43,8 +43,13 @@ clienteHttp.interceptors.response.use(
   (respuesta) => respuesta,
   async (error: AxiosError) => {
     const solicitudOriginal = error.config as InternalAxiosRequestConfig & { _reintentado?: boolean };
+    // El login y la renovación de token también responden 401 cuando las
+    // credenciales o el refresh token son inválidos: ese caso no es una
+    // "sesión expirada" a renovar/redirigir, es un error a mostrarle al usuario.
+    const esRutaAuth = solicitudOriginal?.url?.includes('/auth/iniciar-sesion')
+      || solicitudOriginal?.url?.includes('/auth/renovar-token');
 
-    if (error.response?.status === 401 && !solicitudOriginal._reintentado) {
+    if (error.response?.status === 401 && !esRutaAuth && !solicitudOriginal._reintentado) {
       solicitudOriginal._reintentado = true;
 
       const tienda = useAutenticacionStore.getState();
@@ -93,7 +98,7 @@ clienteHttp.interceptors.response.use(
     }
 
     // Mostrar toast de error para errores no relacionados con auth
-    if (error.response?.status !== 401) {
+    if (error.response?.status !== 401 || esRutaAuth) {
       const mensaje = (error.response?.data as { mensaje?: string })?.mensaje
         ?? error.message
         ?? 'Ocurrió un error inesperado';
