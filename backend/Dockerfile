@@ -33,6 +33,10 @@ COPY prisma ./prisma
 
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S campolargo -u 1001
+# logger.ts crea logs/ (rotación diaria) en tiempo de ejecución; sin este
+# directorio y su dueño correcto, el proceso corriendo como campolargo
+# (no root) no puede crearlo y el arranque falla con EACCES.
+RUN mkdir -p logs && chown campolargo:nodejs logs
 USER campolargo
 
 EXPOSE 3001
