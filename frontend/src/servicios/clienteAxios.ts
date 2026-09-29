@@ -33,6 +33,11 @@ clienteHttp.interceptors.request.use(
 let renovandoToken = false;
 let colaEspera: Array<(token: string | null) => void> = [];
 
+// Evita mostrar un toast de "sin conexión" por cada petición que falla a la
+// vez (p. ej. las 4-5 que dispara el dashboard al cargar sin red) — con uno
+// solo cada pocos segundos alcanza.
+let ultimoToastRedMs = 0;
+
 function procesarCola(token: string | null) {
   colaEspera.forEach((resolver) => resolver(token));
   colaEspera = [];
@@ -95,6 +100,19 @@ clienteHttp.interceptors.response.use(
       } finally {
         renovandoToken = false;
       }
+    }
+
+    // Sin respuesta del servidor: sin conexión, CORS o tiempo agotado. Axios
+    // solo da "Network Error" en este caso, que no le dice nada útil al
+    // usuario — se muestra un mensaje claro, como mucho uno cada pocos
+    // segundos (varias peticiones simultáneas fallan todas juntas sin red).
+    if (!error.response) {
+      const ahora = Date.now();
+      if (ahora - ultimoToastRedMs > 4000) {
+        ultimoToastRedMs = ahora;
+        toast.error('Sin conexión a internet. Mostrando los últimos datos guardados.');
+      }
+      return Promise.reject(error);
     }
 
     // Mostrar toast de error para errores no relacionados con auth

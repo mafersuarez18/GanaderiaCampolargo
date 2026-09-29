@@ -47,8 +47,12 @@ export default defineConfig({
             },
           },
           {
-            // Network-First para la API (con fallback a caché)
-            urlPattern: /\/api\/v1\/.*/i,
+            // Network-First para la API (con fallback a caché). Ojo: la API
+            // ya no usa prefijo /v1 (se quitó hace varios commits) — este
+            // patrón debe coincidir con la URL real que arma clienteAxios,
+            // sea local (http://localhost:3001/api/...) o en producción
+            // (https://.../api/...), o el service worker nunca cachea nada.
+            urlPattern: /\/api\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
