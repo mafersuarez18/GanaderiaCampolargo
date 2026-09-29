@@ -69,7 +69,7 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
   const iniciales = `${usuario?.nombre?.charAt(0) ?? ''}${usuario?.apellido?.charAt(0) ?? ''}`;
   const tituloActual = Object.entries(titulosPorRuta).find(
     ([ruta]) => ubicacion.pathname === ruta || (ruta !== '/dashboard' && ubicacion.pathname.startsWith(ruta))
-  )?.[1] ?? 'Sistema Campolargo';
+  )?.[1] ?? 'Sucesión Joao Campolargo';
 
   const { data: conteoData } = useQuery({
     queryKey: ['notificaciones-conteo'],
