@@ -201,7 +201,7 @@ export default function PaginaAuditoria() {
             animate={{ height: 'auto', opacity: 1 }}
             className="overflow-hidden"
           >
-            <div className="pt-4 mt-4 border-t border-outline-variant/20 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="pt-4 mt-4 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Desde</label>
                 <input
