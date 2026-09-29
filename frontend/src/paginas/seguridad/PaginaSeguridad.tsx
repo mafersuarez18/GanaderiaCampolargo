@@ -94,7 +94,7 @@ export default function PaginaSeguridad() {
         </div>
       </motion.div>
 
-      <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-surface-container rounded-xl overflow-x-auto max-w-full">
         {([
           { valor: 'usuarios', etiqueta: 'Usuarios', icono: 'group' },
           { valor: 'roles',    etiqueta: 'Roles y privilegios', icono: 'admin_panel_settings' },
@@ -102,7 +102,7 @@ export default function PaginaSeguridad() {
           <button
             key={t.valor}
             onClick={() => setPestana(t.valor)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-shrink-0 whitespace-nowrap ${
               pestana === t.valor
                 ? 'bg-primary text-on-primary'
                 : 'text-on-surface-variant hover:text-on-surface'

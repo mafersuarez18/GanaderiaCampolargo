@@ -383,7 +383,7 @@ export default function PaginaMapa() {
       </div>
 
       {/* Pestañas */}
-      <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit flex-wrap">
+      <div className="flex gap-1 p-1 bg-surface-container rounded-xl overflow-x-auto max-w-full">
         {([
           { clave: 'dispositivos', et: 'Dispositivos GPS',    ico: 'router' },
           { clave: 'mapa',         et: 'Mapa en vivo',        ico: 'satellite_alt' },
@@ -393,7 +393,7 @@ export default function PaginaMapa() {
           <button
             key={p.clave}
             onClick={() => setPestaña(p.clave)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0 whitespace-nowrap ${
               pestaña === p.clave
                 ? 'bg-surface-container-lowest text-on-surface shadow-sm'
                 : 'text-on-surface-variant hover:text-on-surface'

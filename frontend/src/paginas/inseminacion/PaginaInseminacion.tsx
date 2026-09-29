@@ -205,7 +205,7 @@ export default function PaginaInseminacion() {
       </div>
 
       {/* Pestañas */}
-      <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-surface-container rounded-xl overflow-x-auto max-w-full">
         {([
           { clave: 'inseminaciones', et: 'Inseminaciones', ico: 'biotech' },
           { clave: 'inventario',     et: 'Inventario semen', ico: 'inventory' },
@@ -215,7 +215,7 @@ export default function PaginaInseminacion() {
           <button
             key={p.clave}
             onClick={() => setPestaña(p.clave)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0 whitespace-nowrap ${
               pestaña === p.clave
                 ? 'bg-surface-container-lowest text-on-surface shadow-sm'
                 : 'text-on-surface-variant hover:text-on-surface'
@@ -542,7 +542,7 @@ export default function PaginaInseminacion() {
         alCerrar={() => setModalIns(false)}
         titulo="Registrar inseminación artificial"
         descripcion="Complete los datos del procedimiento"
-        tamano="md"
+        tamano="xl"
         pie={
           <>
             <button onClick={() => setModalIns(false)} className="boton boton-secundario">Cancelar</button>
@@ -791,7 +791,11 @@ function FormularioInseminacion({ hembras, lotes, onSubmit }: PropsFormInseminac
 
 function CampoForm({ etiqueta, error, children }: { etiqueta: string; error?: string; children: React.ReactNode }) {
   return (
-    <div>
+    // min-w-0: sin esto, un <input type="date"> dentro de un grid puede
+    // forzar la columna (y el modal) a desbordarse — los items de grid no
+    // se achican por debajo del ancho intrínseco de su contenido por
+    // defecto.
+    <div className="min-w-0">
       <label className="block text-xs font-medium text-on-surface-variant mb-1.5">{etiqueta}</label>
       {children}
       {error && (

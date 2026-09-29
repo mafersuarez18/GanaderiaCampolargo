@@ -373,7 +373,7 @@ export default function PaginaAlertas() {
       )}
 
       {/* ── Pestañas ────────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-surface-container rounded-xl overflow-x-auto max-w-full">
         {([
           { clave: 'notificaciones', et: 'Notificaciones', ico: 'inbox' },
           { clave: 'reglas',         et: 'Reglas de alerta', ico: 'rule_settings' },
@@ -381,7 +381,7 @@ export default function PaginaAlertas() {
           <button
             key={p.clave}
             onClick={() => setPestaña(p.clave)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0 whitespace-nowrap ${
               pestaña === p.clave
                 ? 'bg-surface-container-lowest text-on-surface shadow-sm'
                 : 'text-on-surface-variant hover:text-on-surface'

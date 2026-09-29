@@ -184,7 +184,7 @@ export default function PaginaVacunacion() {
 
       {/* Cabecera + pestañas */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit">
+        <div className="flex gap-1 p-1 bg-surface-container rounded-xl overflow-x-auto max-w-full">
           {[
             { clave: 'calendarios', et: 'Calendarios',              ico: 'event_note' },
             { clave: 'registros',   et: 'Historial de Aplicaciones', ico: 'history' },
@@ -194,7 +194,7 @@ export default function PaginaVacunacion() {
             <button
               key={p.clave}
               onClick={() => setPestanaActiva(p.clave as 'calendarios' | 'registros' | 'planes' | 'cumplimiento')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0 whitespace-nowrap ${
                 pestanaActiva === p.clave
                   ? 'bg-surface-container-lowest text-on-surface shadow-sm'
                   : 'text-on-surface-variant hover:text-on-surface'

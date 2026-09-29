@@ -158,7 +158,7 @@ export default function PaginaReproduccion() {
 
       {/* Cabecera con pestañas y botón */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex gap-1 p-1 bg-surface-container rounded-xl w-fit">
+        <div className="flex gap-1 p-1 bg-surface-container rounded-xl overflow-x-auto max-w-full">
           {([
             { clave: 'partos',      et: 'Partos Próximos',  ico: 'child_care' },
             { clave: 'eventos',     et: 'Historial',         ico: 'history' },
@@ -167,7 +167,7 @@ export default function PaginaReproduccion() {
             <button
               key={p.clave}
               onClick={() => setPestana(p.clave)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all relative ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all relative flex-shrink-0 whitespace-nowrap ${
                 pestana === p.clave
                   ? 'bg-surface-container-lowest text-on-surface shadow-sm'
                   : 'text-on-surface-variant hover:text-on-surface'
