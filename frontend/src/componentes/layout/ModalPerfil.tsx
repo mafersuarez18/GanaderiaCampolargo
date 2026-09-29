@@ -156,7 +156,7 @@ export default function ModalPerfil({ abierto, alCerrar }: PropsModalPerfil) {
               <div className="px-6 py-5">
                 {pestana === 'datos' ? (
                   <form onSubmit={guardarDatos} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-on-surface-variant mb-1">Nombre</label>
                         <input

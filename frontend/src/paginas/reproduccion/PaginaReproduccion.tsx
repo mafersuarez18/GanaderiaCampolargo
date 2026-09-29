@@ -739,7 +739,7 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                   Tipo <span className="text-error">*</span>
@@ -772,7 +772,7 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="overflow-hidden grid grid-cols-2 gap-3"
+                className="overflow-hidden grid grid-cols-1 sm:grid-cols-2 gap-3"
               >
                 <div>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Inicio Gestación</label>
@@ -848,7 +848,7 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
                 <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
                   Datos de Inseminación Artificial
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Clasificación</label>
                     <select value={form.clasificacionIA}

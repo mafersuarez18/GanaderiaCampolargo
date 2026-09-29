@@ -298,7 +298,7 @@ export default function PaginaHistorialMedico() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div>
                   <label className="block text-xs font-medium text-on-surface-variant mb-1">Desde</label>
                   <input
@@ -1180,8 +1180,8 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
 
             {/* ── 1. Identificación ── */}
             <SeccionClinica titulo="Identificación" icono="badge">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
                   <BuscadorAnimal etiqueta="Animal" requerido valor={form.animalId}
                     alSeleccionar={(id) => {
                       setDespPrecargadas(new Set());
@@ -1211,7 +1211,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                   onChange={(e) => set('sintomasObservados', e.target.value)}
                   placeholder="Describa los síntomas clínicos observados..." className="campo-entrada resize-none" />
               </CampoLabel>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <CampoLabel etiqueta="Tratamientos previos">
                   <textarea rows={2} value={form.tratamientosPrevios}
                     onChange={(e) => set('tratamientosPrevios', e.target.value)}
@@ -1227,7 +1227,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
 
             {/* ── 3. Exploración física ── */}
             <SeccionClinica titulo="Exploración Física" icono="stethoscope">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { campo: 'temperatura', et: 'Temperatura (°C)', ph: '38.5', step: '0.1' },
                   { campo: 'frecuenciaCardiaca', et: 'Frec. Cardíaca (lpm)', ph: '60', step: '1' },
@@ -1247,7 +1247,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
 
             {/* ── 4. Estado del animal ── */}
             <SeccionClinica titulo="Estado del Animal" icono="monitor_heart">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <CampoLabel etiqueta="Estado reproductivo">
                   <select value={form.estadoReproductivo} onChange={(e) => set('estadoReproductivo', e.target.value)} className="campo-entrada">
                     <option value="">No especificado</option>
@@ -1289,7 +1289,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                   </label>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <CampoLabel etiqueta="Otros vectores">
                   <input type="text" value={form.epidOtros}
                     onChange={(e) => set('epidOtros', e.target.value)}
@@ -1334,7 +1334,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                     className="absolute top-2 right-2 p-1 text-outline hover:text-error rounded-lg transition-colors">
                     <Icono nombre="close" clase="text-[14px]" />
                   </button>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <CampoLabel etiqueta="Nombre de la enfermedad">
                       <input type="text" value={enf.nombreEnfermedad}
                         onChange={(e) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].nombreEnfermedad = e.target.value; return { ...f, enfermedades: arr }; })}
@@ -1409,7 +1409,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                     className="absolute top-2 right-2 p-1 text-outline hover:text-error rounded-lg transition-colors">
                     <Icono nombre="close" clase="text-[14px]" />
                   </button>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <CampoLabel etiqueta="Medicamento *">
                       <select value={trat.medicamentoId}
                         onChange={(e) => setForm((f) => { const arr = [...f.tratamientos]; arr[idx].medicamentoId = e.target.value; return { ...f, tratamientos: arr }; })}
@@ -1503,8 +1503,8 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                     className="absolute top-2 right-2 p-1 text-outline hover:text-error rounded-lg transition-colors">
                     <Icono nombre="close" clase="text-[14px]" />
                   </button>
-                  <div className={`grid grid-cols-3 gap-2 ${despPrecargadas.has(idx) ? 'mt-5' : ''}`}>
-                    <div className="col-span-3 sm:col-span-1">
+                  <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2 ${despPrecargadas.has(idx) ? 'mt-5' : ''}`}>
+                    <div className="sm:col-span-1">
                       <CampoLabel etiqueta="Medicamento *">
                         <SelectorMedicamento
                           medicamentos={medicamentos}

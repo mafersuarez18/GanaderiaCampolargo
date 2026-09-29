@@ -655,7 +655,7 @@ function GrupoIA({ titulo, children }: { titulo: string; children: React.ReactNo
       <div className="px-3 py-2 bg-surface-container-low">
         <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">{titulo}</p>
       </div>
-      <div className="p-3 grid grid-cols-2 gap-3">{children}</div>
+      <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>
     </div>
   );
 }
@@ -705,7 +705,7 @@ function FormularioInseminacion({ hembras, lotes, onSubmit }: PropsFormInseminac
       </CampoForm>
 
       {/* Fecha e intento */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <CampoForm etiqueta="Fecha del procedimiento *" error={errors.fecha?.message}>
           <input type="date" {...register('fecha')} className="campo-entrada" />
         </CampoForm>
@@ -892,7 +892,7 @@ function ModalLoteSemen({
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                   Código de dosis <span className="text-error">*</span>
@@ -919,7 +919,7 @@ function ModalLoteSemen({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Motilidad (%)</label>
                 <input type="number" min={0} max={100} step={0.1}
@@ -958,7 +958,7 @@ function ModalLoteSemen({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">F. Colección</label>
                 <input type="date"
@@ -1102,7 +1102,7 @@ function ModalSemental({ onCerrar, onExito }: { onCerrar: () => void; onExito: (
               onEscribir={(texto) => setForm((f) => ({ ...f, razaId: '', razaNombreNueva: texto }))}
             />
             {esRazaNueva && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                     Tipo de cruce (raza nueva) <span className="text-error">*</span>

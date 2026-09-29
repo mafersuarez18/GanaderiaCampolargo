@@ -433,7 +433,7 @@ function FormularioUsuario({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
                 { campo: 'nombre',   et: 'Nombre' },
                 { campo: 'apellido', et: 'Apellido' },
@@ -743,7 +743,7 @@ function FormularioRol({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
               Nombre <span className="text-error">*</span>

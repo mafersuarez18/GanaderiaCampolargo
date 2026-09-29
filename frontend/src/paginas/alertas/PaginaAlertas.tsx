@@ -982,7 +982,7 @@ function ModalRegla({
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                 Prioridad de las alertas generadas
               </label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {(['BAJA', 'MEDIA', 'ALTA', 'CRITICA'] as const).map((p) => {
                   const cfg = CFG_PRIORIDAD_REGLA[p];
                   const etiq = p === 'CRITICA' ? 'Crítica' : p === 'ALTA' ? 'Alta' : p === 'MEDIA' ? 'Media' : 'Baja';
@@ -1005,7 +1005,7 @@ function ModalRegla({
             </div>
 
             {/* ── Umbral ── */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                   {infoTipo.umbralLabel}
@@ -1070,7 +1070,7 @@ function ModalRegla({
             {/* ── Destinatarios ── */}
             <div>
               <p className="text-xs font-semibold text-on-surface-variant mb-2.5">Destinatarios</p>
-              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
                 {usuariosDisponibles.map((usuario) => (
                   <label key={usuario.id} className="flex items-center gap-2 cursor-pointer select-none">
                     <input

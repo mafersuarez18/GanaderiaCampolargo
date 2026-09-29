@@ -297,6 +297,15 @@ a, button { transition: all var(--duracion-rapida) var(--ease-out); }
 
   .campo-entrada::placeholder { color: var(--color-outline); }
   .campo-entrada:disabled { background: var(--color-surface-container); cursor: not-allowed; opacity: 0.7; }
+
+  /* iOS Safari hace zoom automático al enfocar un campo con font-size < 16px.
+     !important porque varios formularios agregan la utilidad text-sm sobre
+     campo-entrada (para formularios densos), y las utilidades de Tailwind
+     tienen más prioridad que este componente — sin esto, esos campos
+     seguirían gatillando el zoom en iOS. */
+  @media (max-width: 640px) {
+    .campo-entrada { font-size: 16px !important; }
+  }
 }
 
 /* ── Botones ──────────────────────────────────────────────── */
