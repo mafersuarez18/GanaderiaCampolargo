@@ -1108,7 +1108,7 @@ function FormularioRegistro({
         ...(datos.viaAdministracion && { viaAdministracion: datos.viaAdministracion }),
         ...(datos.lote              && { lote: datos.lote }),
         ...(datos.observaciones     && { observaciones: datos.observaciones }),
-      }),
+      }, { descripcionOffline: 'Registro de vacunación' }),
     onSuccess: () => onExito(),
     onError: (err: any) => setError(err?.response?.data?.mensaje ?? 'Error al registrar la vacunación'),
   });

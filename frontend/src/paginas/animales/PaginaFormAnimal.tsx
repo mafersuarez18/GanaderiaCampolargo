@@ -146,11 +146,14 @@ export default function PaginaFormAnimal() {
       // Si se escribió una raza que no existe en el catálogo, se crea primero
       let razaId = resto.razaId;
       if (!razaId && razaNombreNueva) {
+        // sinCola: necesita el id de la raza de inmediato para poder crear
+        // el animal con ella — no tiene sentido "guardar para más tarde"
+        // solo esta mitad del formulario.
         const { data: dataRaza } = await clienteHttp.post('/animales/razas', {
           nombre: razaNombreNueva,
           tipoCruce: razaTipoCruce,
           ...(razaOrigen && { origen: razaOrigen }),
-        });
+        }, { sinCola: true });
         razaId = dataRaza.datos.id;
         cliente.invalidateQueries({ queryKey: ['razas-select'] });
       }
@@ -160,10 +163,10 @@ export default function PaginaFormAnimal() {
         Object.entries({ ...resto, razaId }).filter(([, v]) => v !== '' && v !== undefined && v !== null)
       );
       if (esEdicion) {
-        const { data } = await clienteHttp.patch(`/animales/${id}`, payload);
+        const { data } = await clienteHttp.patch(`/animales/${id}`, payload, { descripcionOffline: 'Edición de animal' });
         return data.datos;
       }
-      const { data } = await clienteHttp.post('/animales', payload);
+      const { data } = await clienteHttp.post('/animales', payload, { descripcionOffline: 'Nuevo animal' });
       return data.datos;
     },
     onSuccess: (animal) => {

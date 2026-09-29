@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAutenticacion } from '../../hooks/useAutenticacion';
 import { useOnline } from '../../hooks/useOnline';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { clienteHttp } from '../../servicios/clienteAxios';
+import { clienteHttp, sincronizarPendientes } from '../../servicios/clienteAxios';
+import { contarPendientes, suscribirseACola } from '../../servicios/colaSincronizacion';
 import Icono from '../ui/Icono';
 import ModalPerfil from './ModalPerfil';
 
@@ -65,6 +66,25 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [panelNotifsAbierto, setPanelNotifsAbierto] = useState(false);
   const [modalPerfilAbierto, setModalPerfilAbierto] = useState(false);
+  const [pendientesOffline, setPendientesOffline] = useState(0);
+  const [sincronizando, setSincronizando] = useState(false);
+
+  // Cuenta de registros guardados sin conexión, pendientes de subir —
+  // colaSincronizacion notifica cada vez que se agrega/quita uno.
+  useEffect(() => {
+    contarPendientes().then(setPendientesOffline);
+    return suscribirseACola(() => { contarPendientes().then(setPendientesOffline); });
+  }, []);
+
+  const sincronizarAhora = async () => {
+    if (sincronizando || !estaEnLinea) return;
+    setSincronizando(true);
+    try {
+      await sincronizarPendientes();
+    } finally {
+      setSincronizando(false);
+    }
+  };
 
   const iniciales = `${usuario?.nombre?.charAt(0) ?? ''}${usuario?.apellido?.charAt(0) ?? ''}`;
   const tituloActual = Object.entries(titulosPorRuta).find(
@@ -226,6 +246,27 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
               <Icono nombre="wifi_off" clase="text-[14px]" />
               <span className="hidden sm:inline">Sin conexión</span>
             </div>
+          )}
+
+          {/* Registros guardados sin conexión, pendientes de subir */}
+          {pendientesOffline > 0 && (
+            <button
+              onClick={sincronizarAhora}
+              disabled={!estaEnLinea || sincronizando}
+              title={estaEnLinea
+                ? 'Sincronizar los registros guardados sin conexión'
+                : 'Se subirán solos cuando vuelva la señal'}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                        bg-tertiary/15 text-tertiary disabled:opacity-70 transition-opacity"
+            >
+              <Icono
+                nombre={sincronizando ? 'progress_activity' : 'cloud_upload'}
+                clase={`text-[14px] ${sincronizando ? 'animate-spin' : ''}`}
+              />
+              <span className="hidden sm:inline">
+                {sincronizando ? 'Sincronizando...' : `${pendientesOffline} pendiente${pendientesOffline === 1 ? '' : 's'}`}
+              </span>
+            </button>
           )}
 
           {/* Notificaciones */}

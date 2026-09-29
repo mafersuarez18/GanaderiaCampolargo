@@ -688,7 +688,9 @@ function FormularioRol({
         await clienteHttp.patch(`/roles/${rol.id}`, { nombre, descripcion: descripcion || undefined });
         rolId = rol.id;
       } else {
-        const creado = await clienteHttp.post('/roles', { nombre, descripcion: descripcion || undefined });
+        // sinCola: hace falta el id del rol de inmediato para asignarle
+        // los privilegios en el mismo flujo.
+        const creado = await clienteHttp.post('/roles', { nombre, descripcion: descripcion || undefined }, { sinCola: true });
         rolId = creado.data.datos.id;
       }
       await clienteHttp.put(`/roles/${rolId}/privilegios`, { privilegioIds: Array.from(privilegioIds) });

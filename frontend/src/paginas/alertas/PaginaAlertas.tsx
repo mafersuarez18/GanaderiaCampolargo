@@ -229,7 +229,9 @@ export default function PaginaAlertas() {
   const dispararMotor = async () => {
     setEvaluando(true);
     try {
-      const resp = await clienteHttp.post('/alertas/evaluar');
+      // sinCola: es una acción para disparar ahora, no un registro — no
+      // tiene sentido "guardarla para más tarde" y fingir que ya evaluó.
+      const resp = await clienteHttp.post('/alertas/evaluar', undefined, { sinCola: true });
       toast.success(resp.data.datos?.mensaje ?? 'Motor ejecutado correctamente');
       queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
       queryClient.invalidateQueries({ queryKey: ['alertas-resumen'] });

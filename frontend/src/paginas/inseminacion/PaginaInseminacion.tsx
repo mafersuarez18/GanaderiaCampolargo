@@ -150,7 +150,7 @@ export default function PaginaInseminacion() {
       if (datos.balanceEnergetico)   payload.balanceEnergetico   = datos.balanceEnergetico;
       if (datos.temperaturaUterina)  payload.temperaturaUterina  = Number(datos.temperaturaUterina);
       if (datos.manejoHato)          payload.manejoHato          = datos.manejoHato;
-      return clienteHttp.post('/inseminacion', payload);
+      return clienteHttp.post('/inseminacion', payload, { descripcionOffline: 'Inseminación artificial' });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inseminaciones'] });
@@ -1034,11 +1034,13 @@ function ModalSemental({ onCerrar, onExito }: { onCerrar: () => void; onExito: (
       // catálogo, se crea primero y luego se usa su id para el semental.
       let razaId = form.razaId;
       if (!razaId && form.razaNombreNueva) {
+        // sinCola: hace falta el id de la raza de inmediato para crear el
+        // semental con ella.
         const { data: dataRaza } = await clienteHttp.post('/animales/razas', {
           nombre: form.razaNombreNueva,
           tipoCruce: form.razaTipoCruce,
           ...(form.razaOrigen && { origen: form.razaOrigen }),
-        });
+        }, { sinCola: true });
         razaId = dataRaza.datos.id;
         qc.invalidateQueries({ queryKey: ['razas-select'] });
       }
@@ -1048,7 +1050,7 @@ function ModalSemental({ onCerrar, onExito }: { onCerrar: () => void; onExito: (
         ...(form.registro     && { registro:      form.registro.trim() }),
         ...(form.origen       && { origen:        form.origen.trim() }),
         ...(form.observaciones && { observaciones: form.observaciones }),
-      });
+      }, { descripcionOffline: 'Nuevo semental' });
     },
     onSuccess: () => { toast.success('Semental registrado correctamente'); onExito(); },
     onError: (e: any) => setError(e?.response?.data?.mensaje ?? 'Error al registrar el semental'),
