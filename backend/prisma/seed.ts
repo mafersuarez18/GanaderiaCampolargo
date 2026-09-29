@@ -919,6 +919,518 @@ async function main() {
   console.log('Dispositivos GPS y registros de ubicación de prueba creados');
 
   // ----------------------------------------------------------
+  // 11. POTREROS (subdivisiones de cada lote)
+  // ----------------------------------------------------------
+  const lotesParaPotreros = [
+    { lote: loteParaisoA, prefijo: 'PA-A' },
+    { lote: loteParaisoB, prefijo: 'PA-B' },
+    { lote: loteParaisoC, prefijo: 'PA-C' },
+    { lote: loteCampoAlegreA, prefijo: 'CA-A' },
+    { lote: loteCampoAlegreB, prefijo: 'CA-B' },
+    { lote: loteLasPenasA, prefijo: 'LP-A' },
+    { lote: loteLasPenasB, prefijo: 'LP-B' },
+  ];
+
+  for (const { lote, prefijo } of lotesParaPotreros) {
+    for (let n = 1; n <= 2; n++) {
+      const id = `potrero-${prefijo}-${n}`;
+      await prisma.potrero.upsert({
+        where: { id },
+        update: {},
+        create: {
+          id,
+          nombre: `Potrero ${prefijo}-${n}`,
+          hectareas: 8 + Math.round(Math.random() * 12),
+          descripcion: n === 1 ? 'Pastoreo rotativo principal' : 'Potrero de descanso',
+          loteId: lote.id,
+        },
+      });
+    }
+  }
+  console.log('Potreros creados');
+
+  // Animales de referencia reutilizados en las secciones clínicas y
+  // reproductivas siguientes (ya existen, creados en la sección 8).
+  const aretesNecesarios = [
+    'ELP-001', 'ELP-002', 'ELP-003', 'ELP-008', 'ELP-009',
+    'CAL-001', 'CAL-002', 'CAL-005', 'CAL-007', 'CAL-009',
+    'LPN-001', 'LPN-002', 'LPN-005', 'LPN-009',
+  ];
+  const animalesPorArete = Object.fromEntries(
+    (await prisma.animal.findMany({ where: { numeroArete: { in: aretesNecesarios } } }))
+      .map((a) => [a.numeroArete, a])
+  );
+
+  // ----------------------------------------------------------
+  // 12. HISTORIALES MÉDICOS (consultas, diagnósticos y tratamientos)
+  // ----------------------------------------------------------
+  const historialMorena = await prisma.historialMedico.upsert({
+    where: { id: 'hist-elp008-1' },
+    update: {},
+    create: {
+      id: 'hist-elp008-1',
+      animalId: animalesPorArete['ELP-008'].id,
+      veterinarioId: veterinario.id,
+      fechaConsulta: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      motivoConsulta: 'Disminución de apetito y descarga nasal',
+      sintomasObservados: 'Letargo, mucosidad nasal, tos ocasional',
+      temperatura: 39.8,
+      frecuenciaCardiaca: 76,
+      frecuenciaRespiratoria: 32,
+      tiempoLlenadoCapilar: 2,
+      movimientosRuminales: 1,
+      condicionCorporal: 3,
+      estadoReproductivo: 'LACTANTE',
+      litrosLechesDiarios: 6.5,
+      diagnosticoDefinitivo: 'Mastitis clínica en cuarto posterior izquierdo',
+      estadoSanitario: 'EN_TRATAMIENTO',
+    },
+  });
+
+  const enfMorena = await prisma.enfermedadDiagnosticada.upsert({
+    where: { id: 'enf-elp008-mastitis' },
+    update: {},
+    create: {
+      id: 'enf-elp008-mastitis',
+      historialMedicoId: historialMorena.id,
+      nombreEnfermedad: 'Mastitis clínica',
+      nivelGravedad: 'MODERADA',
+      fechaInicio: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      activa: true,
+      descripcionClinica: 'Inflamación y endurecimiento del cuarto posterior izquierdo, secreción anormal',
+      sintomas: 'Calor local, dolor a la palpación, leche con grumos',
+      tiempoEvolucion: '3 días',
+      diagnosticoDefinitivo: 'Mastitis clínica bacteriana',
+      pronostico: 'Favorable con tratamiento antibiótico',
+      planDiagnostico: 'Cultivo de leche si no hay mejoría en 5 días',
+    },
+  });
+
+  await prisma.tratamiento.upsert({
+    where: { id: 'trat-elp008-oxitetraciclina' },
+    update: {},
+    create: {
+      id: 'trat-elp008-oxitetraciclina',
+      historialMedicoId: historialMorena.id,
+      enfermedadDiagnosticadaId: enfMorena.id,
+      medicamentoId: oxitetraciclina.id,
+      fechaInicio: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      dosis: '15 ml',
+      viaAdministracion: 'Intramuscular',
+      frecuencia: 'Cada 24 horas',
+      duracionDias: 5,
+      estado: 'EN_CURSO',
+      respuestaTratamiento: 'Mejoría parcial, disminución de la inflamación',
+    },
+  });
+
+  await prisma.informacionEpidemiologica.upsert({
+    where: { historialMedicoId: historialMorena.id },
+    update: {},
+    create: {
+      historialMedicoId: historialMorena.id,
+      garrapatas: true,
+      mosquitos: false,
+      murcielagos: false,
+      moscas: true,
+      otrosVectores: 'Tábanos ocasionales',
+      descripcionEntorno: 'Potrero con zona húmeda cerca del bebedero',
+      veterinarioRegistroId: veterinario.id,
+    },
+  });
+
+  await prisma.historialMedico.upsert({
+    where: { id: 'hist-cal005-1' },
+    update: {},
+    create: {
+      id: 'hist-cal005-1',
+      animalId: animalesPorArete['CAL-005'].id,
+      veterinarioId: veterinario.id,
+      fechaConsulta: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+      motivoConsulta: 'Control sanitario de rutina',
+      temperatura: 38.4,
+      frecuenciaCardiaca: 68,
+      frecuenciaRespiratoria: 24,
+      condicionCorporal: 3.5,
+      resultadosPruebas: 'Tuberculosis: negativo. Brucelosis: negativo. Control anual al día.',
+      diagnosticoDefinitivo: 'Animal sano, sin hallazgos relevantes',
+    },
+  });
+
+  const historialFresita = await prisma.historialMedico.upsert({
+    where: { id: 'hist-lpn005-1' },
+    update: {},
+    create: {
+      id: 'hist-lpn005-1',
+      animalId: animalesPorArete['LPN-005'].id,
+      veterinarioId: tecnico.id,
+      fechaConsulta: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+      motivoConsulta: 'Distensión abdominal tras cambio de potrero',
+      sintomasObservados: 'Abdomen distendido del lado izquierdo, inquietud',
+      temperatura: 38.9,
+      frecuenciaCardiaca: 88,
+      movimientosRuminales: 0,
+      diagnosticoDefinitivo: 'Timpanismo espumoso leve',
+    },
+  });
+
+  const enfFresita = await prisma.enfermedadDiagnosticada.upsert({
+    where: { id: 'enf-lpn005-timpanismo' },
+    update: {},
+    create: {
+      id: 'enf-lpn005-timpanismo',
+      historialMedicoId: historialFresita.id,
+      nombreEnfermedad: 'Timpanismo espumoso',
+      nivelGravedad: 'LEVE',
+      fechaInicio: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+      fechaResolucion: new Date(Date.now() - 38 * 24 * 60 * 60 * 1000),
+      activa: false,
+      descripcionClinica: 'Distensión ruminal por exceso de forraje leguminoso tierno',
+      pronostico: 'Favorable, resuelto sin complicaciones',
+    },
+  });
+
+  await prisma.tratamiento.upsert({
+    where: { id: 'trat-lpn005-antibiotico' },
+    update: {},
+    create: {
+      id: 'trat-lpn005-antibiotico',
+      historialMedicoId: historialFresita.id,
+      enfermedadDiagnosticadaId: enfFresita.id,
+      medicamentoId: oxitetraciclina.id,
+      fechaInicio: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+      fechaFin: new Date(Date.now() - 38 * 24 * 60 * 60 * 1000),
+      dosis: '10 ml',
+      viaAdministracion: 'Intramuscular',
+      frecuencia: 'Dosis única',
+      duracionDias: 1,
+      estado: 'COMPLETADO',
+      respuestaTratamiento: 'Resolución completa sin complicaciones',
+    },
+  });
+
+  console.log('Historiales médicos, diagnósticos y tratamientos creados');
+
+  // ----------------------------------------------------------
+  // 13. PROGRAMA DE DESPARASITACIÓN (aplicado directo al animal)
+  // ----------------------------------------------------------
+  const desparasitaciones = [
+    { arete: 'ELP-001', tipo: 'ENDOPARASITO', medicamento: fenbendazol25, dosis: '9 ml', via: 'Oral', dias: 10 },
+    { arete: 'ELP-009', tipo: 'AMBOS', medicamento: ivermectina315, dosis: '8 ml', via: 'Subcutánea', dias: 25 },
+    { arete: 'CAL-001', tipo: 'ENDOPARASITO', medicamento: levamisol15, dosis: '14 ml', via: 'Intramuscular', dias: 15 },
+    { arete: 'CAL-007', tipo: 'AMBOS', medicamento: doramectina1, dosis: '8 ml', via: 'Subcutánea', dias: 60 },
+    { arete: 'LPN-001', tipo: 'ENDOPARASITO', medicamento: lombifarm, dosis: '29 ml', via: 'Oral', dias: 5 },
+    { arete: 'LPN-009', tipo: 'ENDOPARASITO', medicamento: fenbendazol25, dosis: '6 ml', via: 'Oral', dias: 90 },
+  ] as const;
+
+  for (const [i, d] of desparasitaciones.entries()) {
+    await prisma.programaDesparasitacion.upsert({
+      where: { id: `desp-${d.arete.toLowerCase()}-${i}` },
+      update: {},
+      create: {
+        id: `desp-${d.arete.toLowerCase()}-${i}`,
+        animalId: animalesPorArete[d.arete].id,
+        medicamentoId: d.medicamento.id,
+        veterinarioId: tecnico.id,
+        tipo: d.tipo,
+        fecha: new Date(Date.now() - d.dias * 24 * 60 * 60 * 1000),
+        dosis: d.dosis,
+        via: d.via,
+      },
+    });
+  }
+  console.log('Programa de desparasitación creado');
+
+  // ----------------------------------------------------------
+  // 14. REGISTROS DE VACUNACIÓN
+  // ----------------------------------------------------------
+  const registrosVacunacion = [
+    { arete: 'ELP-001', cal: 'cal-fiebre-aftosa', dias: 170, proximaEnDias: 10 },
+    { arete: 'ELP-002', cal: 'cal-fiebre-aftosa', dias: 175, proximaEnDias: 5 },
+    { arete: 'ELP-008', cal: 'cal-triple-carbon', dias: 350, proximaEnDias: 15 },
+    { arete: 'ELP-009', cal: 'cal-ibr-dvb-lepto', dias: 300, proximaEnDias: 65 },
+    { arete: 'CAL-001', cal: 'cal-brucelosis', dias: 200, proximaEnDias: null },
+    { arete: 'CAL-002', cal: 'cal-rabia-bovina', dias: 360, proximaEnDias: 5 },
+    { arete: 'CAL-005', cal: 'cal-carbon-bacteridiano', dias: 400, proximaEnDias: -35 }, // vencida
+    { arete: 'CAL-009', cal: 'cal-anaplasmosis-babesiosis', dias: 170, proximaEnDias: 10 },
+    { arete: 'LPN-001', cal: 'cal-triple-carbon', dias: 40, proximaEnDias: 325 },
+    { arete: 'LPN-005', cal: 'cal-fiebre-aftosa', dias: 20, proximaEnDias: 160 },
+  ] as const;
+
+  for (const [i, r] of registrosVacunacion.entries()) {
+    const fechaAplicacion = new Date(Date.now() - r.dias * 24 * 60 * 60 * 1000);
+    await prisma.registroVacunacion.upsert({
+      where: { id: `vac-${r.arete.toLowerCase()}-${i}` },
+      update: {},
+      create: {
+        id: `vac-${r.arete.toLowerCase()}-${i}`,
+        animalId: animalesPorArete[r.arete].id,
+        calendarioVacunacionId: r.cal,
+        aplicadoPorId: veterinario.id,
+        fechaAplicacion,
+        proximaFecha: r.proximaEnDias != null
+          ? new Date(Date.now() + r.proximaEnDias * 24 * 60 * 60 * 1000)
+          : null,
+      },
+    });
+  }
+  console.log('Registros de vacunación creados');
+
+  // ----------------------------------------------------------
+  // 15. REPRODUCCIÓN: inseminaciones, diagnósticos, gestaciones y partos
+  // ----------------------------------------------------------
+  const dosisNegro = await prisma.inventarioSemen.findUniqueOrThrow({ where: { codigoDosis: 'DOS-NEGRO-001' } });
+  const dosisMaestro = await prisma.inventarioSemen.findUniqueOrThrow({ where: { codigoDosis: 'DOS-MAESTRO-001' } });
+
+  // ── Inseminación artificial reciente sin diagnóstico todavía ──
+  const eventoIA1 = await prisma.eventoReproductivo.upsert({
+    where: { id: 'evrep-ia-elp001' },
+    update: {},
+    create: {
+      id: 'evrep-ia-elp001',
+      animalId: animalesPorArete['ELP-001'].id,
+      registradoPorId: veterinario.id,
+      tipo: 'INSEMINACION_ARTIFICIAL',
+      fecha: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+    },
+  });
+  await prisma.inseminacionArtificial.upsert({
+    where: { eventoReproductivoId: eventoIA1.id },
+    update: {},
+    create: {
+      eventoReproductivoId: eventoIA1.id,
+      inventarioSemenId: dosisNegro.id,
+      tipo: 'SEMEN_CONGELADO',
+      fechaInseminacion: eventoIA1.fecha,
+      numeroIntento: 1,
+      clasificacionIA: 'CELO_DETECTADO',
+      tecnicaDeposicion: 'INTRAUTERINA_RECTOVAGINAL',
+      manejoHato: 'BAJO',
+    },
+  });
+
+  // ── Inseminación con diagnóstico positivo → gestación en curso ──
+  const eventoIA2 = await prisma.eventoReproductivo.upsert({
+    where: { id: 'evrep-ia-cal001' },
+    update: {},
+    create: {
+      id: 'evrep-ia-cal001',
+      animalId: animalesPorArete['CAL-001'].id,
+      registradoPorId: veterinario.id,
+      tipo: 'INSEMINACION_ARTIFICIAL',
+      fecha: new Date(Date.now() - 75 * 24 * 60 * 60 * 1000),
+    },
+  });
+  await prisma.inseminacionArtificial.upsert({
+    where: { eventoReproductivoId: eventoIA2.id },
+    update: {},
+    create: {
+      eventoReproductivoId: eventoIA2.id,
+      inventarioSemenId: dosisMaestro.id,
+      tipo: 'SEMEN_CONGELADO',
+      fechaInseminacion: eventoIA2.fecha,
+      numeroIntento: 1,
+      clasificacionIA: 'TIEMPO_FIJO',
+      tecnicaDeposicion: 'INTRAUTERINA_PROFUNDA',
+      manejoHato: 'MEDIO',
+    },
+  });
+
+  const eventoDiag1 = await prisma.eventoReproductivo.upsert({
+    where: { id: 'evrep-diag-cal001' },
+    update: {},
+    create: {
+      id: 'evrep-diag-cal001',
+      animalId: animalesPorArete['CAL-001'].id,
+      registradoPorId: veterinario.id,
+      tipo: 'DIAGNOSTICO_GESTACION',
+      fecha: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const gestacionCal001 = await prisma.gestacion.upsert({
+    where: { id: 'gest-cal001-1' },
+    update: {},
+    create: {
+      id: 'gest-cal001-1',
+      madreId: animalesPorArete['CAL-001'].id,
+      eventoReproductivoId: eventoIA2.id,
+      fechaInicio: eventoIA2.fecha,
+      fechaPartoEsperado: new Date(eventoIA2.fecha.getTime() + 283 * 24 * 60 * 60 * 1000),
+      estadoGestacion: 'EN_CURSO',
+    },
+  });
+
+  await prisma.diagnosticoGestacion.upsert({
+    where: { eventoReproductivoId: eventoDiag1.id },
+    update: {},
+    create: {
+      eventoReproductivoId: eventoDiag1.id,
+      gestacionId: gestacionCal001.id,
+      fechaDiagnostico: eventoDiag1.fecha,
+      resultado: 'POSITIVO',
+      metodoDiagnostico: 'Ecografía transrectal',
+      semanaGestacion: 4,
+    },
+  });
+
+  // ── Diagnóstico negativo sin gestación asociada ──
+  const eventoDiag2 = await prisma.eventoReproductivo.upsert({
+    where: { id: 'evrep-diag-lpn009' },
+    update: {},
+    create: {
+      id: 'evrep-diag-lpn009',
+      animalId: animalesPorArete['LPN-009'].id,
+      registradoPorId: veterinario.id,
+      tipo: 'DIAGNOSTICO_GESTACION',
+      fecha: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+    },
+  });
+  await prisma.diagnosticoGestacion.upsert({
+    where: { eventoReproductivoId: eventoDiag2.id },
+    update: {},
+    create: {
+      eventoReproductivoId: eventoDiag2.id,
+      fechaDiagnostico: eventoDiag2.fecha,
+      resultado: 'NEGATIVO',
+      metodoDiagnostico: 'Palpación rectal',
+      observaciones: 'Repetir servicio en el próximo celo',
+    },
+  });
+
+  // ── Gestación próxima a parir (para el módulo de alertas) ──
+  const gestacionBella = await prisma.gestacion.upsert({
+    where: { id: 'gest-cal-bella-1' },
+    update: {},
+    create: {
+      id: 'gest-cal-bella-1',
+      madreId: animalesPorArete['CAL-002'].id,
+      fechaInicio: new Date(Date.now() - 270 * 24 * 60 * 60 * 1000),
+      fechaPartoEsperado: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      estadoGestacion: 'EN_CURSO',
+      observaciones: 'Gestación sin complicaciones hasta el momento',
+    },
+  });
+
+  // ── Gestación ya finalizada, con su parto registrado ──
+  const gestacionFinalizada = await prisma.gestacion.upsert({
+    where: { id: 'gest-lpn002-1' },
+    update: {},
+    create: {
+      id: 'gest-lpn002-1',
+      madreId: animalesPorArete['LPN-002'].id,
+      fechaInicio: new Date(Date.now() - 300 * 24 * 60 * 60 * 1000),
+      fechaPartoEsperado: new Date(Date.now() - 17 * 24 * 60 * 60 * 1000),
+      fechaPartoReal: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000),
+      estadoGestacion: 'FINALIZADA_PARTO',
+    },
+  });
+
+  await prisma.nacimiento.upsert({
+    where: { id: 'nac-lpn002-1' },
+    update: {},
+    create: {
+      id: 'nac-lpn002-1',
+      gestacionId: gestacionFinalizada.id,
+      fechaNacimiento: gestacionFinalizada.fechaPartoReal!,
+      tipoParto: 'NORMAL',
+      pesoAlNacer: 32,
+      estadoCria: 'VIVO',
+      sexoCria: 'HEMBRA',
+      observaciones: 'Parto sin asistencia, cría vigorosa desde el primer momento',
+    },
+  });
+
+  console.log('Eventos reproductivos, gestaciones y partos creados');
+
+  // ----------------------------------------------------------
+  // 16. NOTIFICACIONES (derivadas de reglas de alerta ya creadas)
+  // ----------------------------------------------------------
+  const rauVacunaProxima = await prisma.reglaAlertaUsuario.findFirst({
+    where: { reglaAlertaId: 'regla-vacuna-proxima', usuarioId: veterinario.id },
+  });
+  const rauVacunaVencida = await prisma.reglaAlertaUsuario.findFirst({
+    where: { reglaAlertaId: 'regla-vacuna-vencida', usuarioId: administrador.id },
+  });
+  const rauPartoProximo = await prisma.reglaAlertaUsuario.findFirst({
+    where: { reglaAlertaId: 'regla-parto-proximo', usuarioId: tecnico.id },
+  });
+  const rauEnfermedad = await prisma.reglaAlertaUsuario.findFirst({
+    where: { reglaAlertaId: 'regla-enfermedad-activa', usuarioId: veterinario.id },
+  });
+
+  const notificaciones = [
+    {
+      id: 'notif-vacuna-proxima-1',
+      titulo: 'Vacuna próxima a vencer',
+      mensaje: `El animal #${animalesPorArete['CAL-002'].numeroArete} tiene la vacuna de Rabia Bovina próxima a vencer en 5 días.`,
+      prioridad: 'ALTA' as const,
+      estado: 'ENVIADA' as const,
+      leida: false,
+      reglaUsuarioId: rauVacunaProxima?.id,
+      entidadTipo: 'Animal',
+      entidadId: animalesPorArete['CAL-002'].id,
+    },
+    {
+      id: 'notif-vacuna-vencida-1',
+      titulo: 'Vacuna vencida',
+      mensaje: `El animal #${animalesPorArete['CAL-005'].numeroArete} tiene una vacuna de Carbón Bacteridiano vencida hace 35 días.`,
+      prioridad: 'CRITICA' as const,
+      estado: 'LEIDA' as const,
+      leida: true,
+      fechaLeida: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      reglaUsuarioId: rauVacunaVencida?.id,
+      entidadTipo: 'Animal',
+      entidadId: animalesPorArete['CAL-005'].id,
+    },
+    {
+      id: 'notif-parto-proximo-1',
+      titulo: 'Parto próximo (7 días)',
+      mensaje: `Se estima el parto del animal #${animalesPorArete['CAL-002'].numeroArete} dentro de los próximos 5 días.`,
+      prioridad: 'ALTA' as const,
+      estado: 'PENDIENTE' as const,
+      leida: false,
+      reglaUsuarioId: rauPartoProximo?.id,
+      entidadTipo: 'Gestacion',
+      entidadId: gestacionBella.id,
+    },
+    {
+      id: 'notif-enfermedad-activa-1',
+      titulo: 'Enfermedad activa sin resolución',
+      mensaje: `El animal #${animalesPorArete['ELP-008'].numeroArete} continúa con mastitis clínica activa desde hace 5 días.`,
+      prioridad: 'ALTA' as const,
+      estado: 'ENVIADA' as const,
+      leida: false,
+      reglaUsuarioId: rauEnfermedad?.id,
+      entidadTipo: 'EnfermedadDiagnosticada',
+      entidadId: enfMorena.id,
+    },
+    {
+      id: 'notif-bienvenida-tecnico',
+      titulo: 'Bienvenido al Sistema Campolargo',
+      mensaje: 'Tu cuenta fue creada correctamente. Ya puedes registrar actividad de campo desde la app.',
+      prioridad: 'BAJA' as const,
+      estado: 'LEIDA' as const,
+      leida: true,
+      fechaLeida: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
+      usuarioId: tecnico.id,
+    },
+  ];
+
+  for (const { usuarioId, reglaUsuarioId, ...notif } of notificaciones) {
+    if (!usuarioId && !reglaUsuarioId) continue; // sin destinatario válido, se omite
+    await prisma.notificacion.upsert({
+      where: { id: notif.id },
+      update: {},
+      create: {
+        ...notif,
+        ...(usuarioId ? { usuarioId } : { reglaUsuarioId: reglaUsuarioId! }),
+      },
+    });
+  }
+  console.log('Notificaciones creadas');
+
+  // ----------------------------------------------------------
   // RESUMEN FINAL
   // ----------------------------------------------------------
   const conteoAnimales = await prisma.animal.count();
