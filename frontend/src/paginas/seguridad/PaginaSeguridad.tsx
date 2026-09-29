@@ -669,22 +669,10 @@ function FormularioRol({
     new Set(rol?.privilegios.map((p) => p.id) ?? []),
   );
   const [error, setError] = useState('');
-  const [nuevoPrivilegio, setNuevoPrivilegio] = useState('');
 
   const { data: privilegios = [] } = useQuery<Privilegio[]>({
     queryKey: ['privilegios'],
     queryFn: () => clienteHttp.get('/roles/privilegios/catalogo').then((r) => r.data.datos),
-  });
-
-  const queryClient = useQueryClient();
-  const crearPrivilegioMutacion = useMutation({
-    mutationFn: (descripcionPrivilegio: string) =>
-      clienteHttp.post('/roles/privilegios/catalogo', { descripcion: descripcionPrivilegio }),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['privilegios'] });
-      setPrivilegioIds((prev) => new Set(prev).add(res.data.datos.id));
-      setNuevoPrivilegio('');
-    },
   });
 
   const gruposPrivilegios = privilegios.reduce<Record<string, Privilegio[]>>((acc, p) => {
@@ -799,31 +787,6 @@ function FormularioRol({
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-            Registrar nuevo privilegio en el catálogo
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={nuevoPrivilegio}
-              onChange={(e) => setNuevoPrivilegio(e.target.value)}
-              placeholder="ej. modulo.accion"
-              className="campo-entrada flex-1"
-            />
-            <button
-              type="button"
-              disabled={!nuevoPrivilegio.trim() || crearPrivilegioMutacion.isPending}
-              onClick={() => crearPrivilegioMutacion.mutate(nuevoPrivilegio.trim())}
-              className="boton boton-secundario text-sm"
-            >
-              Agregar
-            </button>
-          </div>
-          <p className="text-[11px] text-on-surface-variant mt-1">
-            Un privilegio nuevo no tiene efecto hasta que el código sea verificado por una ruta del backend.
-          </p>
-        </div>
       </div>
     </Modal>
   );
