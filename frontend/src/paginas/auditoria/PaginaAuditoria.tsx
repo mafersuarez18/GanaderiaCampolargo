@@ -260,6 +260,10 @@ export default function PaginaAuditoria() {
           animate={{ opacity: 1 }}
           className="tarjeta-vidrio rounded-2xl overflow-hidden"
         >
+          {/* Columnas de ancho fijo/auto: en pantallas angostas se desliza
+              horizontal en vez de aplastar todo el contenido. */}
+          <div className="overflow-x-auto">
+          <div className="min-w-[820px]">
           {/* Header */}
           <div className="grid grid-cols-[auto_auto_1fr_auto_auto_auto] gap-3 px-5 py-3
                          bg-surface-container-low border-b border-outline-variant/20">
@@ -312,6 +316,8 @@ export default function PaginaAuditoria() {
                 </span>
               </motion.div>
             ))}
+          </div>
+          </div>
           </div>
         </motion.div>
       )}

@@ -242,6 +242,10 @@ function PanelUsuarios() {
           animate={{ opacity: 1 }}
           className="tarjeta-vidrio rounded-2xl overflow-hidden"
         >
+          {/* Columnas de ancho fijo: en pantallas angostas se desliza
+              horizontal en vez de aplastar el nombre/correo del usuario. */}
+          <div className="overflow-x-auto">
+          <div className="min-w-[600px]">
           {/* Header */}
           <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3 bg-surface-container-low
                          border-b border-outline-variant/20">
@@ -314,6 +318,8 @@ function PanelUsuarios() {
               </div>
             </motion.div>
           ))}
+          </div>
+          </div>
         </motion.div>
       )}
 

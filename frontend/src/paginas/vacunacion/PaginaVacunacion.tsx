@@ -671,6 +671,8 @@ export default function PaginaVacunacion() {
               </div>
             ) : (
               <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                <div className="min-w-[480px]">
                 <div className="grid grid-cols-[1fr_90px_90px_110px] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
                   {['Lote', 'Animales', 'Al día', 'Cumplimiento'].map((h) => (
                     <span key={h} className={h === 'Lote' ? '' : 'text-center'}>{h}</span>
@@ -693,6 +695,8 @@ export default function PaginaVacunacion() {
                     </span>
                   </div>
                 ))}
+                </div>
+                </div>
               </div>
             )}
             <p className="text-[11px] text-on-surface-variant flex items-center gap-1.5 mt-3">

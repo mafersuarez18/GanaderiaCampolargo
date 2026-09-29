@@ -668,7 +668,10 @@ export default function PaginaMapa() {
             </div>
             {!cargandoUbic && !posiciones.length ? (
               <p className="px-5 py-6 text-sm text-on-surface-variant text-center">Sin posiciones registradas todavía</p>
-            ) : posiciones.map((p, idx, arr) => (
+            ) : (
+            <div className="overflow-x-auto">
+            <div className="min-w-[560px]">
+            {posiciones.map((p, idx, arr) => (
               <div key={p.animal.id}
                 className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 items-center px-5 py-3 text-xs hover:bg-surface-container-low transition-colors
                   ${idx < arr.length - 1 ? 'border-b border-outline-variant/10' : ''}`}
@@ -700,6 +703,9 @@ export default function PaginaMapa() {
                 </button>
               </div>
             ))}
+            </div>
+            </div>
+            )}
           </div>
         </motion.div>
       )}

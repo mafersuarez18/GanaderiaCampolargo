@@ -365,6 +365,10 @@ export default function PaginaInseminacion() {
             <VacioPanel icono="inventory" texto="Sin lotes de semen registrados" subtexto="Registre el inventario del laboratorio" />
           ) : (
             <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
+              {/* Las columnas tienen ancho fijo (excepto la primera), así que en
+                  pantallas angostas se desliza horizontal en vez de aplastarse. */}
+              <div className="overflow-x-auto">
+              <div className="min-w-[640px]">
               {/* Cabecera tabla */}
               <div className="grid grid-cols-[1fr_90px_90px_100px_90px] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
                 {['Semental / Código', 'Disponibles', 'Motilidad', 'Vence', 'Estado'].map((h) => (
@@ -441,6 +445,8 @@ export default function PaginaInseminacion() {
                   </div>
                 );
               })}
+              </div>
+              </div>
 
               {dataInv?.meta?.totalPaginas > 1 && (
                 <div className="px-4 py-3 border-t border-outline-variant/20">
@@ -492,6 +498,8 @@ export default function PaginaInseminacion() {
             <VacioPanel icono="insights" texto="Sin datos de efectividad" subtexto="Se calcula a partir de las inseminaciones registradas con dosis vinculada a un semental" />
           ) : (
             <div className="tarjeta-vidrio rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+              <div className="min-w-[520px]">
               <div className="grid grid-cols-[1fr_110px_90px_100px] gap-3 px-5 py-3 bg-surface-container-low border-b border-outline-variant/20 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide">
                 {['Semental', 'Inseminaciones', 'Efectivas', 'Efectividad'].map((h) => (
                   <span key={h} className={h === 'Semental' ? '' : 'text-center'}>{h}</span>
@@ -517,6 +525,8 @@ export default function PaginaInseminacion() {
                   </span>
                 </div>
               ))}
+              </div>
+              </div>
             </div>
           )}
           <p className="text-[11px] text-on-surface-variant flex items-center gap-1.5">
