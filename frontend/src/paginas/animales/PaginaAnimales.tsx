@@ -9,6 +9,7 @@ import Paginacion from '../../componentes/ui/Paginacion';
 import Badge, { BadgeEstadoAnimal } from '../../componentes/ui/Badge';
 import useDebounce from '../../hooks/useDebounce';
 import Icono from '../../componentes/ui/Icono';
+import toast from 'react-hot-toast';
 
 // Listado principal de animales, con búsqueda (debounced), filtros y
 // paginación server-side.
@@ -127,10 +128,12 @@ async function obtenerRazas(): Promise<Raza[]> {
 
 export default function PaginaAnimales() {
   const navegar = useNavigate();
-  const { esAdministrador, esVeterinario } = useAutenticacion();
+  const { esAdministrador, esVeterinario, tienePrivilegio } = useAutenticacion();
   const puedeCrear = esAdministrador || esVeterinario;
+  const puedeExportar = tienePrivilegio('reportes.generar');
 
   const [pagina, setPagina]             = useState(1);
+  const [exportando, setExportando]     = useState(false);
   const [busqueda, setBusqueda]         = useState('');
   const [filtroFinca, setFiltroFinca]   = useState('');
   const [filtroRaza, setFiltroRaza]     = useState('');
@@ -166,6 +169,35 @@ export default function PaginaAnimales() {
 
   const hayFiltrosActivos = busqueda || filtroFinca || filtroRaza || filtroSexo || filtroEstado !== 'ACTIVO';
 
+  // Reutiliza el mismo reporte de inventario que "Reportes" (con los
+  // filtros de finca/estado ya aplicados en esta pantalla), en vez de
+  // mantener una lógica de exportación aparte.
+  const exportar = async () => {
+    try {
+      setExportando(true);
+      const respuesta = await clienteHttp.get('/reportes/inventario', {
+        params: {
+          formato: 'excel',
+          ...(filtroFinca  && { fincaId: filtroFinca }),
+          ...(filtroEstado && { estado:  filtroEstado }),
+        },
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(new Blob([respuesta.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }));
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = `inventario_animales_${new Date().toISOString().split('T')[0]}.xlsx`;
+      enlace.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Error al exportar el listado de animales');
+    } finally {
+      setExportando(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -186,10 +218,16 @@ export default function PaginaAnimales() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="boton boton-secundario gap-2 text-sm">
-            <Icono nombre="download" clase="text-[18px]" />
-            Exportar
-          </button>
+          {puedeExportar && (
+            <button
+              onClick={exportar}
+              disabled={exportando}
+              className="boton boton-secundario gap-2 text-sm disabled:opacity-60"
+            >
+              <Icono nombre={exportando ? 'progress_activity' : 'download'} clase={`text-[18px] ${exportando ? 'animate-spin' : ''}`} />
+              {exportando ? 'Exportando...' : 'Exportar'}
+            </button>
+          )}
           {puedeCrear && (
             <button
               onClick={() => navegar('/animales/nuevo')}
