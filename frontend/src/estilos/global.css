@@ -278,6 +278,11 @@ a, button { transition: all var(--duracion-rapida) var(--ease-out); }
 @layer components {
   .campo-entrada {
     width: 100%;
+    /* Sin esto, un <input type="date"/select> dentro de un grid/flex no se
+       achica por debajo de su ancho de contenido nativo (varía por
+       navegador) y termina desbordando la columna/el modal en pantallas
+       angostas, aunque tenga width: 100%. */
+    min-width: 0;
     padding: 10px 14px;
     border: 1.5px solid var(--color-outline-variant);
     border-radius: var(--radius-md);

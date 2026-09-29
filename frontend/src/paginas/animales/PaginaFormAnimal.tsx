@@ -443,7 +443,7 @@ function SeccionFormulario({ titulo, children }: { titulo: string; children: Rea
 
 function CampoForm({ etiqueta, error, children }: { etiqueta: string; error?: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="block text-xs font-medium text-[var(--color-piedra-600)] mb-1.5">
         {etiqueta}
       </label>

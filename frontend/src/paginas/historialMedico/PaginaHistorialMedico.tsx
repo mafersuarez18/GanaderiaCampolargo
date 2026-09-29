@@ -958,7 +958,7 @@ function SelectorMedicamento({
 
 function CampoLabel({ etiqueta, req, children }: { etiqueta: string; req?: boolean; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
         {etiqueta}{req && <span className="text-error ml-0.5">*</span>}
       </label>
