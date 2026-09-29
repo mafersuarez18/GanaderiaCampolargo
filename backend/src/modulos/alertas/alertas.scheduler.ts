@@ -36,6 +36,18 @@ export async function evaluarTodasLasReglas(
   const errores: string[] = [];
   let evaluadas = 0;
 
+  // Tratamientos que debieron terminar: a diferencia de las demás
+  // evaluaciones, esto no depende de una ReglaAlerta configurable — corre
+  // siempre que se ejecuta el motor, para preguntarle a veterinario/admin si
+  // el animal mejoró y así poder cerrar el tratamiento.
+  try {
+    await evaluarTratamientosFinalizados();
+  } catch (error) {
+    const msg = `Error evaluando tratamientos finalizados: ${String(error)}`;
+    logger.error(msg);
+    errores.push(msg);
+  }
+
   for (const regla of reglas) {
     // ── Throttle por evaluarCadaHoras ─────────────────────────────────────
     if (!skipThrottle && regla.ultimaEvaluacion && regla.evaluarCadaHoras > 0) {
@@ -322,6 +334,58 @@ async function evaluarEnfermedadesActivas(
   }
 }
 
+/**
+ * Tratamientos EN_CURSO cuya duración esperada ya se cumplió (fechaInicio +
+ * duracionDias en el pasado). No es una ReglaAlerta configurable: siempre se
+ * ejecuta, y notifica a administrador y veterinario (sin `regla`) para que
+ * confirmen si el animal mejoró — desde ahí se cierra el tratamiento vía
+ * PATCH /historial-medico/tratamientos/:id/finalizar.
+ */
+async function evaluarTratamientosFinalizados(): Promise<void> {
+  const tratamientosEnCurso = await prisma.tratamiento.findMany({
+    where: { estado: 'EN_CURSO', duracionDias: { not: null } },
+    select: {
+      id: true,
+      fechaInicio: true,
+      duracionDias: true,
+      medicamento: { select: { nombre: true } },
+      historialMedico: {
+        select: {
+          animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
+        },
+      },
+    },
+  });
+
+  const hoy = new Date();
+
+  for (const tratamiento of tratamientosEnCurso) {
+    const fechaFinEsperada = new Date(
+      tratamiento.fechaInicio.getTime() + tratamiento.duracionDias! * 86_400_000,
+    );
+    if (fechaFinEsperada > hoy) continue; // Todavía dentro de la duración indicada
+
+    const animal = tratamiento.historialMedico.animal;
+
+    const titulo = interpolar(
+      'Tratamiento finalizado — {animal}',
+      { animal: animal.nombre ?? animal.numeroArete },
+    );
+
+    const mensaje = `El tratamiento con ${tratamiento.medicamento.nombre} debió finalizar el ${fechaFinEsperada.toLocaleDateString('es-VE')}. ¿El animal mejoró?`;
+
+    await crearNotificacionSiNoExiste(
+      titulo,
+      mensaje,
+      PrioridadAlerta.MEDIA,
+      'Tratamiento',
+      tratamiento.id,
+      animal.lote.fincaId,
+      // Sin regla: notifica por defecto a ADMINISTRADOR y VETERINARIO.
+    );
+  }
+}
+
 /** Animales activos sin consulta veterinaria en más de N días */
 async function evaluarAusenciaControlVeterinario(
   umbralDias: number,
@@ -581,4 +645,5 @@ export {
   evaluarControlPesoPendiente,
   evaluarIntervaloParto,
   evaluarInventarioSemen,
+  evaluarTratamientosFinalizados,
 };

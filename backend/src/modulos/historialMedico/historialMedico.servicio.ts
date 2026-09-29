@@ -1,6 +1,36 @@
 import { Prisma, EstadoSanitario, EstadoReproductivo, TipoDesparasitante, NivelGravedad } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
-import { ErrorNoEncontrado } from '../../compartido/tipos/respuesta';
+import { ErrorNoEncontrado, ErrorConflicto } from '../../compartido/tipos/respuesta';
+
+/**
+ * Recalcula Animal.estadoSanitario a partir de lo que sigue activo/en curso
+ * para ese animal en todo su historial médico: si tiene algún tratamiento
+ * EN_CURSO pasa a EN_TRATAMIENTO, si no pero tiene alguna enfermedad activa
+ * pasa a ENFERMO, y si no tiene ninguna de las dos pasa a SANO. No toca
+ * estados que solo se asignan manualmente (EN_OBSERVACION, CUARENTENA) salvo
+ * que un tratamiento/enfermedad real los sobrescriba.
+ */
+async function recalcularEstadoSanitarioAnimal(animalId: string): Promise<EstadoSanitario> {
+  const [tratamientoEnCurso, enfermedadActiva] = await Promise.all([
+    prisma.tratamiento.findFirst({
+      where: { estado: 'EN_CURSO', historialMedico: { animalId } },
+      select: { id: true },
+    }),
+    prisma.enfermedadDiagnosticada.findFirst({
+      where: { activa: true, historialMedico: { animalId } },
+      select: { id: true },
+    }),
+  ]);
+
+  const nuevoEstado: EstadoSanitario = tratamientoEnCurso
+    ? EstadoSanitario.EN_TRATAMIENTO
+    : enfermedadActiva
+      ? EstadoSanitario.ENFERMO
+      : EstadoSanitario.SANO;
+
+  await prisma.animal.update({ where: { id: animalId }, data: { estadoSanitario: nuevoEstado } });
+  return nuevoEstado;
+}
 
 // Registra la consulta médica y todo lo que se diagnosticó/trató/aplicó en
 // ella en una sola operación (enfermedades, tratamientos, desparasitaciones,
@@ -215,14 +245,6 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
     ...restoHistorial
   } = datos;
 
-  // Actualizar estado sanitario del animal si se especificó
-  if (actualizarEstadoSanitario) {
-    await prisma.animal.update({
-      where: { id: animalId },
-      data: { estadoSanitario: actualizarEstadoSanitario },
-    });
-  }
-
   const historial = await prisma.historialMedico.create({
     data: {
       ...restoHistorial,
@@ -268,6 +290,40 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
     },
     select: seleccionHistorial,
   });
+
+  // Si la consulta diagnosticó una única enfermedad nueva y a la vez inició
+  // un único tratamiento nuevo sin enfermedadDiagnosticadaId explícito, se
+  // asume que ese tratamiento es para esa enfermedad (Prisma no permite
+  // enlazar una relación anidada con un "hermano" creado en el mismo create,
+  // así que se vinculan con un update aparte). Con más de una de cada uno la
+  // relación es ambigua y se deja sin enlazar, igual que antes.
+  if (
+    historial.enfermedades.length === 1 &&
+    historial.tratamientos.length === 1 &&
+    !tratamientos?.[0]?.enfermedadDiagnosticadaId
+  ) {
+    const enfermedadUnica = historial.enfermedades[0]!;
+    const tratamientoUnico = historial.tratamientos[0]!;
+    await prisma.tratamiento.update({
+      where: { id: tratamientoUnico.id },
+      data: { enfermedadDiagnosticadaId: enfermedadUnica.id },
+    });
+    tratamientoUnico.enfermedadDiagnosticadaId = enfermedadUnica.id;
+    tratamientoUnico.enfermedadDiagnosticada = { nombreEnfermedad: enfermedadUnica.nombreEnfermedad };
+  }
+
+  // Estado sanitario del animal: una elección manual del veterinario tiene
+  // prioridad; si no se especificó pero esta consulta diagnosticó una
+  // enfermedad o inició un tratamiento, se recalcula automáticamente a
+  // partir de lo que quede activo/en curso para el animal.
+  if (actualizarEstadoSanitario) {
+    await prisma.animal.update({
+      where: { id: animalId },
+      data: { estadoSanitario: actualizarEstadoSanitario },
+    });
+  } else if (enfermedades?.length || tratamientos?.length) {
+    await recalcularEstadoSanitarioAnimal(animalId);
+  }
 
   // Las desparasitaciones ya no cuelgan del historial médico (se identifican
   // solo por el animal), así que se crean aparte en vez de como relación
@@ -333,6 +389,65 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
   }
 
   return { ...historial, desparasitaciones: desparasitacionesCreadas };
+}
+
+export interface DatosFinalizarTratamiento {
+  mejoro: boolean;
+  observaciones?: string;
+}
+
+/**
+ * Cierra un tratamiento EN_CURSO cuando el veterinario/admin responde al
+ * aviso que genera el motor de alertas al vencerse su duración esperada:
+ * marca el tratamiento como COMPLETADO o FALLIDO según si el animal mejoró,
+ * resuelve la enfermedad diagnosticada que atendía (si mejoró y estaba
+ * vinculada), recalcula el estado sanitario del animal a partir de lo que
+ * le quede activo/en curso, y descarta la notificación que originó la
+ * pregunta para que deje de aparecer como pendiente.
+ */
+export async function finalizarTratamiento(tratamientoId: string, datos: DatosFinalizarTratamiento) {
+  const tratamiento = await prisma.tratamiento.findUnique({
+    where: { id: tratamientoId },
+    select: {
+      id: true,
+      estado: true,
+      enfermedadDiagnosticadaId: true,
+      historialMedico: { select: { animalId: true } },
+    },
+  });
+  if (!tratamiento) throw new ErrorNoEncontrado(`Tratamiento con id '${tratamientoId}' no encontrado`);
+  if (tratamiento.estado !== 'EN_CURSO') {
+    throw new ErrorConflicto(`Este tratamiento ya fue cerrado (estado actual: ${tratamiento.estado})`);
+  }
+
+  const { mejoro, observaciones } = datos;
+  const animalId = tratamiento.historialMedico.animalId;
+
+  await prisma.tratamiento.update({
+    where: { id: tratamientoId },
+    data: {
+      estado: mejoro ? 'COMPLETADO' : 'FALLIDO',
+      fechaFin: new Date(),
+      respuestaTratamiento: observaciones ?? (mejoro ? 'El animal se recuperó' : 'El animal no mostró mejoría'),
+    },
+  });
+
+  if (tratamiento.enfermedadDiagnosticadaId && mejoro) {
+    await prisma.enfermedadDiagnosticada.update({
+      where: { id: tratamiento.enfermedadDiagnosticadaId },
+      data: { activa: false, fechaResolucion: new Date() },
+    });
+  }
+
+  const nuevoEstadoSanitario = await recalcularEstadoSanitarioAnimal(animalId);
+
+  // La notificación que preguntaba por este tratamiento ya no aplica.
+  await prisma.notificacion.updateMany({
+    where: { entidadTipo: 'Tratamiento', entidadId: tratamientoId, leida: false },
+    data: { leida: true, estado: 'LEIDA', fechaLeida: new Date() },
+  });
+
+  return { tratamientoId, animalId, nuevoEstadoSanitario };
 }
 
 export async function eliminarHistorialMedico(id: string) {

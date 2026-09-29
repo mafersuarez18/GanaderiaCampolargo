@@ -10,6 +10,7 @@ import {
   controladorCrearHistorial,
   controladorEliminarHistorial,
   controladorPrefillConsulta,
+  controladorFinalizarTratamiento,
 } from './historialMedico.controlador';
 
 const enrutador = Router();
@@ -29,6 +30,16 @@ enrutador.post(
   requerirPrivilegio('historial_medico.crear'),
   registrarAuditoria('Crear historial médico', 'HistorialMedico'),
   controladorCrearHistorial,
+);
+
+// Responde al aviso "¿mejoró?" que genera el motor de alertas cuando un
+// tratamiento debería haber terminado: cierra el tratamiento, resuelve la
+// enfermedad si corresponde y recalcula el estado sanitario del animal.
+enrutador.patch(
+  '/tratamientos/:id/finalizar',
+  requerirPrivilegio('historial_medico.crear'),
+  registrarAuditoria('Finalizar tratamiento', 'Tratamiento'),
+  controladorFinalizarTratamiento,
 );
 
 enrutador.delete(

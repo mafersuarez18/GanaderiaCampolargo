@@ -81,6 +81,7 @@ const ETIQUETA_TIPO: Record<string, string> = {
   Animal:                  'Animal',
   EnfermedadDiagnosticada: 'Enfermedad',
   InventarioSemen:         'Inventario semen',
+  Tratamiento:             'Tratamiento',
 };
 
 const ETIQUETA_TIPO_ALERTA: Record<string, string> = {
@@ -163,6 +164,20 @@ export default function PaginaAlertas() {
       toast.success('Alerta marcada como abordada');
     },
     onError: () => toast.error('Error al abordar la alerta'),
+  });
+
+  const mutFinalizarTratamiento = useMutation({
+    mutationFn: ({ tratamientoId, mejoro }: { tratamientoId: string; mejoro: boolean }) =>
+      clienteHttp.patch(`/historial-medico/tratamientos/${tratamientoId}/finalizar`, { mejoro }),
+    onSuccess: (_datos, { mejoro }) => {
+      queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
+      queryClient.invalidateQueries({ queryKey: ['alertas-resumen'] });
+      queryClient.invalidateQueries({ queryKey: ['notificaciones-conteo'] });
+      queryClient.invalidateQueries({ queryKey: ['historial-medico'] });
+      queryClient.invalidateQueries({ queryKey: ['animales'] });
+      toast.success(mejoro ? 'Tratamiento cerrado: animal recuperado' : 'Tratamiento cerrado sin mejoría');
+    },
+    onError: () => toast.error('Error al cerrar el tratamiento'),
   });
 
   const mutAbordarTodas = useMutation({
@@ -508,6 +523,25 @@ export default function PaginaAlertas() {
                               <span className="px-2 py-0.5 bg-surface-container rounded-full text-[10px] text-on-surface-variant">
                                 {ETIQUETA_TIPO[notif.entidadTipo] ?? notif.entidadTipo}
                               </span>
+                            </div>
+                          )}
+                          {notif.entidadTipo === 'Tratamiento' && !notif.leida && notif.entidadId && (
+                            <div className="flex items-center gap-2 mt-2.5">
+                              <span className="text-xs font-medium text-on-surface-variant">¿El animal mejoró?</span>
+                              <button
+                                onClick={() => mutFinalizarTratamiento.mutate({ tratamientoId: notif.entidadId!, mejoro: true })}
+                                disabled={mutFinalizarTratamiento.isPending}
+                                className="px-3 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                              >
+                                Sí, mejoró
+                              </button>
+                              <button
+                                onClick={() => mutFinalizarTratamiento.mutate({ tratamientoId: notif.entidadId!, mejoro: false })}
+                                disabled={mutFinalizarTratamiento.isPending}
+                                className="px-3 py-1 rounded-lg text-xs font-semibold bg-error-container text-on-error-container hover:opacity-80 transition-colors disabled:opacity-50"
+                              >
+                                No mejoró
+                              </button>
                             </div>
                           )}
                         </div>

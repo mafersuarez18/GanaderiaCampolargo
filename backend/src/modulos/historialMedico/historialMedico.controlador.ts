@@ -7,6 +7,7 @@ import {
   crearHistorialMedico,
   eliminarHistorialMedico,
   obtenerPrefillConsulta,
+  finalizarTratamiento,
 } from './historialMedico.servicio';
 import {
   respuestaExito,
@@ -98,6 +99,11 @@ const esquemaHistorial = z.object({
   desparasitaciones:           z.array(esquemaDesparasitacion).optional(),
 });
 
+const esquemaFinalizarTratamiento = z.object({
+  mejoro:        z.boolean(),
+  observaciones: z.string().max(500).optional(),
+});
+
 const esquemaFiltros = z.object({
   animalId:  z.string().min(1).optional(),
   fincaId:   z.string().min(1).optional(),
@@ -146,6 +152,16 @@ export async function controladorEliminarHistorial(
   try {
     await eliminarHistorialMedico(req.params['id'] as string);
     return respuestaSinContenido(res);
+  } catch (error) { return next(error); }
+}
+
+export async function controladorFinalizarTratamiento(
+  req: Request, res: Response, next: NextFunction,
+) {
+  try {
+    const datos = esquemaFinalizarTratamiento.parse(req.body);
+    const resultado = await finalizarTratamiento(req.params['id'] as string, datos);
+    return respuestaExito(res, resultado);
   } catch (error) { return next(error); }
 }
 
