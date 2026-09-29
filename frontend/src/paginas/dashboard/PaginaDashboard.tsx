@@ -70,19 +70,26 @@ const variantesElemento = {
 };
 
 export default function PaginaDashboard() {
-  const { usuario } = useAutenticacion();
+  const { usuario, tienePrivilegio } = useAutenticacion();
+  const puedeVerAnalyticsAvanzado = tienePrivilegio('analytics.ver_avanzado');
+
   const { data: resumen, isLoading } = useQuery({
     queryKey: ['dashboard-resumen'],
     queryFn: obtenerResumen,
     refetchInterval: 1000 * 60 * 5,
   });
+  // "Indicadores Clínicos" es analítica avanzada: sin el privilegio, ni
+  // siquiera se piden (antes se pedían igual y el 403 disparaba un toast de
+  // error por cada una, aunque el usuario nunca vaya a poder verlas).
   const { data: tratados, isLoading: cargandoTratados } = useQuery({
     queryKey: ['dashboard-porcentaje-tratados'],
     queryFn: obtenerPorcentajeTratados,
+    enabled: puedeVerAnalyticsAvanzado,
   });
   const { data: recurrencia, isLoading: cargandoRecurrencia } = useQuery({
     queryKey: ['dashboard-recurrencia-patologias'],
     queryFn: obtenerRecurrenciaPatologias,
+    enabled: puedeVerAnalyticsAvanzado,
   });
 
   const hora = new Date().getHours();
@@ -196,52 +203,54 @@ export default function PaginaDashboard() {
         </div>
       </motion.div>
 
-      {/* Indicadores clínicos */}
-      <motion.div variants={variantesElemento}>
-        <p className="text-xs font-semibold text-on-surface-variant mb-3 uppercase tracking-wider">
-          Indicadores Clínicos
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div className="tarjeta-vidrio rounded-2xl p-4">
-            {cargandoTratados ? (
-              <EsqueletoTarjeta className="h-16" />
-            ) : (
-              <>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Icono nombre="vaccines" clase="text-[16px] text-primary" />
-                  <p className="text-xs text-on-surface-variant truncate">Animales tratados este año</p>
-                </div>
-                <p className="text-xl font-bold text-on-surface">
-                  {tratados?.porcentajeTratados.toFixed(1) ?? '—'}
-                  <span className="text-sm font-normal text-on-surface-variant">%</span>
-                </p>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">
-                  {tratados?.animalesTratados ?? 0} de {tratados?.totalAnimalesActivos ?? 0} animales activos
-                </p>
-              </>
-            )}
+      {/* Indicadores clínicos — analítica avanzada, requiere el privilegio */}
+      {puedeVerAnalyticsAvanzado && (
+        <motion.div variants={variantesElemento}>
+          <p className="text-xs font-semibold text-on-surface-variant mb-3 uppercase tracking-wider">
+            Indicadores Clínicos
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="tarjeta-vidrio rounded-2xl p-4">
+              {cargandoTratados ? (
+                <EsqueletoTarjeta className="h-16" />
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Icono nombre="vaccines" clase="text-[16px] text-primary" />
+                    <p className="text-xs text-on-surface-variant truncate">Animales tratados este año</p>
+                  </div>
+                  <p className="text-xl font-bold text-on-surface">
+                    {tratados?.porcentajeTratados.toFixed(1) ?? '—'}
+                    <span className="text-sm font-normal text-on-surface-variant">%</span>
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    {tratados?.animalesTratados ?? 0} de {tratados?.totalAnimalesActivos ?? 0} animales activos
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="tarjeta-vidrio rounded-2xl p-4">
+              {cargandoRecurrencia ? (
+                <EsqueletoTarjeta className="h-16" />
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Icono nombre="autorenew" clase="text-[16px] text-error" />
+                    <p className="text-xs text-on-surface-variant truncate">Recurrencia de patologías</p>
+                  </div>
+                  <p className="text-xl font-bold text-on-surface">
+                    {recurrencia?.tasaRecurrencia.toFixed(1) ?? '—'}
+                    <span className="text-sm font-normal text-on-surface-variant">%</span>
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    {recurrencia?.animalesConRecurrencia ?? 0} de {recurrencia?.totalAnimalesConDiagnostico ?? 0} animales con diagnóstico
+                  </p>
+                </>
+              )}
+            </div>
           </div>
-          <div className="tarjeta-vidrio rounded-2xl p-4">
-            {cargandoRecurrencia ? (
-              <EsqueletoTarjeta className="h-16" />
-            ) : (
-              <>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Icono nombre="autorenew" clase="text-[16px] text-error" />
-                  <p className="text-xs text-on-surface-variant truncate">Recurrencia de patologías</p>
-                </div>
-                <p className="text-xl font-bold text-on-surface">
-                  {recurrencia?.tasaRecurrencia.toFixed(1) ?? '—'}
-                  <span className="text-sm font-normal text-on-surface-variant">%</span>
-                </p>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">
-                  {recurrencia?.animalesConRecurrencia ?? 0} de {recurrencia?.totalAnimalesConDiagnostico ?? 0} animales con diagnóstico
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Gráficas */}
       <motion.div variants={variantesElemento}>
