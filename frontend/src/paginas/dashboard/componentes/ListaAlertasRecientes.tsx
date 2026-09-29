@@ -102,7 +102,7 @@ export default function ListaAlertasRecientes() {
               <button
                 onClick={() => mutAbordar.mutate(alerta.id)}
                 disabled={mutAbordar.isPending}
-                className="mt-1 flex items-center gap-1 text-[10px] text-on-surface-variant hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                className="mt-1 flex items-center gap-1 text-[10px] text-on-surface-variant hover:text-primary transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                 title="Abordar — desaparece del dashboard y la campanita"
               >
                 <Icono nombre="check_circle" clase="text-[11px]" />

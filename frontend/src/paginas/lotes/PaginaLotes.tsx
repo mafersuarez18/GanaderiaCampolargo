@@ -249,7 +249,7 @@ export default function PaginaLotes() {
                     </div>
                   </div>
                   {puedeEditar && (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => abrirEditar(lote)}
                         className="p-1.5 hover:bg-surface-container rounded-lg transition-colors"

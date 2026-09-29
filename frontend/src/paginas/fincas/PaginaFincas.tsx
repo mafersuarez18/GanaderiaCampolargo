@@ -362,7 +362,7 @@ function TarjetaFinca({
           </div>
         </div>
         {puedeEditar && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
             <button
               onClick={alEditar}
               className="p-1.5 hover:bg-surface-container rounded-lg transition-colors"
@@ -742,7 +742,7 @@ function FilaAnimal({ animal, onClick }: { animal: Animal; onClick: () => void }
         <span className="text-[9px] text-outline">{ETIQUETA_PROPOSITO[animal.proposito] ?? animal.proposito}</span>
       </div>
 
-      <Icono nombre="chevron_right" clase="text-[16px] text-outline opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+      <Icono nombre="chevron_right" clase="text-[16px] text-outline opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0" />
     </button>
   );
 }
