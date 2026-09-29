@@ -104,6 +104,7 @@ interface EnfermedadForm {
 
 interface TratamientoForm {
   medicamentoId: string;
+  medicamentoNombreNuevo: string;
   enfermedadDiagnosticadaId: string;
   fechaInicio: string;
   dosis: string;
@@ -1072,10 +1073,12 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
           let medicamentoId = d.medicamentoId;
           // Si se escribió un medicamento que no existe en el catálogo, se crea primero
           if (!medicamentoId && d.medicamentoNombreNuevo) {
+            // sinCola: hace falta el id del medicamento de inmediato para
+            // poder registrar la desparasitación con él.
             const { data: dataMed } = await clienteHttp.post('/vacunacion/medicamentos', {
               nombre: d.medicamentoNombreNuevo,
               ...(d.medicamentoPrincipioActivoNuevo && { principioActivo: d.medicamentoPrincipioActivoNuevo }),
-            });
+            }, { sinCola: true });
             medicamentoId = dataMed.datos.id;
             queryClient.invalidateQueries({ queryKey: ['medicamentos-catalogo'] });
           }
@@ -1103,18 +1106,32 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
         }));
       }
       if (datos.tratamientos.length) {
-        payload.tratamientos = datos.tratamientos.map((t) => ({
-          medicamentoId: t.medicamentoId,
-          enfermedadDiagnosticadaId: t.enfermedadDiagnosticadaId || undefined,
-          fechaInicio: new Date(t.fechaInicio).toISOString(),
-          dosis: t.dosis,
-          viaAdministracion: t.viaAdministracion,
-          frecuencia: t.frecuencia,
-          duracionDias: t.duracionDias ? parseInt(t.duracionDias) : undefined,
-          observaciones: t.observaciones || undefined,
+        payload.tratamientos = await Promise.all(datos.tratamientos.map(async (t) => {
+          let medicamentoId = t.medicamentoId;
+          // Igual que en desparasitaciones: si se escribió un medicamento
+          // que no existe en el catálogo, se crea primero.
+          if (!medicamentoId && t.medicamentoNombreNuevo) {
+            // sinCola: hace falta el id del medicamento de inmediato para
+            // poder registrar el tratamiento con él.
+            const { data: dataMed } = await clienteHttp.post('/vacunacion/medicamentos', {
+              nombre: t.medicamentoNombreNuevo,
+            }, { sinCola: true });
+            medicamentoId = dataMed.datos.id;
+            queryClient.invalidateQueries({ queryKey: ['medicamentos-catalogo'] });
+          }
+          return {
+            medicamentoId,
+            enfermedadDiagnosticadaId: t.enfermedadDiagnosticadaId || undefined,
+            fechaInicio: new Date(t.fechaInicio).toISOString(),
+            dosis: t.dosis,
+            viaAdministracion: t.viaAdministracion,
+            frecuencia: t.frecuencia,
+            duracionDias: t.duracionDias ? parseInt(t.duracionDias) : undefined,
+            observaciones: t.observaciones || undefined,
+          };
         }));
       }
-      return clienteHttp.post('/historial-medico', payload);
+      return clienteHttp.post('/historial-medico', payload, { descripcionOffline: 'Consulta médica' });
     },
     onSuccess: () => onExito(),
     onError: (err: any) => setError(err?.response?.data?.mensaje ?? 'Error al guardar la consulta'),
@@ -1132,15 +1149,15 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
   const agregarTratamiento = () =>
     setForm((f) => ({
       ...f,
-      tratamientos: [...f.tratamientos, { medicamentoId: '', enfermedadDiagnosticadaId: '', fechaInicio: new Date().toISOString().split('T')[0], dosis: '', viaAdministracion: '', frecuencia: '', duracionDias: '', observaciones: '' }],
+      tratamientos: [...f.tratamientos, { medicamentoId: '', medicamentoNombreNuevo: '', enfermedadDiagnosticadaId: '', fechaInicio: new Date().toISOString().split('T')[0], dosis: '', viaAdministracion: '', frecuencia: '', duracionDias: '', observaciones: '' }],
     }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.animalId)       { setError('Debe seleccionar un animal'); return; }
     if (!form.motivoConsulta) { setError('El motivo de consulta es requerido'); return; }
-    if (form.tratamientos.some((t) => !t.medicamentoId)) {
-      setError('Cada tratamiento debe tener un medicamento seleccionado');
+    if (form.tratamientos.some((t) => !t.medicamentoId && !t.medicamentoNombreNuevo)) {
+      setError('Cada tratamiento debe tener un medicamento seleccionado o escrito');
       return;
     }
     setError('');
@@ -1411,12 +1428,21 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                   </button>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <CampoLabel etiqueta="Medicamento *">
-                      <select value={trat.medicamentoId}
-                        onChange={(e) => setForm((f) => { const arr = [...f.tratamientos]; arr[idx].medicamentoId = e.target.value; return { ...f, tratamientos: arr }; })}
-                        className="campo-entrada text-sm">
-                        <option value="">Seleccionar medicamento...</option>
-                        {medicamentos.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                      </select>
+                      <SelectorMedicamento
+                        medicamentos={medicamentos}
+                        medicamentoId={trat.medicamentoId}
+                        medicamentoNombreNuevo={trat.medicamentoNombreNuevo}
+                        onSeleccionar={(id) => setForm((f) => {
+                          const arr = [...f.tratamientos];
+                          arr[idx] = { ...arr[idx], medicamentoId: id, medicamentoNombreNuevo: '' };
+                          return { ...f, tratamientos: arr };
+                        })}
+                        onEscribir={(texto) => setForm((f) => {
+                          const arr = [...f.tratamientos];
+                          arr[idx] = { ...arr[idx], medicamentoId: '', medicamentoNombreNuevo: texto };
+                          return { ...f, tratamientos: arr };
+                        })}
+                      />
                     </CampoLabel>
                     <CampoLabel etiqueta="Enfermedad que atiende">
                       <select value={trat.enfermedadDiagnosticadaId}
