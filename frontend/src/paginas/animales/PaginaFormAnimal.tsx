@@ -311,7 +311,7 @@ export default function PaginaFormAnimal() {
                 <option value="">Seleccionar...</option>
                 <option value="CARNE">Carne</option>
                 <option value="LECHE">Leche</option>
-                <option value="CARNE_LECHE">Carne y Leche</option>
+                <option value="CARNE_LECHE">Doble propósito</option>
                 <option value="REPRODUCCION">Reproducción</option>
                 <option value="TAUROMAQUIA">Tauromaquia</option>
               </select>

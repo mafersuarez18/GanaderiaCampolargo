@@ -10,6 +10,14 @@ import { ModalConfirmacion } from '../../componentes/ui/Modal';
 import { EsqueletoLinea } from '../../componentes/ui/EsqueletoTarjeta';
 import toast from 'react-hot-toast';
 
+const ETIQUETA_PROPOSITO: Record<string, string> = {
+  CARNE:        'Carne',
+  LECHE:        'Leche',
+  CARNE_LECHE:  'Doble propósito',
+  REPRODUCCION: 'Reproducción',
+  TAUROMAQUIA:  'Tauromaquia',
+};
+
 // Ficha completa de un animal: datos generales y accesos a su historial
 // médico, reproductivo y de vacunación (cada uno vive en su propia página,
 // filtrada por este animal).
@@ -146,7 +154,7 @@ export default function PaginaDetalleAnimal() {
               </Badge>
             </CampoDetalle>
             <CampoDetalle etiqueta="Propósito">
-              {animal.proposito?.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase()) ?? '—'}
+              {animal.proposito ? (ETIQUETA_PROPOSITO[animal.proposito] ?? animal.proposito) : '—'}
             </CampoDetalle>
             {animal.color && <CampoDetalle etiqueta="Color">{animal.color}</CampoDetalle>}
             {animal.marcas && <CampoDetalle etiqueta="Marcas">{animal.marcas}</CampoDetalle>}

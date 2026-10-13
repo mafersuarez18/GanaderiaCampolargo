@@ -561,7 +561,7 @@ export default function PaginaHistorialMedico() {
 
                 {historialSeleccionado.sintomasObservados && (
                   <section>
-                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Síntomas observados</p>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Signos clínicos</p>
                     <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">{historialSeleccionado.sintomasObservados}</p>
                   </section>
                 )}
@@ -577,7 +577,7 @@ export default function PaginaHistorialMedico() {
                         <p className="text-on-surface-variant">Tratamientos previos: <span className="text-on-surface font-medium">{historialSeleccionado.tratamientosPrevios}</span></p>
                       )}
                       {historialSeleccionado.cirugias && (
-                        <p className="text-on-surface-variant">Cirugías: <span className="text-on-surface font-medium">{historialSeleccionado.cirugias}</span></p>
+                        <p className="text-on-surface-variant">Cirugías y enfermedades previas: <span className="text-on-surface font-medium">{historialSeleccionado.cirugias}</span></p>
                       )}
                     </div>
                   </section>
@@ -729,7 +729,7 @@ export default function PaginaHistorialMedico() {
                             <p className="text-xs text-on-surface-variant mt-1">{(e as any).observaciones}</p>
                           )}
                           {e.sintomas && (
-                            <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Síntomas:</span> {e.sintomas}</p>
+                            <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Signos clínicos:</span> {e.sintomas}</p>
                           )}
                           {e.diagnosticoDefinitivo && (
                             <p className="text-xs text-on-surface-variant mt-1"><span className="font-medium text-on-surface">Diagnóstico:</span> {e.diagnosticoDefinitivo}</p>
@@ -1223,10 +1223,10 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                   onChange={(e) => set('motivoConsulta', e.target.value)}
                   placeholder="Ej: Fiebre, cojera, control rutinario..." className="campo-entrada" />
               </CampoLabel>
-              <CampoLabel etiqueta="Síntomas observados">
+              <CampoLabel etiqueta="Signos clínicos">
                 <textarea rows={2} value={form.sintomasObservados}
                   onChange={(e) => set('sintomasObservados', e.target.value)}
-                  placeholder="Describa los síntomas clínicos observados..." className="campo-entrada resize-none" />
+                  placeholder="Describa los signos clínicos observados..." className="campo-entrada resize-none" />
               </CampoLabel>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <CampoLabel etiqueta="Tratamientos previos">
@@ -1234,10 +1234,10 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                     onChange={(e) => set('tratamientosPrevios', e.target.value)}
                     placeholder="Medicamentos o tratamientos aplicados antes..." className="campo-entrada resize-none" />
                 </CampoLabel>
-                <CampoLabel etiqueta="Cirugías previas">
+                <CampoLabel etiqueta="Cirugías y enfermedades previas">
                   <textarea rows={2} value={form.cirugias}
                     onChange={(e) => set('cirugias', e.target.value)}
-                    placeholder="Historial quirúrgico relevante..." className="campo-entrada resize-none" />
+                    placeholder="Historial quirúrgico y enfermedades previas relevantes..." className="campo-entrada resize-none" />
                 </CampoLabel>
               </div>
             </SeccionClinica>
@@ -1375,10 +1375,10 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                         onChange={(e) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].descripcionClinica = e.target.value; return { ...f, enfermedades: arr }; })}
                         placeholder="Hallazgos relevantes..." className="campo-entrada text-sm" />
                     </CampoLabel>
-                    <CampoLabel etiqueta="Síntomas">
+                    <CampoLabel etiqueta="Signos clínicos">
                       <input type="text" value={enf.sintomas}
                         onChange={(e) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].sintomas = e.target.value; return { ...f, enfermedades: arr }; })}
-                        placeholder="Síntomas asociados a esta condición..." className="campo-entrada text-sm" />
+                        placeholder="Signos clínicos asociados a esta condición..." className="campo-entrada text-sm" />
                     </CampoLabel>
                     <CampoLabel etiqueta="Tiempo de evolución">
                       <input type="text" value={enf.tiempoEvolucion}
