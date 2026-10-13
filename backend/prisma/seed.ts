@@ -430,6 +430,20 @@ async function main() {
     },
   });
 
+  // ── Vitaminas ──────────────────────────────────────────────
+  const vitaminaADE = await prisma.medicamento.upsert({
+    where: { id: 'med-vitaminico-ade' },
+    update: {},
+    create: {
+      id: 'med-vitaminico-ade',
+      nombre: 'ADELER (Vitaminas A, D3, E)',
+      principioActivo: 'Vitamina A, Vitamina D3, Vitamina E',
+      presentacion: 'Inyectable (intramuscular)',
+      unidadMedida: 'ml',
+      descripcion: '4-6 ml intramuscular. Refuerzo vitamínico general del hato.',
+    },
+  });
+
   console.log('Medicamentos cargados');
 
   // ----------------------------------------------------------
@@ -1039,6 +1053,19 @@ async function main() {
     },
   });
 
+  await prisma.pruebaComplementaria.upsert({
+    where: { id: 'prueba-elp008-hematologia' },
+    update: {},
+    create: {
+      id: 'prueba-elp008-hematologia',
+      historialMedicoId: historialMorena.id,
+      tipo: 'HEMATOLOGIA',
+      fecha: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      resultado: 'Leucocitosis leve con neutrofilia, compatible con proceso infeccioso localizado',
+      observaciones: 'Hematocrito dentro de rango',
+    },
+  });
+
   await prisma.historialMedico.upsert({
     where: { id: 'hist-cal005-1' },
     update: {},
@@ -1054,6 +1081,18 @@ async function main() {
       condicionCorporal: 3.5,
       resultadosPruebas: 'Tuberculosis: negativo. Brucelosis: negativo. Control anual al día.',
       diagnosticoDefinitivo: 'Animal sano, sin hallazgos relevantes',
+    },
+  });
+
+  await prisma.pruebaComplementaria.upsert({
+    where: { id: 'prueba-cal005-coprologia' },
+    update: {},
+    create: {
+      id: 'prueba-cal005-coprologia',
+      historialMedicoId: 'hist-cal005-1',
+      tipo: 'COPROLOGIA',
+      fecha: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+      resultado: 'Negativo a huevos de parásitos gastrointestinales',
     },
   });
 
@@ -1140,6 +1179,32 @@ async function main() {
     });
   }
   console.log('Programa de desparasitación creado');
+
+  // ----------------------------------------------------------
+  // 13B. REGISTRO DE VITAMINAS (aplicado directo al animal)
+  // ----------------------------------------------------------
+  const aplicacionesVitaminas = [
+    { arete: 'ELP-001', dosis: '5 ml', via: 'Intramuscular', dias: 30 },
+    { arete: 'ELP-008', dosis: '6 ml', via: 'Intramuscular', dias: 5 },
+    { arete: 'CAL-002', dosis: '5 ml', via: 'Intramuscular', dias: 45 },
+  ] as const;
+
+  for (const [i, v] of aplicacionesVitaminas.entries()) {
+    await prisma.registroVitaminas.upsert({
+      where: { id: `vit-${v.arete.toLowerCase()}-${i}` },
+      update: {},
+      create: {
+        id: `vit-${v.arete.toLowerCase()}-${i}`,
+        animalId: animalesPorArete[v.arete].id,
+        medicamentoId: vitaminaADE.id,
+        veterinarioId: veterinario.id,
+        fecha: new Date(Date.now() - v.dias * 24 * 60 * 60 * 1000),
+        dosis: v.dosis,
+        via: v.via,
+      },
+    });
+  }
+  console.log('Registro de vitaminas creado');
 
   // ----------------------------------------------------------
   // 14. REGISTROS DE VACUNACIÓN
@@ -1429,6 +1494,91 @@ async function main() {
     });
   }
   console.log('Notificaciones creadas');
+
+  // ----------------------------------------------------------
+  // 17. PLAN SANITARIO (calendario anual por finca)
+  // ----------------------------------------------------------
+  const anioActual = new Date().getFullYear();
+  const mesActual = new Date().getMonth() + 1;
+  // Solo se marcan como completados los meses que ya pasaron (según la fecha
+  // de hoy), para que el resumen del dashboard muestre una mezcla realista
+  // de "al día" y "pendiente/atrasado" en vez de que todo quede perfecto.
+  const completadosHasta = (meses: number[], ultimoMesHecho: number) =>
+    meses.filter((m) => m <= ultimoMesHecho);
+
+  const planParaiso = await prisma.planSanitario.upsert({
+    where: { fincaId_anio: { fincaId: fincaParaiso.id, anio: anioActual } },
+    update: {},
+    create: { fincaId: fincaParaiso.id, anio: anioActual },
+  });
+
+  const actividadesParaiso = [
+    { categoria: 'HIGIENE', nombreControl: 'Higiene general', prevencion: 'Baño con jabón (BPO)', via: 'Tópica', meses: Array.from({ length: 12 }, (_, i) => i + 1), completarHasta: mesActual - 1 },
+    { categoria: 'DESINFECCION', nombreControl: 'Desinfección', prevencion: 'Desinfección con yodo (BPO)', via: 'Tópica', meses: Array.from({ length: 12 }, (_, i) => i + 1), completarHasta: mesActual - 1 },
+    { categoria: 'VITAMINA', nombreControl: 'Vitaminación general', prevencion: 'ADELER (4-6 ml)', via: 'Intramuscular', meses: [1, 4, 8], completarHasta: 4 },
+    { categoria: 'VACUNA', nombreControl: 'Rabia', prevencion: 'Vacuna anual (2 ml)', via: 'Intramuscular', meses: [6], completarHasta: 6 },
+    { categoria: 'VACUNA', nombreControl: 'Diarrea Viral Bovina', prevencion: 'Vacuna 2 dosis (2 ml)', via: 'Intramuscular', meses: [6, 7], completarHasta: 7 },
+    { categoria: 'VACUNA', nombreControl: 'IBR', prevencion: 'Vacuna anual dosis única (2 ml)', tratamiento: 'Antibióticos', via: 'Intramuscular', meses: [2], completarHasta: 2 },
+    { categoria: 'VACUNA', nombreControl: 'Leptospirosis', prevencion: 'Vacuna (2 ml) cuello', via: 'Intramuscular', meses: [11], completarHasta: 0 },
+    { categoria: 'VACUNA', nombreControl: 'Cacho Hueco', prevencion: 'Vacuna anual (5 ml)', tratamiento: 'Oxitetraciclina 10mg/kg', via: 'Intramuscular', meses: [7], completarHasta: 7 },
+    { categoria: 'VACUNA', nombreControl: 'Pierna Negra', prevencion: 'Vacuna anual, cada 5 años con bacterina', tratamiento: 'Penicilina 10.000 U/kg I.V.', via: 'Intramuscular', meses: [9], completarHasta: 9 },
+    { categoria: 'VACUNA', nombreControl: 'Clostridiales', prevencion: 'Vacuna anual (5 ml)', tratamiento: 'Antibióticos, suero antitoxina', via: 'Intramuscular', meses: [3], completarHasta: 3 },
+    { categoria: 'CONTROL_ECTOPARASITO', nombreControl: 'Control de garrapata', prevencion: 'Cipermetrina (baños 20ml/L agua)', via: 'Tópica', meses: Array.from({ length: 12 }, (_, i) => i + 1), completarHasta: mesActual - 1 },
+    { categoria: 'CONTROL_ENDOPARASITO', nombreControl: 'Control de endoparásito', prevencion: 'Albendazol (5mg/kg)', via: 'Oral', meses: [3, 7, 10], completarHasta: 7 },
+    { categoria: 'CONTROL_MOSCA', nombreControl: 'Control de mosca', prevencion: 'Bayofly (baños)', via: 'Tópica', meses: [5, 6], completarHasta: 6 },
+    { categoria: 'CONTROL_PLAGAS', nombreControl: 'Control de plagas', prevencion: 'Tratamiento de instalaciones', meses: [1, 2, 10, 11], completarHasta: 2 },
+  ] as const;
+
+  for (const [i, act] of actividadesParaiso.entries()) {
+    await prisma.actividadPlanSanitario.upsert({
+      where: { id: `plan-paraiso-act-${i}` },
+      update: {},
+      create: {
+        id: `plan-paraiso-act-${i}`,
+        planId: planParaiso.id,
+        categoria: act.categoria,
+        nombreControl: act.nombreControl,
+        unidadReferencia: '20 vacas',
+        prevencion: act.prevencion,
+        tratamiento: 'tratamiento' in act ? act.tratamiento : undefined,
+        via: 'via' in act ? act.via : undefined,
+        mesesProgramados: [...act.meses],
+        mesesCompletados: completadosHasta([...act.meses], act.completarHasta),
+      },
+    });
+  }
+
+  // Plan más chico en Campo Alegre, para ver que cada finca lleva el suyo.
+  const planCampoAlegre = await prisma.planSanitario.upsert({
+    where: { fincaId_anio: { fincaId: fincaCampoAlegre.id, anio: anioActual } },
+    update: {},
+    create: { fincaId: fincaCampoAlegre.id, anio: anioActual },
+  });
+
+  const actividadesCampoAlegre = [
+    { categoria: 'HIGIENE', nombreControl: 'Higiene general', prevencion: 'Baño con jabón (BPO)', via: 'Tópica', meses: Array.from({ length: 12 }, (_, i) => i + 1), completarHasta: mesActual - 1 },
+    { categoria: 'CONTROL_ECTOPARASITO', nombreControl: 'Control de garrapata', prevencion: 'Cipermetrina (baños 20ml/L agua)', via: 'Tópica', meses: Array.from({ length: 12 }, (_, i) => i + 1), completarHasta: mesActual - 2 },
+    { categoria: 'VACUNA', nombreControl: 'Rabia', prevencion: 'Vacuna anual (2 ml)', via: 'Intramuscular', meses: [6], completarHasta: 6 },
+  ] as const;
+
+  for (const [i, act] of actividadesCampoAlegre.entries()) {
+    await prisma.actividadPlanSanitario.upsert({
+      where: { id: `plan-campoalegre-act-${i}` },
+      update: {},
+      create: {
+        id: `plan-campoalegre-act-${i}`,
+        planId: planCampoAlegre.id,
+        categoria: act.categoria,
+        nombreControl: act.nombreControl,
+        unidadReferencia: '15 vacas',
+        prevencion: act.prevencion,
+        via: act.via,
+        mesesProgramados: [...act.meses],
+        mesesCompletados: completadosHasta([...act.meses], act.completarHasta),
+      },
+    });
+  }
+  console.log('Plan sanitario creado');
 
   // ----------------------------------------------------------
   // RESUMEN FINAL
