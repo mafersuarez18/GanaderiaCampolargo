@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { EstadoSanitario, EstadoReproductivo, TipoDesparasitante, NivelGravedad } from '@prisma/client';
+import { EstadoSanitario, EstadoReproductivo, TipoDesparasitante, NivelGravedad, TipoPruebaComplementaria } from '@prisma/client';
 import {
   listarHistorialMedico,
   obtenerHistorialPorId,
@@ -28,6 +28,21 @@ const esquemaDesparasitacion = z.object({
   dosis:           z.string().max(100).optional(),
   via:             z.string().max(100).optional(),
   observaciones:   z.string().max(500).optional(),
+});
+
+const esquemaVitamina = z.object({
+  medicamentoId:   z.string().min(1, 'El medicamento es requerido'),
+  fecha:           z.coerce.date(),
+  dosis:           z.string().max(100).optional(),
+  via:             z.string().max(100).optional(),
+  observaciones:   z.string().max(500).optional(),
+});
+
+const esquemaPruebaComplementaria = z.object({
+  tipo:          z.nativeEnum(TipoPruebaComplementaria),
+  fecha:         z.coerce.date().optional(),
+  resultado:     z.string().max(1000).optional(),
+  observaciones: z.string().max(500).optional(),
 });
 
 const esquemaInformacionEpidemiologica = z.object({
@@ -97,6 +112,8 @@ const esquemaHistorial = z.object({
   // Relaciones hijas
   informacionEpidemiologica:   esquemaInformacionEpidemiologica.optional(),
   desparasitaciones:           z.array(esquemaDesparasitacion).optional(),
+  vitaminas:                   z.array(esquemaVitamina).optional(),
+  pruebasComplementarias:      z.array(esquemaPruebaComplementaria).optional(),
 });
 
 const esquemaFinalizarTratamiento = z.object({

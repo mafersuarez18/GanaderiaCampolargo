@@ -1,4 +1,4 @@
-import { Prisma, EstadoSanitario, EstadoReproductivo, TipoDesparasitante, NivelGravedad } from '@prisma/client';
+import { Prisma, EstadoSanitario, EstadoReproductivo, TipoDesparasitante, NivelGravedad, TipoPruebaComplementaria } from '@prisma/client';
 import { prisma } from '../../compartido/prisma/clientePrisma';
 import { ErrorNoEncontrado, ErrorConflicto } from '../../compartido/tipos/respuesta';
 
@@ -103,7 +103,7 @@ const seleccionHistorial = {
   diagnosticoDefinitivo: true,
   resultadosPruebas: true,
   animal: {
-    select: { id: true, numeroArete: true, nombre: true, lote: { select: { finca: { select: { nombre: true } } } } },
+    select: { id: true, numeroIdentificacion: true, nombre: true, lote: { select: { finca: { select: { nombre: true } } } } },
   },
   veterinario: { select: { id: true, nombre: true, apellido: true } },
   enfermedades: true,
@@ -121,6 +121,7 @@ const seleccionHistorial = {
     },
   },
   informacionEpidemiologica: true,
+  pruebasComplementarias: true,
 } satisfies Prisma.HistorialMedicoSelect;
 
 export async function listarHistorialMedico(filtros: FiltrosHistorial = {}) {
@@ -204,6 +205,21 @@ export interface DatosCrearHistorial {
     via?:             string;
     observaciones?:   string;
   }>;
+  // Al igual que las desparasitaciones, las vitaminas se identifican solo
+  // por el animal (no por el historial médico), así que se crean aparte.
+  vitaminas?: Array<{
+    medicamentoId:   string;
+    fecha:            Date;
+    dosis?:           string;
+    via?:             string;
+    observaciones?:   string;
+  }>;
+  pruebasComplementarias?: Array<{
+    tipo:          TipoPruebaComplementaria;
+    fecha?:        Date;
+    resultado?:    string;
+    observaciones?: string;
+  }>;
   enfermedades?: Array<{
     nombreEnfermedad:    string;
     nivelGravedad?:      NivelGravedad;
@@ -241,7 +257,7 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
 
   const {
     enfermedades, tratamientos, veterinarioId, animalId, actualizarEstadoSanitario,
-    informacionEpidemiologica, desparasitaciones,
+    informacionEpidemiologica, desparasitaciones, vitaminas, pruebasComplementarias,
     ...restoHistorial
   } = datos;
 
@@ -286,6 +302,16 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
         : undefined,
       informacionEpidemiologica: informacionEpidemiologica
         ? { create: informacionEpidemiologica }
+        : undefined,
+      pruebasComplementarias: pruebasComplementarias?.length
+        ? {
+            create: pruebasComplementarias.map((p) => ({
+              tipo:          p.tipo,
+              fecha:         p.fecha,
+              resultado:     p.resultado,
+              observaciones: p.observaciones,
+            })),
+          }
         : undefined,
     },
     select: seleccionHistorial,
@@ -388,7 +414,33 @@ export async function crearHistorialMedico(datos: DatosCrearHistorial) {
     }
   }
 
-  return { ...historial, desparasitaciones: desparasitacionesCreadas };
+  // Las vitaminas tampoco cuelgan del historial médico, por la misma razón
+  // que las desparasitaciones: se identifican solo por el animal.
+  let vitaminasCreadas: Array<{
+    id: string; fecha: Date; dosis: string | null; via: string | null;
+    medicamento: { nombre: string };
+  }> = [];
+
+  if (vitaminas?.length) {
+    vitaminasCreadas = await Promise.all(
+      vitaminas.map((v) =>
+        prisma.registroVitaminas.create({
+          data: {
+            fecha: v.fecha,
+            dosis: v.dosis,
+            via: v.via,
+            observaciones: v.observaciones,
+            animal:      { connect: { id: animalId } },
+            medicamento: { connect: { id: v.medicamentoId } },
+            veterinario: { connect: { id: veterinarioId } },
+          },
+          include: { medicamento: { select: { nombre: true } } },
+        }),
+      ),
+    );
+  }
+
+  return { ...historial, desparasitaciones: desparasitacionesCreadas, vitaminas: vitaminasCreadas };
 }
 
 export interface DatosFinalizarTratamiento {
