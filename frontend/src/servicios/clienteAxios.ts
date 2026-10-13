@@ -67,6 +67,38 @@ function procesarCola(token: string | null) {
   colaEspera = [];
 }
 
+// Renueva el access token usando el refresh token guardado. Si ya hay una
+// renovación en curso (p. ej. disparada por otra petición casi al mismo
+// tiempo), espera su resultado en vez de duplicar la llamada al backend.
+// Devuelve el nuevo access token, o null si la renovación falló (refresh
+// token inválido/vencido o inexistente) — en ese caso sí corresponde cerrar
+// la sesión. La usa tanto el interceptor de 401 de abajo como RutaProtegida,
+// para que ambos compartan el mismo candado y nunca pisarse.
+export async function renovarTokenSilencioso(): Promise<string | null> {
+  const tienda = useAutenticacionStore.getState();
+  if (!tienda.tokenRefresh) return null;
+
+  if (renovandoToken) {
+    return new Promise((resolve) => { colaEspera.push(resolve); });
+  }
+
+  renovandoToken = true;
+  try {
+    const { data } = await axios.post(`${URL_BASE}/auth/renovar-token`, {
+      tokenRefresh: tienda.tokenRefresh,
+    });
+    const { tokenAcceso, expiraEn } = data.datos;
+    tienda.actualizarToken(tokenAcceso, expiraEn);
+    procesarCola(tokenAcceso);
+    return tokenAcceso;
+  } catch {
+    procesarCola(null);
+    return null;
+  } finally {
+    renovandoToken = false;
+  }
+}
+
 // Interceptor de respuesta — maneja renovación automática de token y errores
 clienteHttp.interceptors.response.use(
   (respuesta) => respuesta,
@@ -81,49 +113,16 @@ clienteHttp.interceptors.response.use(
     if (error.response?.status === 401 && !esRutaAuth && !solicitudOriginal._reintentado) {
       solicitudOriginal._reintentado = true;
 
-      const tienda = useAutenticacionStore.getState();
+      const nuevoToken = await renovarTokenSilencioso();
 
-      if (!tienda.tokenRefresh) {
-        tienda.cerrarSesion();
+      if (!nuevoToken) {
+        useAutenticacionStore.getState().cerrarSesion();
         window.location.href = '/iniciar-sesion';
         return Promise.reject(error);
       }
 
-      if (renovandoToken) {
-        // Si ya se está renovando, esperar en cola
-        return new Promise((resolve, reject) => {
-          colaEspera.push((nuevoToken) => {
-            if (nuevoToken) {
-              solicitudOriginal.headers.Authorization = `Bearer ${nuevoToken}`;
-              resolve(clienteHttp(solicitudOriginal));
-            } else {
-              reject(error);
-            }
-          });
-        });
-      }
-
-      renovandoToken = true;
-
-      try {
-        const { data } = await axios.post(`${URL_BASE}/auth/renovar-token`, {
-          tokenRefresh: tienda.tokenRefresh,
-        });
-
-        const { tokenAcceso, expiraEn } = data.datos;
-        tienda.actualizarToken(tokenAcceso, expiraEn);
-        procesarCola(tokenAcceso);
-
-        solicitudOriginal.headers.Authorization = `Bearer ${tokenAcceso}`;
-        return clienteHttp(solicitudOriginal);
-      } catch {
-        procesarCola(null);
-        tienda.cerrarSesion();
-        window.location.href = '/iniciar-sesion';
-        return Promise.reject(error);
-      } finally {
-        renovandoToken = false;
-      }
+      solicitudOriginal.headers.Authorization = `Bearer ${nuevoToken}`;
+      return clienteHttp(solicitudOriginal);
     }
 
     // Sin respuesta del servidor: sin conexión, CORS o tiempo agotado. Axios
