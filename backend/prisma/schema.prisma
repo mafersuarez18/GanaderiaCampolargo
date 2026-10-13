@@ -195,6 +195,35 @@ enum NivelGravedad {
   GRAVE
 }
 
+enum TipoIdentificacion {
+  ARETE
+  HIERRO_NUMERO   // Marca/hierro con número grabado
+  MICROCHIP
+  OTRO
+}
+
+enum TipoPruebaComplementaria {
+  HEMATOLOGIA
+  COPROLOGIA
+  BIOQUIMICA
+  UROANALISIS
+  CITOLOGIA
+  HISTOPATOLOGIA
+  OTRO
+}
+
+enum CategoriaActividadSanitaria {
+  HIGIENE
+  DESINFECCION
+  VACUNA
+  VITAMINA
+  CONTROL_ECTOPARASITO
+  CONTROL_ENDOPARASITO
+  CONTROL_MOSCA
+  CONTROL_PLAGAS
+  OTRO
+}
+
 // =============================================================
 // MÓDULO: INFRAESTRUCTURA (Fincas, Lotes, Potreros)
 // =============================================================
@@ -215,6 +244,7 @@ model Finca {
   // Relaciones
   lotes Lote[]
   registrosUbicacion RegistroUbicacion[]
+  planesSanitarios PlanSanitario[]
 
   @@map("finca")
 }
@@ -278,6 +308,7 @@ model Medicamento {
   registrosVacunacion  RegistroVacunacion[]
   calendariosVacunacion CalendarioVacunacion[]
   desparasitaciones    ProgramaDesparasitacion[]
+  registrosVitaminas   RegistroVitaminas[]
 
   @@map("medicamento")
 }
@@ -288,7 +319,12 @@ model Medicamento {
 
 model Animal {
   id              String              @id @default(cuid())
-  numeroArete     String              @unique // Número de arete (identificación oficial)
+  // Identificación oficial del animal: el valor en sí puede ser un número de
+  // arete, un hierro/número grabado o un código de microchip, según
+  // "tipoIdentificacion" (columna física sin cambios para no perder datos
+  // existentes, aunque el campo ahora se llama de forma genérica).
+  numeroIdentificacion String            @unique @map("numeroArete")
+  tipoIdentificacion   TipoIdentificacion @default(ARETE)
   nombre          String?
   sexo            Sexo
   fechaNacimiento DateTime?
@@ -336,11 +372,14 @@ model Animal {
   registrosUbicacion     RegistroUbicacion[]
   dispositivoGPS         DispositivoGPS?
 
+  // Relaciones de registros sanitarios adicionales
+  registrosVitaminas RegistroVitaminas[]
+
   @@index([loteId])
   @@index([razaId])
   @@index([estado])
   @@index([estadoSanitario])
-  @@index([numeroArete])
+  @@index([numeroIdentificacion])
   @@map("animal")
 }
 
@@ -393,11 +432,30 @@ model HistorialMedico {
   enfermedades              EnfermedadDiagnosticada[]
   tratamientos              Tratamiento[]
   informacionEpidemiologica InformacionEpidemiologica?
+  pruebasComplementarias    PruebaComplementaria[]
 
   @@index([animalId])
   @@index([veterinarioId])
   @@index([fechaConsulta])
   @@map("registro_medico")
+}
+
+// Pruebas de laboratorio pedidas en una consulta puntual (hematología
+// completa, coprología, etc.), como lista repetible -- a diferencia de
+// "resultadosPruebas" (texto libre de HistorialMedico), que es para
+// controles de rutina/obligatorios no ligados a una prueba específica.
+model PruebaComplementaria {
+  id            String                   @id @default(cuid())
+  tipo          TipoPruebaComplementaria
+  fecha         DateTime?
+  resultado     String?
+  observaciones String?
+
+  historialMedicoId String @map("registro_medico_id")
+  historialMedico   HistorialMedico @relation(fields: [historialMedicoId], references: [id], onDelete: Cascade)
+
+  @@index([historialMedicoId])
+  @@map("prueba_complementaria")
 }
 
 model EnfermedadDiagnosticada {
@@ -508,6 +566,30 @@ model ProgramaDesparasitacion {
   @@map("programa_desparasitacion")
 }
 
+// Aplicación de vitaminas/suplementos, con historial propio igual que
+// vacunación y desparasitación (antes solo se podía dejar como nota de
+// texto dentro de una consulta médica).
+model RegistroVitaminas {
+  id            String   @id @default(cuid())
+  fecha         DateTime @map("fechaAplicacion")
+  dosis         String?
+  via           String?
+  observaciones String?
+
+  animalId String @map("animal_id")
+  animal   Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  medicamentoId String @map("medicamento_id")
+  medicamento   Medicamento @relation(fields: [medicamentoId], references: [id], onDelete: Restrict)
+
+  veterinarioId String? @map("veterinario_id")
+  veterinario   Usuario? @relation("VitaminasAplicadas", fields: [veterinarioId], references: [id], onDelete: SetNull)
+
+  @@index([animalId])
+  @@index([medicamentoId])
+  @@map("registro_vitaminas")
+}
+
 // =============================================================
 // MÓDULO: VACUNACIÓN
 // =============================================================
@@ -559,6 +641,53 @@ model RegistroVacunacion {
   @@index([calendarioVacunacionId])
   @@index([fechaAplicacion])
   @@map("registro_vacunacion")
+}
+
+// =============================================================
+// MÓDULO: PLAN SANITARIO
+// =============================================================
+// Plan anual de manejo sanitario por finca (higiene, vacunas, vitaminas,
+// control de parásitos/plagas, etc.), con las actividades distribuidas por
+// mes del año -- a diferencia del calendario de vacunación (que es por
+// animal individual, basado en intervalos desde su última dosis), este es
+// un calendario a nivel de hato que la veterinaria arma una vez al año y
+// cuyo cumplimiento se va marcando mes a mes.
+
+model PlanSanitario {
+  id       String   @id @default(cuid())
+  anio     Int
+  creadoEn DateTime @default(now())
+
+  fincaId String @map("finca_id")
+  finca   Finca  @relation(fields: [fincaId], references: [id], onDelete: Cascade)
+
+  actividades ActividadPlanSanitario[]
+
+  @@unique([fincaId, anio])
+  @@map("plan_sanitario")
+}
+
+model ActividadPlanSanitario {
+  id               String                      @id @default(cuid())
+  categoria        CategoriaActividadSanitaria
+  // Nombre del control/enfermedad (ej. "Rabia", "IBR", "Garrapata"): texto
+  // libre porque la lista de enfermedades/controles varía por finca y no
+  // tiene sentido acotarla a un enum cerrado.
+  nombreControl    String
+  // Tamaño de hato de referencia al momento de planificar (ej. "20 vacas"),
+  // tal como aparece en el plan físico de la finca.
+  unidadReferencia String?
+  prevencion       String?  // Producto y dosis recomendados para prevenir
+  tratamiento      String?  // Qué aplicar si el animal se enferma igual
+  via              String?  // Vía de administración (tópica, I.M., I.V., oral...)
+  mesesProgramados Int[]    @default([]) // 1-12, meses en que corresponde aplicar
+  mesesCompletados Int[]    @default([]) // 1-12, meses en que ya se marcó como hecho
+
+  planId String @map("plan_sanitario_id")
+  plan   PlanSanitario @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@map("actividad_plan_sanitario")
 }
 
 // =============================================================
@@ -835,6 +964,7 @@ model Usuario {
   vacunasAplicadas             RegistroVacunacion[]      @relation("VacunasAplicadas")
   informacionEpidemiologicaRegistrada InformacionEpidemiologica[] @relation("InformacionEpidemiologicaRegistrada")
   desparasitacionesAplicadas   ProgramaDesparasitacion[] @relation("DesparasitacionesAplicadas")
+  vitaminasAplicadas           RegistroVitaminas[]       @relation("VitaminasAplicadas")
   notificaciones               Notificacion[]
   registrosAuditoria           RegistroAuditoria[]
   reglasAlertaCreadas          ReglaAlerta[]

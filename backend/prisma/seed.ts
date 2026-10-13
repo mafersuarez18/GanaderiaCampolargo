@@ -714,49 +714,49 @@ async function main() {
   // El seed completo de 550 animales está en seed-animales-completo.ts
 
   const animalesParaiso = [
-    { numeroArete: 'ELP-001', nombre: 'La Princesa', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteParaisoA.id, pesoActual: 420 },
-    { numeroArete: 'ELP-002', nombre: 'La Reina', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteParaisoA.id, pesoActual: 445 },
-    { numeroArete: 'ELP-003', nombre: 'Estrella', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE, razaId: razaSenepol.id, loteId: loteParaisoA.id, pesoActual: 390 },
-    { numeroArete: 'ELP-004', nombre: 'Tornado', sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.TAUROMAQUIA, razaId: razaCasta.id, loteId: loteParaisoB.id, pesoActual: 520 },
-    { numeroArete: 'ELP-005', nombre: 'Vendaval', sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.TAUROMAQUIA, razaId: razaCasta.id, loteId: loteParaisoB.id, pesoActual: 490 },
-    { numeroArete: 'ELP-006', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteParaisoC.id, pesoActual: 320 },
-    { numeroArete: 'ELP-007', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteParaisoC.id, pesoActual: 310 },
-    { numeroArete: 'ELP-008', nombre: 'La Morena', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteParaisoA.id, pesoActual: 410, estadoSanitario: EstadoSanitario.EN_TRATAMIENTO },
-    { numeroArete: 'ELP-009', nombre: 'La Canela', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE_LECHE, razaId: razaSenepol.id, loteId: loteParaisoA.id, pesoActual: 380 },
-    { numeroArete: 'ELP-010', nombre: 'Rayo', sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.TAUROMAQUIA, razaId: razaCasta.id, loteId: loteParaisoB.id, pesoActual: 475 },
+    { numeroIdentificacion: 'ELP-001', nombre: 'La Princesa', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteParaisoA.id, pesoActual: 420 },
+    { numeroIdentificacion: 'ELP-002', nombre: 'La Reina', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteParaisoA.id, pesoActual: 445 },
+    { numeroIdentificacion: 'ELP-003', nombre: 'Estrella', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE, razaId: razaSenepol.id, loteId: loteParaisoA.id, pesoActual: 390 },
+    { numeroIdentificacion: 'ELP-004', nombre: 'Tornado', sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.TAUROMAQUIA, razaId: razaCasta.id, loteId: loteParaisoB.id, pesoActual: 520 },
+    { numeroIdentificacion: 'ELP-005', nombre: 'Vendaval', sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.TAUROMAQUIA, razaId: razaCasta.id, loteId: loteParaisoB.id, pesoActual: 490 },
+    { numeroIdentificacion: 'ELP-006', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteParaisoC.id, pesoActual: 320 },
+    { numeroIdentificacion: 'ELP-007', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteParaisoC.id, pesoActual: 310 },
+    { numeroIdentificacion: 'ELP-008', nombre: 'La Morena', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteParaisoA.id, pesoActual: 410, estadoSanitario: EstadoSanitario.EN_TRATAMIENTO },
+    { numeroIdentificacion: 'ELP-009', nombre: 'La Canela', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE_LECHE, razaId: razaSenepol.id, loteId: loteParaisoA.id, pesoActual: 380 },
+    { numeroIdentificacion: 'ELP-010', nombre: 'Rayo', sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.TAUROMAQUIA, razaId: razaCasta.id, loteId: loteParaisoB.id, pesoActual: 475 },
   ];
 
   const animalesCampoAlegre = [
-    { numeroArete: 'CAL-001', nombre: 'Bella', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteCampoAlegreA.id, pesoActual: 430 },
-    { numeroArete: 'CAL-002', nombre: 'Paloma', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaSenepol.id, loteId: loteCampoAlegreA.id, pesoActual: 405 },
-    { numeroArete: 'CAL-003', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteCampoAlegreB.id, pesoActual: 380 },
-    { numeroArete: 'CAL-004', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaSenepol.id, loteId: loteCampoAlegreB.id, pesoActual: 395 },
-    { numeroArete: 'CAL-005', nombre: 'La Gorda', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteCampoAlegreA.id, pesoActual: 460 },
-    { numeroArete: 'CAL-006', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaCebu.id, loteId: loteCampoAlegreB.id, pesoActual: 345 },
-    { numeroArete: 'CAL-007', nombre: 'Consentida', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaSenepol.id, loteId: loteCampoAlegreA.id, pesoActual: 415 },
-    { numeroArete: 'CAL-008', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteCampoAlegreB.id, pesoActual: 412 },
-    { numeroArete: 'CAL-009', nombre: 'Mimosa', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE_LECHE, razaId: razaSenepol.id, loteId: loteCampoAlegreA.id, pesoActual: 395 },
-    { numeroArete: 'CAL-010', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteCampoAlegreB.id, pesoActual: 368 },
+    { numeroIdentificacion: 'CAL-001', nombre: 'Bella', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteCampoAlegreA.id, pesoActual: 430 },
+    { numeroIdentificacion: 'CAL-002', nombre: 'Paloma', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaSenepol.id, loteId: loteCampoAlegreA.id, pesoActual: 405 },
+    { numeroIdentificacion: 'CAL-003', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteCampoAlegreB.id, pesoActual: 380 },
+    { numeroIdentificacion: 'CAL-004', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaSenepol.id, loteId: loteCampoAlegreB.id, pesoActual: 395 },
+    { numeroIdentificacion: 'CAL-005', nombre: 'La Gorda', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteCampoAlegreA.id, pesoActual: 460 },
+    { numeroIdentificacion: 'CAL-006', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaCebu.id, loteId: loteCampoAlegreB.id, pesoActual: 345 },
+    { numeroIdentificacion: 'CAL-007', nombre: 'Consentida', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaSenepol.id, loteId: loteCampoAlegreA.id, pesoActual: 415 },
+    { numeroIdentificacion: 'CAL-008', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteCampoAlegreB.id, pesoActual: 412 },
+    { numeroIdentificacion: 'CAL-009', nombre: 'Mimosa', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE_LECHE, razaId: razaSenepol.id, loteId: loteCampoAlegreA.id, pesoActual: 395 },
+    { numeroIdentificacion: 'CAL-010', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteCampoAlegreB.id, pesoActual: 368 },
   ];
 
   const animalesLasPenas = [
-    { numeroArete: 'LPN-001', nombre: null, sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteLasPenasB.id, pesoActual: 285 },
-    { numeroArete: 'LPN-002', nombre: null, sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaSenepol.id, loteId: loteLasPenasB.id, pesoActual: 295 },
-    { numeroArete: 'LPN-003', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteLasPenasA.id, pesoActual: 220 },
-    { numeroArete: 'LPN-004', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteLasPenasA.id, pesoActual: 240 },
-    { numeroArete: 'LPN-005', nombre: 'Fresita', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaSenepol.id, loteId: loteLasPenasB.id, pesoActual: 270 },
-    { numeroArete: 'LPN-006', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaCebu.id, loteId: loteLasPenasA.id, pesoActual: 195 },
-    { numeroArete: 'LPN-007', nombre: null, sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteLasPenasB.id, pesoActual: 260 },
-    { numeroArete: 'LPN-008', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaSenepol.id, loteId: loteLasPenasA.id, pesoActual: 230 },
-    { numeroArete: 'LPN-009', nombre: 'Manchita', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteLasPenasB.id, pesoActual: 290 },
-    { numeroArete: 'LPN-010', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteLasPenasA.id, pesoActual: 215 },
+    { numeroIdentificacion: 'LPN-001', nombre: null, sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteLasPenasB.id, pesoActual: 285 },
+    { numeroIdentificacion: 'LPN-002', nombre: null, sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaSenepol.id, loteId: loteLasPenasB.id, pesoActual: 295 },
+    { numeroIdentificacion: 'LPN-003', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteLasPenasA.id, pesoActual: 220 },
+    { numeroIdentificacion: 'LPN-004', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteLasPenasA.id, pesoActual: 240 },
+    { numeroIdentificacion: 'LPN-005', nombre: 'Fresita', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaSenepol.id, loteId: loteLasPenasB.id, pesoActual: 270 },
+    { numeroIdentificacion: 'LPN-006', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaCebu.id, loteId: loteLasPenasA.id, pesoActual: 195 },
+    { numeroIdentificacion: 'LPN-007', nombre: null, sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteLasPenasB.id, pesoActual: 260 },
+    { numeroIdentificacion: 'LPN-008', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaSenepol.id, loteId: loteLasPenasA.id, pesoActual: 230 },
+    { numeroIdentificacion: 'LPN-009', nombre: 'Manchita', sexo: Sexo.HEMBRA, proposito: TipoPropositoAnimal.REPRODUCCION, razaId: razaBrahman.id, loteId: loteLasPenasB.id, pesoActual: 290 },
+    { numeroIdentificacion: 'LPN-010', nombre: null, sexo: Sexo.MACHO, proposito: TipoPropositoAnimal.CARNE, razaId: razaBrahman.id, loteId: loteLasPenasA.id, pesoActual: 215 },
   ];
 
   const todosLosAnimales = [...animalesParaiso, ...animalesCampoAlegre, ...animalesLasPenas];
 
   for (const datosAnimal of todosLosAnimales) {
     await prisma.animal.upsert({
-      where: { numeroArete: datosAnimal.numeroArete },
+      where: { numeroIdentificacion: datosAnimal.numeroIdentificacion },
       update: {},
       create: {
         ...datosAnimal,
@@ -855,7 +855,7 @@ async function main() {
   const animalesParaGPS = await prisma.animal.findMany({
     where: { lote: { fincaId: fincaParaiso.id } },
     take: 5,
-    select: { id: true, numeroArete: true },
+    select: { id: true, numeroIdentificacion: true },
   });
 
   let numeroDispositivo = 1;
@@ -867,7 +867,7 @@ async function main() {
         codigoDispositivo: `GPS-ELP-${String(numeroDispositivo).padStart(3, '0')}`,
         modelo: 'ESP32-GPS',
         fabricante: 'Genérico',
-        apiKey: `sim_${animal.numeroArete.toLowerCase()}_${Math.random().toString(36).slice(2, 10)}`,
+        apiKey: `sim_${animal.numeroIdentificacion.toLowerCase()}_${Math.random().toString(36).slice(2, 10)}`,
         nivelBateria: 60 + Math.round(Math.random() * 40),
         animalId: animal.id,
       },
@@ -957,8 +957,8 @@ async function main() {
     'LPN-001', 'LPN-002', 'LPN-005', 'LPN-009',
   ];
   const animalesPorArete = Object.fromEntries(
-    (await prisma.animal.findMany({ where: { numeroArete: { in: aretesNecesarios } } }))
-      .map((a) => [a.numeroArete, a])
+    (await prisma.animal.findMany({ where: { numeroIdentificacion: { in: aretesNecesarios } } }))
+      .map((a) => [a.numeroIdentificacion, a])
   );
 
   // ----------------------------------------------------------
@@ -1363,7 +1363,7 @@ async function main() {
     {
       id: 'notif-vacuna-proxima-1',
       titulo: 'Vacuna próxima a vencer',
-      mensaje: `El animal #${animalesPorArete['CAL-002'].numeroArete} tiene la vacuna de Rabia Bovina próxima a vencer en 5 días.`,
+      mensaje: `El animal #${animalesPorArete['CAL-002'].numeroIdentificacion} tiene la vacuna de Rabia Bovina próxima a vencer en 5 días.`,
       prioridad: 'ALTA' as const,
       estado: 'ENVIADA' as const,
       leida: false,
@@ -1374,7 +1374,7 @@ async function main() {
     {
       id: 'notif-vacuna-vencida-1',
       titulo: 'Vacuna vencida',
-      mensaje: `El animal #${animalesPorArete['CAL-005'].numeroArete} tiene una vacuna de Carbón Bacteridiano vencida hace 35 días.`,
+      mensaje: `El animal #${animalesPorArete['CAL-005'].numeroIdentificacion} tiene una vacuna de Carbón Bacteridiano vencida hace 35 días.`,
       prioridad: 'CRITICA' as const,
       estado: 'LEIDA' as const,
       leida: true,
@@ -1386,7 +1386,7 @@ async function main() {
     {
       id: 'notif-parto-proximo-1',
       titulo: 'Parto próximo (7 días)',
-      mensaje: `Se estima el parto del animal #${animalesPorArete['CAL-002'].numeroArete} dentro de los próximos 5 días.`,
+      mensaje: `Se estima el parto del animal #${animalesPorArete['CAL-002'].numeroIdentificacion} dentro de los próximos 5 días.`,
       prioridad: 'ALTA' as const,
       estado: 'PENDIENTE' as const,
       leida: false,
@@ -1397,7 +1397,7 @@ async function main() {
     {
       id: 'notif-enfermedad-activa-1',
       titulo: 'Enfermedad activa sin resolución',
-      mensaje: `El animal #${animalesPorArete['ELP-008'].numeroArete} continúa con mastitis clínica activa desde hace 5 días.`,
+      mensaje: `El animal #${animalesPorArete['ELP-008'].numeroIdentificacion} continúa con mastitis clínica activa desde hace 5 días.`,
       prioridad: 'ALTA' as const,
       estado: 'ENVIADA' as const,
       leida: false,
