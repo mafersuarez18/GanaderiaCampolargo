@@ -23,7 +23,7 @@ export async function listarPartosProximos(diasHorizonte: number = 30, limite: n
       madre: {
         select: {
           id: true,
-          numeroArete: true,
+          numeroIdentificacion: true,
           nombre: true,
           lote: { select: { finca: { select: { id: true, nombre: true } } } },
         },
@@ -44,7 +44,7 @@ export async function listarPartosProximos(diasHorizonte: number = 30, limite: n
     return {
       id: g.id,
       madreId: g.madreId,
-      madreNumeroArete: g.madre.numeroArete,
+      madreNumeroIdentificacion: g.madre.numeroIdentificacion,
       madreNombre: g.madre.nombre,
       finca: g.madre.lote.finca.nombre,
       fechaPartoEsperado: g.fechaPartoEsperado,
@@ -88,7 +88,7 @@ export async function listarEventosReproductivos(filtros: FiltrosEventoReproduct
         animal: {
           select: {
             id: true,
-            numeroArete: true,
+            numeroIdentificacion: true,
             nombre: true,
             lote: { select: { finca: { select: { nombre: true } } } },
           },
@@ -109,7 +109,7 @@ export async function obtenerEventoReproductivo(id: string) {
   const evento = await prisma.eventoReproductivo.findUnique({
     where: { id },
     include: {
-      animal: { select: { id: true, numeroArete: true, nombre: true } },
+      animal: { select: { id: true, numeroIdentificacion: true, nombre: true } },
       registradoPor: { select: { nombre: true, apellido: true } },
       inseminacion: true,
       diagnosticoGestacion: true,
@@ -139,7 +139,7 @@ export interface DatosCrearEvento {
 export async function crearEventoReproductivo(datos: DatosCrearEvento) {
   const animal = await prisma.animal.findUnique({
     where: { id: datos.animalId },
-    select: { id: true, sexo: true, numeroArete: true },
+    select: { id: true, sexo: true, numeroIdentificacion: true },
   });
   if (!animal) throw new ErrorNoEncontrado('Animal no encontrado');
 
@@ -150,7 +150,7 @@ export async function crearEventoReproductivo(datos: DatosCrearEvento) {
   ];
   if (eventosHembra.includes(datos.tipo) && animal.sexo !== 'HEMBRA') {
     throw new ErrorValidacionDatos(
-      `El evento '${datos.tipo}' solo aplica a hembras. El animal ${animal.numeroArete} es macho.`,
+      `El evento '${datos.tipo}' solo aplica a hembras. El animal ${animal.numeroIdentificacion} es macho.`,
     );
   }
 
@@ -201,7 +201,7 @@ export async function listarGestacionesActivas(fincaId?: string) {
       madre: {
         select: {
           id: true,
-          numeroArete: true,
+          numeroIdentificacion: true,
           nombre: true,
           lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
         },

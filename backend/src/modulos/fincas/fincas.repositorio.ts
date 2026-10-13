@@ -119,7 +119,7 @@ export async function listarAnimalesDeFinca(fincaId: string, filtros: FiltrosAni
     ...(busqueda
       ? {
           OR: [
-            { numeroArete: { contains: busqueda, mode: 'insensitive' } },
+            { numeroIdentificacion: { contains: busqueda, mode: 'insensitive' } },
             { nombre:      { contains: busqueda, mode: 'insensitive' } },
           ],
         }
@@ -131,7 +131,7 @@ export async function listarAnimalesDeFinca(fincaId: string, filtros: FiltrosAni
       where: donde,
       select: {
         id:              true,
-        numeroArete:     true,
+        numeroIdentificacion:     true,
         nombre:          true,
         sexo:            true,
         estado:          true,
@@ -142,7 +142,7 @@ export async function listarAnimalesDeFinca(fincaId: string, filtros: FiltrosAni
         raza:  { select: { id: true, nombre: true } },
         lote:  { select: { id: true, nombre: true } },
       },
-      orderBy: [{ estado: 'asc' }, { numeroArete: 'asc' }],
+      orderBy: [{ estado: 'asc' }, { numeroIdentificacion: 'asc' }],
       skip: (pagina - 1) * porPagina,
       take: porPagina,
     }),

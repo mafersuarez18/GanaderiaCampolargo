@@ -13,13 +13,14 @@ export interface FiltrosAnimal {
   estado?: EstadoAnimal;
   pagina?: number;
   porPagina?: number;
-  ordenPor?: 'numeroArete' | 'nombre' | 'fechaNacimiento' | 'fechaIngreso';
+  ordenPor?: 'numeroIdentificacion' | 'nombre' | 'fechaNacimiento' | 'fechaIngreso';
   direccionOrden?: 'asc' | 'desc';
 }
 
 const seleccionListado = {
   id: true,
-  numeroArete: true,
+  numeroIdentificacion: true,
+  tipoIdentificacion: true,
   nombre: true,
   sexo: true,
   estado: true,
@@ -39,8 +40,8 @@ const seleccionDetalle = {
   observaciones: true,
   fechaEgreso: true,
   motivoEgreso: true,
-  padre: { select: { id: true, numeroArete: true, nombre: true } },
-  madre: { select: { id: true, numeroArete: true, nombre: true } },
+  padre: { select: { id: true, numeroIdentificacion: true, nombre: true } },
+  madre: { select: { id: true, numeroIdentificacion: true, nombre: true } },
   _count: {
     select: {
       historialesMedicos: true,
@@ -71,7 +72,7 @@ export async function listarAnimales(filtros: FiltrosAnimal = {}) {
   const donde: Prisma.AnimalWhereInput = {
     ...(busqueda && {
       OR: [
-        { numeroArete: { contains: busqueda, mode: 'insensitive' } },
+        { numeroIdentificacion: { contains: busqueda, mode: 'insensitive' } },
         { nombre:      { contains: busqueda, mode: 'insensitive' } },
         { color:       { contains: busqueda, mode: 'insensitive' } },
       ],
@@ -106,9 +107,9 @@ export async function obtenerAnimalPorId(id: string) {
   });
 }
 
-export async function obtenerAnimalPorArete(numeroArete: string) {
+export async function obtenerAnimalPorArete(numeroIdentificacion: string) {
   return prisma.animal.findUnique({
-    where: { numeroArete },
+    where: { numeroIdentificacion },
     select: seleccionDetalle,
   });
 }
@@ -125,10 +126,10 @@ export async function eliminarAnimal(id: string) {
   return prisma.animal.delete({ where: { id } });
 }
 
-export async function existeAreteRegistrado(numeroArete: string, excluirId?: string) {
+export async function existeAreteRegistrado(numeroIdentificacion: string, excluirId?: string) {
   const animal = await prisma.animal.findFirst({
     where: {
-      numeroArete: { equals: numeroArete, mode: 'insensitive' },
+      numeroIdentificacion: { equals: numeroIdentificacion, mode: 'insensitive' },
       ...(excluirId ? { id: { not: excluirId } } : {}),
     },
     select: { id: true },

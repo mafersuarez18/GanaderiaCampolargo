@@ -129,7 +129,7 @@ enrutador.get('/', requerirPrivilegio('inseminacion.ver'), async (req: Request, 
         where: donde,
         select: {
           id: true, tipo: true, fecha: true, observaciones: true,
-          animal: { select: { id: true, numeroArete: true, nombre: true } },
+          animal: { select: { id: true, numeroIdentificacion: true, nombre: true } },
           registradoPor: { select: { nombre: true, apellido: true } },
           inseminacion: {
             select: {

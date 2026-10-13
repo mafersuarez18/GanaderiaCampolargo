@@ -152,7 +152,7 @@ async function evaluarVacunas(
       animal: { estado: 'ACTIVO' },
     },
     include: {
-      animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
+      animal: { select: { id: true, numeroIdentificacion: true, nombre: true, lote: { select: { fincaId: true } } } },
       calendarioVacunacion: true,
     },
   });
@@ -167,14 +167,14 @@ async function evaluarVacunas(
         ? 'Vacuna VENCIDA — {vacuna}'
         : 'Vacuna próxima — {vacuna}',
       {
-        animal: animal.nombre ?? animal.numeroArete,
+        animal: animal.nombre ?? animal.numeroIdentificacion,
         vacuna: vacuna.calendarioVacunacion.nombreVacuna,
         fecha:  vacuna.proximaFecha?.toLocaleDateString('es-VE') ?? '',
         dias:   diasUmbral.toString(),
       },
     );
 
-    const mensaje = `Animal: ${animal.nombre ?? animal.numeroArete} | Próxima fecha: ${vacuna.proximaFecha?.toLocaleDateString('es-VE') ?? '—'}`;
+    const mensaje = `Animal: ${animal.nombre ?? animal.numeroIdentificacion} | Próxima fecha: ${vacuna.proximaFecha?.toLocaleDateString('es-VE') ?? '—'}`;
 
     await crearNotificacionSiNoExiste(
       titulo,
@@ -208,7 +208,7 @@ async function evaluarPartosProximos(
       fechaPartoEsperado: { gte: hoy, lte: limite },
     },
     include: {
-      madre: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
+      madre: { select: { id: true, numeroIdentificacion: true, nombre: true, lote: { select: { fincaId: true } } } },
     },
   });
 
@@ -220,7 +220,7 @@ async function evaluarPartosProximos(
     const titulo = interpolar(
       'Parto próximo — {animal}',
       {
-        animal: gestacion.madre.nombre ?? gestacion.madre.numeroArete,
+        animal: gestacion.madre.nombre ?? gestacion.madre.numeroIdentificacion,
         dias:   diasRestantes.toString(),
         fecha:  gestacion.fechaPartoEsperado.toLocaleDateString('es-VE'),
       },
@@ -257,7 +257,7 @@ async function evaluarDiasAbiertos(
     include: {
       gestacion: {
         include: {
-          madre: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
+          madre: { select: { id: true, numeroIdentificacion: true, nombre: true, lote: { select: { fincaId: true } } } },
         },
       },
     },
@@ -271,7 +271,7 @@ async function evaluarDiasAbiertos(
 
     const titulo = interpolar(
       'Días abiertos excedidos — {animal}',
-      { animal: madre.nombre ?? madre.numeroArete, dias: diasAbiertos.toString() },
+      { animal: madre.nombre ?? madre.numeroIdentificacion, dias: diasAbiertos.toString() },
     );
 
     await crearNotificacionSiNoExiste(
@@ -303,7 +303,7 @@ async function evaluarEnfermedadesActivas(
     include: {
       historialMedico: {
         include: {
-          animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
+          animal: { select: { id: true, numeroIdentificacion: true, nombre: true, lote: { select: { fincaId: true } } } },
         },
       },
     },
@@ -316,7 +316,7 @@ async function evaluarEnfermedadesActivas(
     const titulo = interpolar(
       'Enfermedad sin resolución — {animal}',
       {
-        animal:     animal.nombre ?? animal.numeroArete,
+        animal:     animal.nombre ?? animal.numeroIdentificacion,
         enfermedad: enfermedad.nombreEnfermedad,
         dias:       dias.toString(),
       },
@@ -351,7 +351,7 @@ async function evaluarTratamientosFinalizados(): Promise<void> {
       medicamento: { select: { nombre: true } },
       historialMedico: {
         select: {
-          animal: { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
+          animal: { select: { id: true, numeroIdentificacion: true, nombre: true, lote: { select: { fincaId: true } } } },
         },
       },
     },
@@ -369,7 +369,7 @@ async function evaluarTratamientosFinalizados(): Promise<void> {
 
     const titulo = interpolar(
       'Tratamiento finalizado — {animal}',
-      { animal: animal.nombre ?? animal.numeroArete },
+      { animal: animal.nombre ?? animal.numeroIdentificacion },
     );
 
     const mensaje = `El tratamiento con ${tratamiento.medicamento.nombre} debió finalizar el ${fechaFinEsperada.toLocaleDateString('es-VE')}. ¿El animal mejoró?`;
@@ -404,7 +404,7 @@ async function evaluarAusenciaControlVeterinario(
     },
     select: {
       id: true,
-      numeroArete: true,
+      numeroIdentificacion: true,
       nombre: true,
       lote: { select: { fincaId: true } },
       historialesMedicos: {
@@ -424,7 +424,7 @@ async function evaluarAusenciaControlVeterinario(
     const titulo = interpolar(
       'Sin control veterinario — {animal}',
       {
-        animal: animal.nombre ?? animal.numeroArete,
+        animal: animal.nombre ?? animal.numeroIdentificacion,
         dias:   (diasSinControl ?? umbralDias).toString(),
       },
     );
@@ -453,7 +453,7 @@ async function evaluarControlPesoPendiente(
 ): Promise<void> {
   const animalesSinPeso = await prisma.animal.findMany({
     where: { estado: 'ACTIVO', pesoActual: null },
-    select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } }, fechaIngreso: true },
+    select: { id: true, numeroIdentificacion: true, nombre: true, lote: { select: { fincaId: true } }, fechaIngreso: true },
   });
 
   for (const animal of animalesSinPeso) {
@@ -464,7 +464,7 @@ async function evaluarControlPesoPendiente(
 
     const titulo = interpolar(
       'Control de peso pendiente — {animal}',
-      { animal: animal.nombre ?? animal.numeroArete, dias: diasDesdeIngreso.toString() },
+      { animal: animal.nombre ?? animal.numeroIdentificacion, dias: diasDesdeIngreso.toString() },
     );
 
     await crearNotificacionSiNoExiste(
@@ -494,7 +494,7 @@ async function evaluarIntervaloParto(
       madre: { estado: 'ACTIVO', sexo: 'HEMBRA' },
     },
     include: {
-      madre:       { select: { id: true, numeroArete: true, nombre: true, lote: { select: { fincaId: true } } } },
+      madre:       { select: { id: true, numeroIdentificacion: true, nombre: true, lote: { select: { fincaId: true } } } },
       nacimientos: { select: { fechaNacimiento: true }, orderBy: { fechaNacimiento: 'desc' }, take: 1 },
     },
   });
@@ -508,7 +508,7 @@ async function evaluarIntervaloParto(
 
     const titulo = interpolar(
       'Intervalo reproductivo prolongado — {animal}',
-      { animal: gestacion.madre.nombre ?? gestacion.madre.numeroArete, dias: dias.toString() },
+      { animal: gestacion.madre.nombre ?? gestacion.madre.numeroIdentificacion, dias: dias.toString() },
     );
 
     await crearNotificacionSiNoExiste(

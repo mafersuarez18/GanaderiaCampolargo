@@ -352,7 +352,7 @@ export async function generarInventario(
       raza: { select: { nombre: true } },
       lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
     },
-    orderBy: [{ lote: { finca: { nombre: 'asc' } } }, { numeroArete: 'asc' }],
+    orderBy: [{ lote: { finca: { nombre: 'asc' } } }, { numeroIdentificacion: 'asc' }],
   });
 
   const totalMachos  = animales.filter((a) => a.sexo === 'MACHO').length;
@@ -371,9 +371,9 @@ export async function generarInventario(
     const anchos = [62, 88, 46, 80, 92, 80, 56, 52];  // suma = ~556 ≈ A4 útil
     tablaPDF(
       doc,
-      ['N.° Arete', 'Nombre', 'Sexo', 'Raza', 'Finca', 'Lote', 'Estado', 'Peso kg'],
+      ['N.° Identificación', 'Nombre', 'Sexo', 'Raza', 'Finca', 'Lote', 'Estado', 'Peso kg'],
       animales.map((a) => [
-        a.numeroArete,
+        a.numeroIdentificacion,
         a.nombre ?? '—',
         a.sexo === 'MACHO' ? 'Macho' : 'Hembra',
         a.raza?.nombre  ?? '—',
@@ -414,7 +414,7 @@ export async function generarInventario(
 
     const ws = wb.addWorksheet('Inventario');
     ws.columns = [
-      { header: 'N.° Arete',         key: 'arete'      },
+      { header: 'N.° Identificación',         key: 'arete'      },
       { header: 'Nombre',            key: 'nombre'     },
       { header: 'Sexo',              key: 'sexo'       },
       { header: 'Raza',              key: 'raza'       },
@@ -431,7 +431,7 @@ export async function generarInventario(
 
     animales.forEach((a, i) => {
       estiloFilaExcel(ws.addRow({
-        arete:       a.numeroArete,
+        arete:       a.numeroIdentificacion,
         nombre:      a.nombre ?? '',
         sexo:        a.sexo === 'MACHO' ? 'Macho' : 'Hembra',
         raza:        a.raza?.nombre ?? '',
@@ -494,7 +494,7 @@ export async function generarSanitario(
       include: {
         animal: {
           select: {
-            numeroArete: true, nombre: true,
+            numeroIdentificacion: true, nombre: true,
             lote: { select: { finca: { select: { nombre: true } } } },
           },
         },
@@ -511,7 +511,7 @@ export async function generarSanitario(
       include: {
         animal: {
           select: {
-            numeroArete: true, nombre: true,
+            numeroIdentificacion: true, nombre: true,
             lote: { select: { finca: { select: { nombre: true } } } },
           },
         },
@@ -543,7 +543,7 @@ export async function generarSanitario(
         ['Fecha', 'Animal', 'Finca', 'Motivo consulta', 'Diagnóstico', 'Veterinario'],
         consultas.map((c) => [
           fmtFecha(c.fechaConsulta),
-          `${c.animal.nombre ? c.animal.nombre + ' ' : ''}#${c.animal.numeroArete}`,
+          `${c.animal.nombre ? c.animal.nombre + ' ' : ''}#${c.animal.numeroIdentificacion}`,
           c.animal.lote?.finca?.nombre ?? '—',
           c.motivoConsulta,
           c.enfermedades.map((e) => e.diagnosticoDefinitivo).filter(Boolean).join('; ') || '—',
@@ -568,7 +568,7 @@ export async function generarSanitario(
           const a = v.animal;
           return [
             fmtFecha(v.fechaAplicacion),
-            `${a?.nombre ? a.nombre + ' ' : ''}#${a?.numeroArete ?? ''}`,
+            `${a?.nombre ? a.nombre + ' ' : ''}#${a?.numeroIdentificacion ?? ''}`,
             a?.lote?.finca?.nombre ?? '—',
             v.calendarioVacunacion.nombreVacuna,
             fmtFecha(v.proximaFecha),
@@ -590,7 +590,7 @@ export async function generarSanitario(
     const wsC = wb.addWorksheet('Consultas médicas');
     wsC.columns = [
       { header: 'Fecha',          key: 'fecha'       },
-      { header: 'Arete',          key: 'arete'       },
+      { header: 'Identificación',          key: 'arete'       },
       { header: 'Animal',         key: 'animal'      },
       { header: 'Finca',          key: 'finca'       },
       { header: 'Motivo',         key: 'motivo'      },
@@ -603,7 +603,7 @@ export async function generarSanitario(
     consultas.forEach((c, i) => {
       estiloFilaExcel(wsC.addRow({
         fecha:        fmtFecha(c.fechaConsulta),
-        arete:        c.animal.numeroArete,
+        arete:        c.animal.numeroIdentificacion,
         animal:       c.animal.nombre ?? '',
         finca:        c.animal.lote?.finca?.nombre ?? '',
         motivo:       c.motivoConsulta,
@@ -617,7 +617,7 @@ export async function generarSanitario(
     const wsV = wb.addWorksheet('Vacunaciones');
     wsV.columns = [
       { header: 'Fecha aplicación', key: 'fecha'   },
-      { header: 'Arete',            key: 'arete'   },
+      { header: 'Identificación',            key: 'arete'   },
       { header: 'Animal',           key: 'animal'  },
       { header: 'Finca',            key: 'finca'   },
       { header: 'Vacuna',           key: 'vacuna'  },
@@ -630,7 +630,7 @@ export async function generarSanitario(
       const a = v.animal;
       estiloFilaExcel(wsV.addRow({
         fecha:   fmtFecha(v.fechaAplicacion),
-        arete:   a?.numeroArete ?? '',
+        arete:   a?.numeroIdentificacion ?? '',
         animal:  a?.nombre ?? '',
         finca:   a?.lote?.finca?.nombre ?? '',
         vacuna:  v.calendarioVacunacion.nombreVacuna,
@@ -671,7 +671,7 @@ export async function generarVacunacion(
     include: {
       animal: {
         select: {
-          numeroArete: true, nombre: true,
+          numeroIdentificacion: true, nombre: true,
           lote: { select: { finca: { select: { nombre: true } } } },
         },
       },
@@ -690,7 +690,7 @@ export async function generarVacunacion(
   };
 
   const datos = registros.map((r) => ({
-    arete:     r.animal.numeroArete,
+    arete:     r.animal.numeroIdentificacion,
     nombre:    r.animal.nombre ?? '—',
     finca:     r.animal.lote?.finca?.nombre ?? '—',
     vacuna:    r.calendarioVacunacion.nombreVacuna,
@@ -727,7 +727,7 @@ export async function generarVacunacion(
     seccionPDF(doc, 'Detalle por Animal');
     tablaPDF(
       doc,
-      ['Arete', 'Animal', 'Finca', 'Vacuna / Protocolo', 'Intervalo', 'Última aplic.', 'Próxima', 'Estado'],
+      ['Identificación', 'Animal', 'Finca', 'Vacuna / Protocolo', 'Intervalo', 'Última aplic.', 'Próxima', 'Estado'],
       datos.map((d) => [d.arete, d.nombre, d.finca, d.vacuna, d.intervalo, d.ultima, d.proxima, d.estado]),
       [52, 80, 68, 115, 48, 60, 60, 53],
     );
@@ -741,7 +741,7 @@ export async function generarVacunacion(
 
     const ws = wb.addWorksheet('Cumplimiento');
     ws.columns = [
-      { header: 'Arete',             key: 'arete'    },
+      { header: 'Identificación',             key: 'arete'    },
       { header: 'Nombre',            key: 'nombre'   },
       { header: 'Finca',             key: 'finca'    },
       { header: 'Vacuna',            key: 'vacuna'   },
@@ -795,7 +795,7 @@ export async function generarReproductivo(
       include: {
         madre: {
           select: {
-            numeroArete: true, nombre: true,
+            numeroIdentificacion: true, nombre: true,
             lote: { select: { finca: { select: { nombre: true } } } },
           },
         },
@@ -825,13 +825,13 @@ export async function generarReproductivo(
           include: {
             madre: {
               select: {
-                numeroArete: true, nombre: true,
+                numeroIdentificacion: true, nombre: true,
                 lote: { select: { finca: { select: { nombre: true } } } },
               },
             },
           },
         },
-        cria: { select: { numeroArete: true, nombre: true, sexo: true } },
+        cria: { select: { numeroIdentificacion: true, nombre: true, sexo: true } },
       },
       orderBy: { fechaNacimiento: 'desc' },
     }),
@@ -886,9 +886,9 @@ export async function generarReproductivo(
     } else {
       tablaPDF(
         doc,
-        ['Arete', 'Madre', 'Finca', 'Inicio', 'Parto esperado', 'Parto real', 'Estado'],
+        ['Identificación', 'Madre', 'Finca', 'Inicio', 'Parto esperado', 'Parto real', 'Estado'],
         gestaciones.map((g) => [
-          g.madre.numeroArete,
+          g.madre.numeroIdentificacion,
           g.madre.nombre ?? '—',
           g.madre.lote?.finca?.nombre ?? '—',
           fmtFecha(g.fechaInicio),
@@ -907,12 +907,12 @@ export async function generarReproductivo(
       seccionPDF(doc, 'Nacimientos');
       tablaPDF(
         doc,
-        ['Arete cría', 'Nombre cría', 'Sexo', 'Madre', 'Finca', 'Fecha nacim.', 'Tipo parto'],
+        ['Identificación cría', 'Nombre cría', 'Sexo', 'Madre', 'Finca', 'Fecha nacim.', 'Tipo parto'],
         nacimientos.map((n) => [
-          n.cria?.numeroArete ?? '—',
+          n.cria?.numeroIdentificacion ?? '—',
           n.cria?.nombre      ?? '—',
           sexoDeCria(n) === 'MACHO' ? 'Macho' : sexoDeCria(n) === 'HEMBRA' ? 'Hembra' : '—',
-          n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
+          n.gestacion.madre.nombre ?? n.gestacion.madre.numeroIdentificacion,
           n.gestacion.madre.lote?.finca?.nombre ?? '—',
           fmtFecha(n.fechaNacimiento),
           etiquetaEnum(n.tipoParto),
@@ -944,7 +944,7 @@ export async function generarReproductivo(
 
     const wsG = wb.addWorksheet('Gestaciones');
     wsG.columns = [
-      { header: 'Arete madre',      key: 'arete'  },
+      { header: 'Identificación madre',      key: 'arete'  },
       { header: 'Nombre madre',     key: 'nombre' },
       { header: 'Finca',            key: 'finca'  },
       { header: 'Inicio gestación', key: 'inicio' },
@@ -955,7 +955,7 @@ export async function generarReproductivo(
     estiloEncabezadoExcel(wsG.getRow(1));
     gestaciones.forEach((g, i) => {
       estiloFilaExcel(wsG.addRow({
-        arete:  g.madre.numeroArete,
+        arete:  g.madre.numeroIdentificacion,
         nombre: g.madre.nombre ?? '',
         finca:  g.madre.lote?.finca?.nombre ?? '',
         inicio: fmtFecha(g.fechaInicio),
@@ -967,7 +967,7 @@ export async function generarReproductivo(
 
     const wsN = wb.addWorksheet('Nacimientos');
     wsN.columns = [
-      { header: 'Arete cría',       key: 'arete'  },
+      { header: 'Identificación cría',       key: 'arete'  },
       { header: 'Nombre cría',      key: 'nombre' },
       { header: 'Sexo',             key: 'sexo'   },
       { header: 'Madre',            key: 'madre'  },
@@ -979,10 +979,10 @@ export async function generarReproductivo(
     estiloEncabezadoExcel(wsN.getRow(1));
     nacimientos.forEach((n, i) => {
       estiloFilaExcel(wsN.addRow({
-        arete:     n.cria?.numeroArete ?? '',
+        arete:     n.cria?.numeroIdentificacion ?? '',
         nombre:    n.cria?.nombre ?? '',
         sexo:      sexoDeCria(n) === 'MACHO' ? 'Macho' : sexoDeCria(n) === 'HEMBRA' ? 'Hembra' : '',
-        madre:     n.gestacion.madre.nombre ?? n.gestacion.madre.numeroArete,
+        madre:     n.gestacion.madre.nombre ?? n.gestacion.madre.numeroIdentificacion,
         finca:     n.gestacion.madre.lote?.finca?.nombre ?? '',
         fecha:     fmtFecha(n.fechaNacimiento),
         tipo:      n.tipoParto ? etiquetaEnum(n.tipoParto) : '',
@@ -1007,7 +1007,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
   const animal = await prisma.animal.findUnique({
     where: { id: animalId },
     select: {
-      numeroArete: true, nombre: true, sexo: true, fechaNacimiento: true,
+      numeroIdentificacion: true, nombre: true, sexo: true, fechaNacimiento: true,
       pesoActual: true, color: true, estadoSanitario: true,
       raza: { select: { nombre: true } },
       lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
@@ -1041,10 +1041,10 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
 
   const doc = new PDFDocument({ margin: ML, size: 'A4', bufferPages: true, autoFirstPage: true });
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="historial_${animal.numeroArete}.pdf"`);
+  res.setHeader('Content-Disposition', `attachment; filename="historial_${animal.numeroIdentificacion}.pdf"`);
   doc.pipe(res);
 
-  const nombreAnimal = animal.nombre ? `${animal.nombre}  —  #${animal.numeroArete}` : `#${animal.numeroArete}`;
+  const nombreAnimal = animal.nombre ? `${animal.nombre}  —  #${animal.numeroIdentificacion}` : `#${animal.numeroIdentificacion}`;
   encabezadoPDF(
     doc,
     `Historial Médico`,
@@ -1054,7 +1054,7 @@ export async function generarHistorialAnimal(res: Response, animalId: string) {
   // ── Ficha del animal ──
   seccionPDF(doc, 'Datos del Animal');
   const ficha: [string, string][] = [
-    ['N.° Arete',        animal.numeroArete],
+    ['N.° Identificación',        animal.numeroIdentificacion],
     ['Nombre',           animal.nombre ?? '—'],
     ['Sexo',             animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
     ['Raza',             animal.raza?.nombre ?? '—'],
@@ -1196,7 +1196,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
     include: {
       animal: {
         select: {
-          numeroArete: true, nombre: true, sexo: true, fechaNacimiento: true,
+          numeroIdentificacion: true, nombre: true, sexo: true, fechaNacimiento: true,
           pesoActual: true, color: true, estadoSanitario: true,
           raza: { select: { nombre: true } },
           lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
@@ -1220,8 +1220,8 @@ export async function generarConsulta(res: Response, consultaId: string) {
   doc.pipe(res);
 
   const nombreAnimal = c.animal.nombre
-    ? `${c.animal.nombre}  —  #${c.animal.numeroArete}`
-    : `#${c.animal.numeroArete}`;
+    ? `${c.animal.nombre}  —  #${c.animal.numeroIdentificacion}`
+    : `#${c.animal.numeroIdentificacion}`;
 
   encabezadoPDF(
     doc,
@@ -1232,7 +1232,7 @@ export async function generarConsulta(res: Response, consultaId: string) {
   // ── Datos del animal ──
   seccionPDF(doc, 'Datos del Animal');
   const fichaA: [string, string][] = [
-    ['N.° Arete',        c.animal.numeroArete],
+    ['N.° Identificación',        c.animal.numeroIdentificacion],
     ['Nombre',           c.animal.nombre ?? '—'],
     ['Sexo',             c.animal.sexo === 'MACHO' ? 'Macho' : 'Hembra'],
     ['Raza',             c.animal.raza?.nombre ?? '—'],

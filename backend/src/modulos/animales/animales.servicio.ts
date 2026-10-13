@@ -1,4 +1,4 @@
-import { Sexo, EstadoAnimal, TipoPropositoAnimal, EstadoSanitario } from '@prisma/client';
+import { Sexo, EstadoAnimal, TipoPropositoAnimal, EstadoSanitario, TipoIdentificacion } from '@prisma/client';
 import {
   listarAnimales,
   obtenerAnimalPorId,
@@ -37,14 +37,15 @@ export async function servicioObtenerAnimal(id: string) {
   };
 }
 
-export async function servicioObtenerAnimalPorArete(numeroArete: string) {
-  const animal = await obtenerAnimalPorArete(numeroArete);
-  if (!animal) throw new ErrorNoEncontrado(`Animal con arete '${numeroArete}' no encontrado`);
+export async function servicioObtenerAnimalPorArete(numeroIdentificacion: string) {
+  const animal = await obtenerAnimalPorArete(numeroIdentificacion);
+  if (!animal) throw new ErrorNoEncontrado(`Animal con identificación '${numeroIdentificacion}' no encontrado`);
   return animal;
 }
 
 export interface DatosCrearAnimal {
-  numeroArete:    string;
+  numeroIdentificacion:    string;
+  tipoIdentificacion?: TipoIdentificacion;
   nombre?:        string;
   sexo:           Sexo;
   proposito:      TipoPropositoAnimal;
@@ -63,8 +64,8 @@ export interface DatosCrearAnimal {
 }
 
 export async function servicioCrearAnimal(datos: DatosCrearAnimal) {
-  if (await existeAreteRegistrado(datos.numeroArete)) {
-    throw new ErrorConflicto(`Ya existe un animal registrado con el arete '${datos.numeroArete}'`);
+  if (await existeAreteRegistrado(datos.numeroIdentificacion)) {
+    throw new ErrorConflicto(`Ya existe un animal registrado con esa identificación: '${datos.numeroIdentificacion}'`);
   }
 
   if (datos.padreId) {
@@ -90,7 +91,7 @@ export async function servicioCrearAnimal(datos: DatosCrearAnimal) {
   });
 }
 
-export type DatosActualizarAnimal = Partial<Omit<DatosCrearAnimal, 'numeroArete'>> & {
+export type DatosActualizarAnimal = Partial<Omit<DatosCrearAnimal, 'numeroIdentificacion'>> & {
   estado?: EstadoAnimal;
   motivoEgreso?: string;
   fechaEgreso?: Date;
@@ -98,14 +99,14 @@ export type DatosActualizarAnimal = Partial<Omit<DatosCrearAnimal, 'numeroArete'
 
 export async function servicioActualizarAnimal(
   id: string,
-  datos: DatosActualizarAnimal & { numeroArete?: string },
+  datos: DatosActualizarAnimal & { numeroIdentificacion?: string },
 ) {
   const animal = await obtenerAnimalPorId(id);
   if (!animal) throw new ErrorNoEncontrado(`Animal con id '${id}' no encontrado`);
 
-  if (datos.numeroArete && datos.numeroArete !== animal.numeroArete) {
-    if (await existeAreteRegistrado(datos.numeroArete, id)) {
-      throw new ErrorConflicto(`Ya existe un animal con el arete '${datos.numeroArete}'`);
+  if (datos.numeroIdentificacion && datos.numeroIdentificacion !== animal.numeroIdentificacion) {
+    if (await existeAreteRegistrado(datos.numeroIdentificacion, id)) {
+      throw new ErrorConflicto(`Ya existe un animal con esa identificación: '${datos.numeroIdentificacion}'`);
     }
   }
 
@@ -130,7 +131,7 @@ export async function servicioEliminarAnimal(id: string) {
 
   if (tieneHistorial) {
     throw new ErrorValidacionDatos(
-      `No se puede eliminar el animal '${animal.numeroArete}' porque tiene registros médicos o reproductivos. ` +
+      `No se puede eliminar el animal '${animal.numeroIdentificacion}' porque tiene registros médicos o reproductivos. ` +
       `Cambie su estado a VENDIDO o MUERTO en su lugar.`,
     );
   }

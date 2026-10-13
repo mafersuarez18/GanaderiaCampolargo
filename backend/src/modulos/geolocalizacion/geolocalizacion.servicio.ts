@@ -35,7 +35,7 @@ export async function listarAnimalesConUbicacion(filtros: FiltrosAnimalesUbicaci
       animal: {
         select: {
           id: true,
-          numeroArete: true,
+          numeroIdentificacion: true,
           nombre: true,
           lote: { select: { id: true, nombre: true, finca: { select: { id: true, nombre: true } } } },
           raza: { select: { nombre: true } },
@@ -48,7 +48,7 @@ export async function listarAnimalesConUbicacion(filtros: FiltrosAnimalesUbicaci
 
   return ultimasUbicaciones.map((u) => ({
     id: u.animal.id,
-    numeroArete: u.animal.numeroArete,
+    numeroIdentificacion: u.animal.numeroIdentificacion,
     nombre: u.animal.nombre,
     latitudActual: u.latitud,
     longitudActual: u.longitud,
@@ -113,7 +113,7 @@ export async function listarDispositivos() {
     include: {
       animal: {
         select: {
-          numeroArete: true,
+          numeroIdentificacion: true,
           nombre: true,
           lote: { select: { nombre: true, finca: { select: { nombre: true } } } },
         },

@@ -26,7 +26,7 @@ export async function obtenerCalendario(id: string) {
       medicamento: true,
       registrosVacunacion: {
         include: {
-          animal: { select: { id: true, numeroArete: true, nombre: true } },
+          animal: { select: { id: true, numeroIdentificacion: true, nombre: true } },
           aplicadoPor: { select: { nombre: true, apellido: true } },
         },
         orderBy: { fechaAplicacion: 'desc' },
@@ -111,7 +111,7 @@ export async function listarRegistrosVacunacion(filtros: FiltrosRegistroVacunaci
     prisma.registroVacunacion.findMany({
       where: donde,
       include: {
-        animal: { select: { id: true, numeroArete: true, nombre: true } },
+        animal: { select: { id: true, numeroIdentificacion: true, nombre: true } },
         calendarioVacunacion: {
           select: { id: true, nombreVacuna: true, intervaloDias: true },
         },
@@ -167,7 +167,7 @@ export async function registrarVacunacion(datos: DatosRegistroVacunacion) {
       ...(medicamentoId && { medicamento: { connect: { id: medicamentoId } } }),
     },
     include: {
-      animal: { select: { id: true, numeroArete: true } },
+      animal: { select: { id: true, numeroIdentificacion: true } },
       calendarioVacunacion: { select: { nombreVacuna: true } },
       aplicadoPor: { select: { nombre: true, apellido: true } },
     },
@@ -208,7 +208,7 @@ export async function actualizarRegistroVacunacion(
       ...(proximaFecha && { proximaFecha }),
     },
     include: {
-      animal: { select: { id: true, numeroArete: true, nombre: true } },
+      animal: { select: { id: true, numeroIdentificacion: true, nombre: true } },
       calendarioVacunacion: { select: { id: true, nombreVacuna: true, intervaloDias: true } },
       medicamento: { select: { id: true, nombre: true } },
       aplicadoPor: { select: { id: true, nombre: true, apellido: true } },

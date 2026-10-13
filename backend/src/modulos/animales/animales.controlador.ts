@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { Sexo, EstadoAnimal, TipoPropositoAnimal, EstadoSanitario } from '@prisma/client';
+import { Sexo, EstadoAnimal, TipoPropositoAnimal, EstadoSanitario, TipoIdentificacion } from '@prisma/client';
 import {
   servicioListarAnimales,
   servicioObtenerAnimal,
@@ -23,7 +23,8 @@ import { construirMeta } from '../../compartido/utilidades/paginacion';
 // lógica de negocio propia.
 
 const esquemaCrearAnimal = z.object({
-  numeroArete:     z.string().min(1, 'El arete es requerido').max(50),
+  numeroIdentificacion:     z.string().min(1, 'La identificación es requerida').max(50),
+  tipoIdentificacion: z.nativeEnum(TipoIdentificacion).default('ARETE'),
   nombre:          z.string().max(100).optional(),
   sexo:            z.nativeEnum(Sexo),
   proposito:       z.nativeEnum(TipoPropositoAnimal),
@@ -50,7 +51,7 @@ const esquemaFiltros = z.object({
   estado:         z.nativeEnum(EstadoAnimal).optional(),
   pagina:         z.coerce.number().int().positive().default(1),
   porPagina:      z.coerce.number().int().positive().max(500).default(20),
-  ordenPor:       z.enum(['numeroArete', 'nombre', 'fechaNacimiento', 'fechaIngreso']).default('fechaIngreso'),
+  ordenPor:       z.enum(['numeroIdentificacion', 'nombre', 'fechaNacimiento', 'fechaIngreso']).default('fechaIngreso'),
   direccionOrden: z.enum(['asc', 'desc']).default('desc'),
 });
 
