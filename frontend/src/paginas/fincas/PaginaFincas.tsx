@@ -28,7 +28,7 @@ interface Finca {
 
 interface Animal {
   id: string;
-  numeroArete: string;
+  numeroIdentificacion: string;
   nombre?: string;
   sexo: 'MACHO' | 'HEMBRA';
   estado: string;
@@ -622,7 +622,7 @@ function PanelDetalleFinca({
                 type="text"
                 value={busqueda}
                 onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
-                placeholder="Buscar por arete o nombre..."
+                placeholder="Buscar por identificación o nombre..."
                 className="campo-entrada pl-8 text-xs h-9"
               />
             </div>
@@ -715,7 +715,7 @@ function FilaAnimal({ animal, onClick }: { animal: Animal; onClick: () => void }
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-bold text-on-surface">#{animal.numeroArete}</span>
+          <span className="font-mono text-xs font-bold text-on-surface">#{animal.numeroIdentificacion}</span>
           {animal.nombre && (
             <span className="text-xs text-on-surface-variant truncate">{animal.nombre}</span>
           )}

@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { clienteHttp } from '../../servicios/clienteAxios';
 import Icono from './Icono';
 
-// Campo de búsqueda con autocompletado de animales (por arete o nombre),
+// Campo de búsqueda con autocompletado de animales (por identificación o nombre),
 // reutilizado en los formularios que necesitan referenciar un animal
 // existente (historial médico, reproducción, vacunación...).
 export interface AnimalResumen {
   id: string;
-  numeroArete: string;
+  numeroIdentificacion: string;
   nombre: string | null;
 }
 
@@ -27,7 +27,7 @@ export default function BuscadorAnimal({
   alSeleccionar,
   etiqueta,
   requerido,
-  placeholder = 'Buscar por arete o nombre...',
+  placeholder = 'Buscar por identificación o nombre...',
   error,
   disabled,
 }: PropsBuscadorAnimal) {
@@ -67,7 +67,7 @@ export default function BuscadorAnimal({
   }, []);
 
   const textoVisual = animalMostrado
-    ? `#${animalMostrado.numeroArete}${animalMostrado.nombre ? ` — ${animalMostrado.nombre}` : ''}`
+    ? `#${animalMostrado.numeroIdentificacion}${animalMostrado.nombre ? ` — ${animalMostrado.nombre}` : ''}`
     : '';
 
   const limpiar = () => {
@@ -149,7 +149,7 @@ export default function BuscadorAnimal({
                              border-b border-outline-variant/10 last:border-0 flex items-center gap-2"
                 >
                   <Icono nombre="pets" clase="text-[14px] text-outline flex-shrink-0" />
-                  <span className="text-sm font-medium text-on-surface">#{animal.numeroArete}</span>
+                  <span className="text-sm font-medium text-on-surface">#{animal.numeroIdentificacion}</span>
                   {animal.nombre && (
                     <span className="text-xs text-on-surface-variant">— {animal.nombre}</span>
                   )}
@@ -163,7 +163,7 @@ export default function BuscadorAnimal({
       {valor && animalMostrado && (
         <p className="text-xs text-primary mt-1 flex items-center gap-1">
           <Icono nombre="check_circle" clase="text-[12px]" />
-          Animal seleccionado: #{animalMostrado.numeroArete}
+          Animal seleccionado: #{animalMostrado.numeroIdentificacion}
           {animalMostrado.nombre && ` — ${animalMostrado.nombre}`}
         </p>
       )}

@@ -15,7 +15,8 @@ import toast from 'react-hot-toast';
 // el formulario despliega los campos para darla de alta ahí mismo antes de
 // enviar el animal.
 const esquemaAnimal = z.object({
-  numeroArete:      z.string().min(1, 'El arete es requerido').max(50),
+  numeroIdentificacion:      z.string().min(1, 'La identificación es requerida').max(50),
+  tipoIdentificacion: z.enum(['ARETE', 'HIERRO_NUMERO', 'MICROCHIP', 'OTRO']).default('ARETE'),
   nombre:           z.string().max(100).optional().or(z.literal('')),
   sexo:             z.enum(['MACHO', 'HEMBRA'], { required_error: 'Seleccione el sexo' }),
   estado:           z.enum(['ACTIVO', 'VENDIDO', 'MUERTO', 'ROBADO', 'TRANSFERIDO']).default('ACTIVO'),
@@ -64,7 +65,7 @@ async function obtenerLotesPorFinca(fincaId: string) {
 }
 async function obtenerAnimalesPorSexo(sexo: 'MACHO' | 'HEMBRA') {
   const { data } = await clienteHttp.get('/animales', {
-    params: { sexo, estado: 'ACTIVO', porPagina: 200, ordenPor: 'numeroArete', direccionOrden: 'asc' },
+    params: { sexo, estado: 'ACTIVO', porPagina: 200, ordenPor: 'numeroIdentificacion', direccionOrden: 'asc' },
   });
   return data.datos ?? [];
 }
@@ -116,7 +117,8 @@ export default function PaginaFormAnimal() {
   useEffect(() => {
     if (animalExistente) {
       reset({
-        numeroArete:     animalExistente.numeroArete,
+        numeroIdentificacion:     animalExistente.numeroIdentificacion,
+        tipoIdentificacion: animalExistente.tipoIdentificacion ?? 'ARETE',
         nombre:          animalExistente.nombre ?? '',
         sexo:            animalExistente.sexo,
         estado:          animalExistente.estado,
@@ -204,7 +206,7 @@ export default function PaginaFormAnimal() {
             {esEdicion ? 'Editar animal' : 'Registrar nuevo animal'}
           </h1>
           <p className="text-xs text-[var(--color-piedra-500)]">
-            {esEdicion ? `Editando: ${animalExistente?.nombre ?? `#${animalExistente?.numeroArete}`}` : 'Complete los datos del animal'}
+            {esEdicion ? `Editando: ${animalExistente?.nombre ?? `#${animalExistente?.numeroIdentificacion}`}` : 'Complete los datos del animal'}
           </p>
         </div>
       </div>
@@ -214,9 +216,17 @@ export default function PaginaFormAnimal() {
         {/* Datos básicos */}
         <SeccionFormulario titulo="Identificación">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <CampoForm etiqueta="Número de arete *" error={errors.numeroArete?.message}>
+            <CampoForm etiqueta="Tipo de identificación *" error={errors.tipoIdentificacion?.message}>
+              <select {...register('tipoIdentificacion')} className="campo-entrada">
+                <option value="ARETE">Arete</option>
+                <option value="HIERRO_NUMERO">Hierro / número</option>
+                <option value="MICROCHIP">Microchip</option>
+                <option value="OTRO">Otro</option>
+              </select>
+            </CampoForm>
+            <CampoForm etiqueta="Número de identificación *" error={errors.numeroIdentificacion?.message}>
               <input
-                {...register('numeroArete')}
+                {...register('numeroIdentificacion')}
                 placeholder="Ej: A-2025-001"
                 className="campo-entrada"
                 disabled={esEdicion}
@@ -369,7 +379,7 @@ export default function PaginaFormAnimal() {
                   .filter((m: any) => m.id !== id)
                   .map((m: any) => (
                     <option key={m.id} value={m.id}>
-                      #{m.numeroArete}{m.nombre ? ` — ${m.nombre}` : ''}
+                      #{m.numeroIdentificacion}{m.nombre ? ` — ${m.nombre}` : ''}
                     </option>
                   ))}
               </select>
@@ -381,7 +391,7 @@ export default function PaginaFormAnimal() {
                   .filter((h: any) => h.id !== id)
                   .map((h: any) => (
                     <option key={h.id} value={h.id}>
-                      #{h.numeroArete}{h.nombre ? ` — ${h.nombre}` : ''}
+                      #{h.numeroIdentificacion}{h.nombre ? ` — ${h.nombre}` : ''}
                     </option>
                   ))}
               </select>

@@ -15,7 +15,7 @@ import toast from 'react-hot-toast';
 // paginación server-side.
 interface Animal {
   id: string;
-  numeroArete: string;
+  numeroIdentificacion: string;
   nombre?: string;
   sexo: 'MACHO' | 'HEMBRA';
   estado: string;
@@ -36,12 +36,12 @@ interface Raza  { id: string; nombre: string; }
 
 const COLUMNAS: ColumnaTabla<Animal>[] = [
   {
-    clave: 'numeroArete',
-    encabezado: 'Arete',
+    clave: 'numeroIdentificacion',
+    encabezado: 'Identificación',
     ordenable: true,
     render: (a) => (
       <span className="font-mono font-semibold text-on-surface text-xs bg-surface-container px-2 py-0.5 rounded">
-        #{a.numeroArete}
+        #{a.numeroIdentificacion}
       </span>
     ),
   },
@@ -249,7 +249,7 @@ export default function PaginaAnimales() {
               type="text"
               value={busqueda}
               onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
-              placeholder="Buscar por arete, nombre..."
+              placeholder="Buscar por identificación, nombre..."
               className="campo-entrada pl-10 py-2 text-sm"
             />
           </div>

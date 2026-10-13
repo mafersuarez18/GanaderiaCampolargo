@@ -108,7 +108,7 @@ export default function PaginaReportes() {
       setCargando('historial-animal');
       const r = await clienteHttp.get(`/reportes/historial-animal/${animalId}`, { responseType: 'blob' });
       const nombre = animalClinico
-        ? `historial_${animalClinico.numeroArete}`
+        ? `historial_${animalClinico.numeroIdentificacion}`
         : `historial_${animalId}`;
       const url = URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
       const a = document.createElement('a'); a.href = url;
@@ -255,7 +255,7 @@ export default function PaginaReportes() {
               valor={animalId}
               alSeleccionar={(id, animal) => { setAnimalId(id); setAnimalClinico(animal); }}
               etiqueta="Animal"
-              placeholder="Buscar por arete o nombre..."
+              placeholder="Buscar por identificación o nombre..."
             />
           </div>
           <button
@@ -279,7 +279,7 @@ export default function PaginaReportes() {
             <Icono nombre="info" clase="text-[13px]" />
             Se generará el historial completo del animal
             <span className="font-semibold text-on-surface">
-              #{animalClinico.numeroArete}{animalClinico.nombre ? ` — ${animalClinico.nombre}` : ''}
+              #{animalClinico.numeroIdentificacion}{animalClinico.nombre ? ` — ${animalClinico.nombre}` : ''}
             </span>
           </p>
         )}

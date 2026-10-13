@@ -30,7 +30,7 @@ interface RegistroVacunacion {
   lote?: string;
   proximaFecha?: string;
   observaciones?: string;
-  animal: { id: string; numeroArete: string; nombre?: string | null };
+  animal: { id: string; numeroIdentificacion: string; nombre?: string | null };
   calendarioVacunacion: { id: string; nombreVacuna: string; intervaloDias: number };
   medicamento?: { id: string; nombre: string };
   aplicadoPor: { id: string; nombre: string; apellido: string };
@@ -374,7 +374,7 @@ export default function PaginaVacunacion() {
                             </span>
                             {reg.animal && (
                               <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                                #{reg.animal.numeroArete}
+                                #{reg.animal.numeroIdentificacion}
                                 {reg.animal.nombre && ` · ${reg.animal.nombre}`}
                               </span>
                             )}
@@ -772,7 +772,7 @@ export default function PaginaVacunacion() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-on-surface">
-                          #{registroSeleccionado.animal.numeroArete}
+                          #{registroSeleccionado.animal.numeroIdentificacion}
                           {registroSeleccionado.animal.nombre &&
                             ` · ${registroSeleccionado.animal.nombre}`}
                         </p>
@@ -1177,7 +1177,7 @@ function FormularioRegistro({
               requerido
               valor={form.animalId}
               alSeleccionar={(id) => setForm((f) => ({ ...f, animalId: id }))}
-              placeholder="Buscar por arete o nombre..."
+              placeholder="Buscar por identificación o nombre..."
             />
 
             <div>
@@ -1298,7 +1298,7 @@ function FormularioEditarRegistro({
                 <p className="text-sm font-semibold text-on-surface">{registro.calendarioVacunacion.nombreVacuna}</p>
                 {registro.animal && (
                   <p className="text-xs text-on-surface-variant">
-                    Animal #{registro.animal.numeroArete}
+                    Animal #{registro.animal.numeroIdentificacion}
                     {registro.animal.nombre && ` · ${registro.animal.nombre}`}
                   </p>
                 )}

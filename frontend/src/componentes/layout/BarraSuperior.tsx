@@ -193,7 +193,7 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
                     autoFocus
                     type="text"
                     value={terminoBusqueda}
-                    placeholder="Buscar animal por arete o nombre..."
+                    placeholder="Buscar animal por identificación o nombre..."
                     onChange={(e) => setTerminoBusqueda(e.target.value)}
                     onBlur={() => { setTimeout(() => { setBusquedaActiva(false); setTerminoBusqueda(''); }, 200); }}
                     className="w-full pl-9 pr-4 py-2 bg-surface-container-low rounded-full border-none
@@ -210,7 +210,7 @@ export default function BarraSuperior({ alAbrirMenu }: PropiedadesBarraSuperior)
                                      border-b border-outline-variant/10 last:border-0 flex items-center gap-2"
                         >
                           <Icono nombre="pets" clase="text-[14px] text-outline flex-shrink-0" />
-                          <span className="text-sm font-medium text-on-surface">#{a.numeroArete}</span>
+                          <span className="text-sm font-medium text-on-surface">#{a.numeroIdentificacion}</span>
                           {a.nombre && <span className="text-xs text-on-surface-variant truncate">— {a.nombre}</span>}
                           {a.lote?.finca && <span className="text-[10px] text-outline ml-auto">{a.lote.finca.nombre}</span>}
                         </button>

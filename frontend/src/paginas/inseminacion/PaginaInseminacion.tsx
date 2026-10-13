@@ -46,7 +46,7 @@ interface Inseminacion {
   fecha: string;
   tipo: string;
   observaciones: string | null;
-  animal: { id: string; numeroArete: string; nombre: string | null };
+  animal: { id: string; numeroIdentificacion: string; nombre: string | null };
   registradoPor: { nombre: string; apellido: string };
   inseminacion: {
     fechaInseminacion: string;
@@ -62,7 +62,7 @@ interface Inseminacion {
   } | null;
 }
 
-interface Animal { id: string; numeroArete: string; nombre: string | null; lote?: { finca?: { nombre: string } } }
+interface Animal { id: string; numeroIdentificacion: string; nombre: string | null; lote?: { finca?: { nombre: string } } }
 
 interface EfectividadSemental {
   sementalId: string;
@@ -254,7 +254,7 @@ export default function PaginaInseminacion() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
                         <span className="text-sm font-semibold text-on-surface">
-                          #{ins.animal.numeroArete}
+                          #{ins.animal.numeroIdentificacion}
                           {ins.animal.nombre && <span className="font-normal text-on-surface-variant"> · {ins.animal.nombre}</span>}
                         </span>
                         <Badge variante={intento === 1 ? 'verde' : intento === 2 ? 'amarillo' : 'rojo'} tamano="xs">
@@ -685,7 +685,7 @@ function FormularioInseminacion({ hembras, lotes, onSubmit }: PropsFormInseminac
           <option value="">Seleccionar hembra...</option>
           {hembras.map((h) => (
             <option key={h.id} value={h.id}>
-              #{h.numeroArete}{h.nombre ? ` — ${h.nombre}` : ''}{h.lote?.finca ? ` (${h.lote.finca.nombre})` : ''}
+              #{h.numeroIdentificacion}{h.nombre ? ` — ${h.nombre}` : ''}{h.lote?.finca ? ` (${h.lote.finca.nombre})` : ''}
             </option>
           ))}
         </select>

@@ -10,6 +10,13 @@ import { ModalConfirmacion } from '../../componentes/ui/Modal';
 import { EsqueletoLinea } from '../../componentes/ui/EsqueletoTarjeta';
 import toast from 'react-hot-toast';
 
+const ETIQUETA_TIPO_IDENTIFICACION: Record<string, string> = {
+  ARETE: 'arete',
+  HIERRO_NUMERO: 'hierro/número',
+  MICROCHIP: 'microchip',
+  OTRO: 'otro',
+};
+
 const ETIQUETA_PROPOSITO: Record<string, string> = {
   CARNE:        'Carne',
   LECHE:        'Leche',
@@ -87,7 +94,7 @@ export default function PaginaDetalleAnimal() {
         <nav className="text-sm text-on-surface-variant">
           <Link to="/animales" className="hover:text-primary">Animales</Link>
           <span className="mx-2">/</span>
-          <span className="text-on-surface font-medium">#{animal.numeroArete}</span>
+          <span className="text-on-surface font-medium">#{animal.numeroIdentificacion}</span>
         </nav>
       </div>
 
@@ -101,12 +108,13 @@ export default function PaginaDetalleAnimal() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-xl font-bold text-on-surface">
-                  {animal.nombre ?? `Animal #${animal.numeroArete}`}
+                  {animal.nombre ?? `Animal #${animal.numeroIdentificacion}`}
                 </h1>
                 <BadgeEstadoAnimal estado={animal.estado} />
               </div>
               <p className="text-on-surface-variant text-sm">
-                Arete: <strong className="font-mono text-on-surface">#{animal.numeroArete}</strong>
+                Identificación: <strong className="font-mono text-on-surface">#{animal.numeroIdentificacion}</strong>
+                {animal.tipoIdentificacion && <> ({ETIQUETA_TIPO_IDENTIFICACION[animal.tipoIdentificacion] ?? animal.tipoIdentificacion})</>}
                 {animal.raza && <> · {animal.raza.nombre}</>}
               </p>
             </div>
@@ -217,7 +225,7 @@ export default function PaginaDetalleAnimal() {
                   to={`/animales/${animal.padre.id}`}
                   className="text-[var(--color-verde-600)] hover:underline text-sm"
                 >
-                  {animal.padre.nombre ?? `#${animal.padre.numeroArete}`}
+                  {animal.padre.nombre ?? `#${animal.padre.numeroIdentificacion}`}
                 </Link>
               ) : '—'}
             </CampoDetalle>
@@ -227,7 +235,7 @@ export default function PaginaDetalleAnimal() {
                   to={`/animales/${animal.madre.id}`}
                   className="text-[var(--color-verde-600)] hover:underline text-sm"
                 >
-                  {animal.madre.nombre ?? `#${animal.madre.numeroArete}`}
+                  {animal.madre.nombre ?? `#${animal.madre.numeroIdentificacion}`}
                 </Link>
               ) : '—'}
             </CampoDetalle>
@@ -279,7 +287,7 @@ export default function PaginaDetalleAnimal() {
         abierto={modalEliminar}
         alCerrar={() => setModalEliminar(false)}
         alConfirmar={() => mutacionEliminar.mutate()}
-        titulo={`¿Eliminar animal #${animal.numeroArete}?`}
+        titulo={`¿Eliminar animal #${animal.numeroIdentificacion}?`}
         descripcion="Esta acción es irreversible. Solo se puede eliminar si el animal no tiene registros médicos o reproductivos."
         textoConfirmar="Sí, eliminar"
         variante="peligro"

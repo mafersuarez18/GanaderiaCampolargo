@@ -35,7 +35,7 @@ interface Lote {
 
 interface AnimalUbicacion {
   id: string;
-  numeroArete: string;
+  numeroIdentificacion: string;
   nombre: string | null;
   latitudActual: number | null;
   longitudActual: number | null;
@@ -58,7 +58,7 @@ interface DispositivoGPS {
   apiKey: string;
   animalId: string | null;
   animal: {
-    numeroArete: string;
+    numeroIdentificacion: string;
     nombre: string | null;
     lote: { nombre: string; finca: { nombre: string } } | null;
   } | null;
@@ -482,7 +482,7 @@ export default function PaginaMapa() {
                         {disp.animal ? (
                           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-on-surface-variant flex-wrap">
                             <Icono nombre="pets" clase="text-[11px] text-primary" />
-                            <span>#{disp.animal.numeroArete}</span>
+                            <span>#{disp.animal.numeroIdentificacion}</span>
                             {disp.animal.nombre && <span>· {disp.animal.nombre}</span>}
                             {disp.animal.lote && <span className="text-outline">· {disp.animal.lote.finca.nombre}</span>}
                           </div>
@@ -624,10 +624,10 @@ export default function PaginaMapa() {
                   <Popup>
                     <div style={{ minWidth: 200, fontFamily: 'Inter, sans-serif' }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#1a1c1c', marginBottom: 4 }}>
-                        {p.dispositivo?.codigoDispositivo ?? `#${p.animal.numeroArete}`}
+                        {p.dispositivo?.codigoDispositivo ?? `#${p.animal.numeroIdentificacion}`}
                       </div>
                       <div style={{ fontSize: 12, color: '#40493d' }}>
-                        <strong>Animal:</strong> #{p.animal.numeroArete}
+                        <strong>Animal:</strong> #{p.animal.numeroIdentificacion}
                         {p.animal.nombre && ` — ${p.animal.nombre}`}
                       </div>
                       {p.animal.lote && (
@@ -643,7 +643,7 @@ export default function PaginaMapa() {
                         {p.animal.latitudActual?.toFixed(6)}, {p.animal.longitudActual?.toFixed(6)}
                       </div>
                       <button
-                        onClick={() => abrirGoogleMaps(p.animal.latitudActual!, p.animal.longitudActual!, p.animal.nombre ?? p.animal.numeroArete)}
+                        onClick={() => abrirGoogleMaps(p.animal.latitudActual!, p.animal.longitudActual!, p.animal.nombre ?? p.animal.numeroIdentificacion)}
                         style={{
                           marginTop: 10, width: '100%', padding: '6px 10px',
                           background: '#1a73e8', color: 'white', border: 'none',
@@ -678,7 +678,7 @@ export default function PaginaMapa() {
               >
                 <div>
                   <p className="font-semibold text-on-surface">
-                    #{p.animal.numeroArete}
+                    #{p.animal.numeroIdentificacion}
                     {p.animal.nombre && <span className="text-on-surface-variant font-normal ml-1">· {p.animal.nombre}</span>}
                   </p>
                   <p className="text-outline text-[10px]">{p.animal.lote?.finca.nombre ?? 'Sin asignar'}</p>
@@ -694,7 +694,7 @@ export default function PaginaMapa() {
                   </div>
                 </div>
                 <button
-                  onClick={() => abrirGoogleMaps(p.animal.latitudActual!, p.animal.longitudActual!, p.animal.nombre ?? p.animal.numeroArete)}
+                  onClick={() => abrirGoogleMaps(p.animal.latitudActual!, p.animal.longitudActual!, p.animal.nombre ?? p.animal.numeroIdentificacion)}
                   title="Cómo llegar — abre Google Maps"
                   className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-lg text-[10px] font-semibold transition-colors flex-shrink-0"
                 >
@@ -830,10 +830,10 @@ export default function PaginaMapa() {
                         <Popup>
                           <div style={{ minWidth: 190, fontFamily: 'Inter, sans-serif' }}>
                             <div style={{ fontWeight: 700, fontSize: 13, color: '#1a1c1c', marginBottom: 4 }}>
-                              {p.dispositivo?.codigoDispositivo ?? `#${p.animal.numeroArete}`}
+                              {p.dispositivo?.codigoDispositivo ?? `#${p.animal.numeroIdentificacion}`}
                             </div>
                             <div style={{ fontSize: 12, color: '#40493d' }}>
-                              <strong>Animal:</strong> #{p.animal.numeroArete}
+                              <strong>Animal:</strong> #{p.animal.numeroIdentificacion}
                               {p.animal.nombre && ` — ${p.animal.nombre}`}
                             </div>
                             <div style={{ fontSize: 11, color: '#707a6c', marginTop: 4 }}>
@@ -843,7 +843,7 @@ export default function PaginaMapa() {
                               {' · '}{tiempoRelativo(p.animal.fechaUltimaSenal)}
                             </div>
                             <button
-                              onClick={() => abrirGoogleMaps(p.animal.latitudActual!, p.animal.longitudActual!, p.animal.nombre ?? p.animal.numeroArete)}
+                              onClick={() => abrirGoogleMaps(p.animal.latitudActual!, p.animal.longitudActual!, p.animal.nombre ?? p.animal.numeroIdentificacion)}
                               style={{
                                 marginTop: 10, width: '100%', padding: '6px 10px',
                                 background: '#1a73e8', color: 'white', border: 'none',
@@ -884,13 +884,13 @@ export default function PaginaMapa() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-on-surface">{p.dispositivo?.codigoDispositivo ?? `#${p.animal.numeroArete}`}</span>
+                          <span className="text-sm font-semibold text-on-surface">{p.dispositivo?.codigoDispositivo ?? `#${p.animal.numeroIdentificacion}`}</span>
                           {p.enLinea
                             ? <Badge variante="verde" tamano="xs" punto>En línea</Badge>
                             : <Badge variante="gris"  tamano="xs">Sin señal</Badge>}
                         </div>
                         <p className="text-xs text-on-surface-variant mt-0.5">
-                          #{p.animal.numeroArete}{p.animal.nombre ? ` · ${p.animal.nombre}` : ''}
+                          #{p.animal.numeroIdentificacion}{p.animal.nombre ? ` · ${p.animal.nombre}` : ''}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -899,7 +899,7 @@ export default function PaginaMapa() {
                       </div>
                       <p className="text-xs text-outline flex-shrink-0">{tiempoRelativo(p.animal.fechaUltimaSenal)}</p>
                       <button
-                        onClick={() => abrirGoogleMaps(p.animal.latitudActual!, p.animal.longitudActual!, p.animal.nombre ?? p.animal.numeroArete)}
+                        onClick={() => abrirGoogleMaps(p.animal.latitudActual!, p.animal.longitudActual!, p.animal.nombre ?? p.animal.numeroIdentificacion)}
                         title="Cómo llegar — abre Google Maps"
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-lg text-[10px] font-semibold transition-colors flex-shrink-0"
                       >
@@ -952,7 +952,7 @@ export default function PaginaMapa() {
                 >
                   <Icono nombre={estaEnLinea(d) ? 'wifi' : 'wifi_off'} clase="text-[14px]" />
                   <span>{d.codigoDispositivo}</span>
-                  {d.animal && <span className="opacity-75">· #{d.animal.numeroArete}</span>}
+                  {d.animal && <span className="opacity-75">· #{d.animal.numeroIdentificacion}</span>}
                 </button>
               ))}
               {!cargandoDisp && !dispositivos.some((d) => d.animalId) && (
@@ -1010,7 +1010,7 @@ export default function PaginaMapa() {
                   <div className="flex items-center gap-2">
                     <Icono nombre="route" clase="text-[16px] text-primary" />
                     <p className="text-xs font-semibold text-on-surface">
-                      Trayectoria — {dispSeleccionado.animal?.nombre ?? `#${dispSeleccionado.animal?.numeroArete}`}
+                      Trayectoria — {dispSeleccionado.animal?.nombre ?? `#${dispSeleccionado.animal?.numeroIdentificacion}`}
                       {dispSeleccionado.animal?.lote && <span className="text-on-surface-variant font-normal ml-1">· {dispSeleccionado.animal.lote.finca.nombre}</span>}
                     </p>
                   </div>

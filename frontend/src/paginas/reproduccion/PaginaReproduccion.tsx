@@ -19,14 +19,14 @@ interface EventoReproductivo {
   tipo: string;
   fecha: string;
   observaciones?: string;
-  animal: { id: string; numeroArete: string; nombre?: string; lote?: { finca?: { nombre: string } } };
+  animal: { id: string; numeroIdentificacion: string; nombre?: string; lote?: { finca?: { nombre: string } } };
   registradoPor: { nombre: string; apellido: string };
 }
 
 interface PartoProximo {
   id: string;
   madreId: string;
-  madreNumeroArete: string;
+  madreNumeroIdentificacion: string;
   madreNombre?: string;
   finca: string;
   fechaPartoEsperado: string;
@@ -283,7 +283,7 @@ export default function PaginaReproduccion() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <Badge variante={cfg.colorVariante} tamano="xs">{cfg.etiqueta}</Badge>
                               <span className="text-sm font-semibold text-on-surface">
-                                #{ev.animal.numeroArete}
+                                #{ev.animal.numeroIdentificacion}
                                 {ev.animal.nombre && ` · ${ev.animal.nombre}`}
                               </span>
                               <span className="text-xs text-on-surface-variant">{ev.animal.lote?.finca?.nombre}</span>
@@ -544,7 +544,7 @@ function GrupoPartos({ titulo, urgencia, partos, onVerAnimal }: {
               </div>
               <div>
                 <span className="text-sm font-semibold text-on-surface">
-                  #{p.madreNumeroArete}
+                  #{p.madreNumeroIdentificacion}
                   {p.madreNombre && <span className="font-normal text-on-surface-variant"> · {p.madreNombre}</span>}
                 </span>
                 <p className="text-xs text-on-surface-variant">{p.finca}</p>
@@ -735,7 +735,7 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
                 requerido
                 valor={form.animalId}
                 alSeleccionar={(id) => setForm((f) => ({ ...f, animalId: id }))}
-                placeholder="Buscar por arete o nombre..."
+                placeholder="Buscar por identificación o nombre..."
               />
             </div>
 

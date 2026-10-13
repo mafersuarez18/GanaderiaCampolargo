@@ -8,7 +8,7 @@ import Icono from '../../../componentes/ui/Icono';
 // cuán cerca está la fecha (urgente/próximo/futuro).
 interface PartoProximo {
   id: string;
-  madreNumeroArete: string;
+  madreNumeroIdentificacion: string;
   madreNombre?: string;
   fechaPartoEsperado: string;
   finca: string;
@@ -73,7 +73,7 @@ export default function ListaPartosProximos() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-on-surface truncate">
-              {parto.madreNombre ?? `Arete ${parto.madreNumeroArete}`}
+              {parto.madreNombre ?? `Identificación ${parto.madreNumeroIdentificacion}`}
             </p>
             <div className="flex items-center gap-1 mt-0.5">
               <Icono nombre="calendar_today" clase="text-[10px] text-outline" />
