@@ -34,7 +34,7 @@ interface HistorialMedico {
   resultadosPruebas?: string;
   animal: {
     id: string;
-    numeroArete: string;
+    numeroIdentificacion: string;
     nombre?: string;
     lote?: { finca?: { nombre: string } };
   };
@@ -72,6 +72,13 @@ interface HistorialMedico {
     otrosVectores?: string;
     descripcion?: string;
   };
+  pruebasComplementarias: Array<{
+    id: string;
+    tipo: string;
+    fecha?: string;
+    resultado?: string;
+    observaciones?: string;
+  }>;
 }
 
 interface RespuestaHistorial {
@@ -87,6 +94,21 @@ interface DesparasitacionForm {
   fecha: string;
   dosis: string;
   via: string;
+}
+
+interface VitaminaForm {
+  medicamentoId: string;
+  medicamentoNombreNuevo: string;
+  fecha: string;
+  dosis: string;
+  via: string;
+}
+
+interface PruebaComplementariaForm {
+  tipo: string;
+  fecha: string;
+  resultado: string;
+  observaciones: string;
 }
 
 interface EnfermedadForm {
@@ -152,6 +174,8 @@ interface FormHistorial {
   epidOtros: string;
   epidDescripcion: string;
   desparasitaciones: DesparasitacionForm[];
+  vitaminas: VitaminaForm[];
+  pruebasComplementarias: PruebaComplementariaForm[];
   enfermedades: EnfermedadForm[];
   tratamientos: TratamientoForm[];
 }
@@ -292,7 +316,7 @@ export default function PaginaHistorialMedico() {
                   <Icono nombre="search" clase="absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]" />
                   <input
                     type="text"
-                    placeholder="Buscar por animal (arete o nombre)..."
+                    placeholder="Buscar por animal (identificación o nombre)..."
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
                     className="campo-entrada pl-10"
@@ -395,7 +419,7 @@ export default function PaginaHistorialMedico() {
                         {reg.motivoConsulta}
                       </h4>
                       <p className="text-xs text-on-surface-variant">
-                        #{reg.animal.numeroArete}
+                        #{reg.animal.numeroIdentificacion}
                         {reg.animal.nombre && ` · ${reg.animal.nombre}`}
                         {` · ${reg.animal.lote?.finca?.nombre ?? ''}`}
                       </p>
@@ -547,7 +571,7 @@ export default function PaginaHistorialMedico() {
                 <section>
                   <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Animal</p>
                   <p className="text-sm font-semibold text-on-surface">
-                    #{historialSeleccionado.animal.numeroArete}
+                    #{historialSeleccionado.animal.numeroIdentificacion}
                     {historialSeleccionado.animal.nombre && ` · ${historialSeleccionado.animal.nombre}`}
                   </p>
                   <p className="text-xs text-on-surface-variant">{historialSeleccionado.animal.lote?.finca?.nombre}</p>
@@ -664,6 +688,27 @@ export default function PaginaHistorialMedico() {
                   <section>
                     <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-1">Resultados de pruebas</p>
                     <p className="text-sm text-on-surface-variant bg-surface-container p-3 rounded-xl">{historialSeleccionado.resultadosPruebas}</p>
+                  </section>
+                )}
+
+                {/* ── Pruebas complementarias ── */}
+                {historialSeleccionado.pruebasComplementarias.length > 0 && (
+                  <section>
+                    <p className="text-[10px] uppercase font-semibold text-on-surface-variant tracking-wider mb-3 flex items-center gap-1.5">
+                      <Icono nombre="biotech" clase="text-[14px]" /> Pruebas complementarias
+                    </p>
+                    <div className="space-y-2">
+                      {historialSeleccionado.pruebasComplementarias.map((p) => (
+                        <div key={p.id} className="p-3 rounded-xl bg-surface-container border border-outline-variant/20">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-on-surface">{ETIQUETAS_TIPO_PRUEBA[p.tipo] ?? p.tipo}</span>
+                            {p.fecha && <span className="text-xs text-on-surface-variant">{new Date(p.fecha).toLocaleDateString('es-VE')}</span>}
+                          </div>
+                          {p.resultado && <p className="text-xs text-on-surface-variant">{p.resultado}</p>}
+                          {p.observaciones && <p className="text-xs text-on-surface-variant mt-1">{p.observaciones}</p>}
+                        </div>
+                      ))}
+                    </div>
                   </section>
                 )}
 
@@ -864,11 +909,23 @@ const FORM_VACIO: FormHistorial = {
   epidGarrapatas: false, epidMosquitos: false, epidMurcielagos: false, epidMoscas: false,
   epidOtros: '', epidDescripcion: '',
   desparasitaciones: [],
+  vitaminas: [],
+  pruebasComplementarias: [],
   enfermedades: [], tratamientos: [],
 };
 
 const ETIQUETAS_GRAVEDAD: Record<string, string> = {
   LEVE: 'Leve', MODERADA: 'Moderada', GRAVE: 'Grave',
+};
+
+const ETIQUETAS_TIPO_PRUEBA: Record<string, string> = {
+  HEMATOLOGIA: 'Hematología completa',
+  COPROLOGIA: 'Coprología',
+  BIOQUIMICA: 'Bioquímica sanguínea',
+  UROANALISIS: 'Uroanálisis',
+  CITOLOGIA: 'Citología',
+  HISTOPATOLOGIA: 'Histopatología',
+  OTRO: 'Otra prueba',
 };
 
 interface PropiedadesFormulario {
@@ -1091,6 +1148,34 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
           };
         }));
       }
+      if (datos.vitaminas.length) {
+        payload.vitaminas = await Promise.all(datos.vitaminas.map(async (v) => {
+          let medicamentoId = v.medicamentoId;
+          // Igual que en desparasitaciones: si se escribió un medicamento
+          // que no existe en el catálogo, se crea primero.
+          if (!medicamentoId && v.medicamentoNombreNuevo) {
+            const { data: dataMed } = await clienteHttp.post('/vacunacion/medicamentos', {
+              nombre: v.medicamentoNombreNuevo,
+            }, { sinCola: true });
+            medicamentoId = dataMed.datos.id;
+            queryClient.invalidateQueries({ queryKey: ['medicamentos-catalogo'] });
+          }
+          return {
+            medicamentoId,
+            fecha: new Date(v.fecha).toISOString(),
+            dosis: v.dosis || undefined,
+            via: v.via || undefined,
+          };
+        }));
+      }
+      if (datos.pruebasComplementarias.length) {
+        payload.pruebasComplementarias = datos.pruebasComplementarias.map((p) => ({
+          tipo: p.tipo,
+          fecha: p.fecha ? new Date(p.fecha).toISOString() : undefined,
+          resultado: p.resultado || undefined,
+          observaciones: p.observaciones || undefined,
+        }));
+      }
       if (datos.enfermedades.length) {
         payload.enfermedades = datos.enfermedades.map((en) => ({
           nombreEnfermedad: en.nombreEnfermedad,
@@ -1160,6 +1245,10 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
       setError('Cada tratamiento debe tener un medicamento seleccionado o escrito');
       return;
     }
+    if (form.vitaminas.some((v) => !v.medicamentoId && !v.medicamentoNombreNuevo)) {
+      setError('Cada vitamina debe tener un producto seleccionado o escrito');
+      return;
+    }
     setError('');
     mutacion.mutate(form);
   };
@@ -1203,10 +1292,10 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                     alSeleccionar={(id) => {
                       setDespPrecargadas(new Set());
                       setEnfermedadesActivas([]);
-                      setForm((f) => ({ ...f, animalId: id, desparasitaciones: [] }));
+                      setForm((f) => ({ ...f, animalId: id, desparasitaciones: [], vitaminas: [] }));
                       if (id) cargarPrefill(id);
                     }}
-                    placeholder="Buscar por arete o nombre..."
+                    placeholder="Buscar por identificación o nombre..."
                     error={!form.animalId && error === 'Debe seleccionar un animal' ? error : undefined} />
                 </div>
                 <CampoLabel etiqueta="Fecha de consulta" req>
@@ -1598,6 +1687,112 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                 <Icono nombre="info" clase="text-[13px]" />
                 Las desparasitaciones guardadas aquí se registrarán automáticamente en el módulo de Vacunación si existe un calendario de desparasitación activo.
               </p>
+            </SeccionClinica>
+
+            {/* ── 10. Vitaminas ── */}
+            <SeccionClinica titulo="Vitaminas" icono="water_drop">
+              {form.vitaminas.map((vit, idx) => (
+                <div key={idx} className="p-3 rounded-xl space-y-2 relative bg-surface-container">
+                  <button type="button"
+                    onClick={() => setForm((f) => ({ ...f, vitaminas: f.vitaminas.filter((_, i) => i !== idx) }))}
+                    className="absolute top-2 right-2 p-1 text-outline hover:text-error rounded-lg transition-colors">
+                    <Icono nombre="close" clase="text-[14px]" />
+                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="sm:col-span-1">
+                      <CampoLabel etiqueta="Vitamina/producto *">
+                        <SelectorMedicamento
+                          medicamentos={medicamentos}
+                          medicamentoId={vit.medicamentoId}
+                          medicamentoNombreNuevo={vit.medicamentoNombreNuevo}
+                          onSeleccionar={(id) => setForm((f) => {
+                            const arr = [...f.vitaminas];
+                            arr[idx] = { ...arr[idx], medicamentoId: id, medicamentoNombreNuevo: '' };
+                            return { ...f, vitaminas: arr };
+                          })}
+                          onEscribir={(texto) => setForm((f) => {
+                            const arr = [...f.vitaminas];
+                            arr[idx] = { ...arr[idx], medicamentoId: '', medicamentoNombreNuevo: texto };
+                            return { ...f, vitaminas: arr };
+                          })}
+                        />
+                      </CampoLabel>
+                    </div>
+                    <CampoLabel etiqueta="Fecha">
+                      <input type="date" value={vit.fecha}
+                        onChange={(e) => setForm((f) => { const arr = [...f.vitaminas]; arr[idx].fecha = e.target.value; return { ...f, vitaminas: arr }; })}
+                        className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Dosis">
+                      <input type="text" value={vit.dosis}
+                        onChange={(e) => setForm((f) => { const arr = [...f.vitaminas]; arr[idx].dosis = e.target.value; return { ...f, vitaminas: arr }; })}
+                        placeholder="Ej: 10 ml" className="campo-entrada text-sm" />
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Vía">
+                      <input type="text" value={vit.via}
+                        onChange={(e) => setForm((f) => { const arr = [...f.vitaminas]; arr[idx].via = e.target.value; return { ...f, vitaminas: arr }; })}
+                        placeholder="Intramuscular, oral..." className="campo-entrada text-sm" />
+                    </CampoLabel>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={() => {
+                  setForm((f) => ({
+                    ...f,
+                    vitaminas: [...f.vitaminas, { medicamentoId: '', medicamentoNombreNuevo: '', fecha: new Date().toISOString().split('T')[0], dosis: '', via: '' }],
+                  }));
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-primary/40 rounded-xl text-sm text-primary hover:bg-primary/5 transition-colors">
+                <Icono nombre="add" clase="text-[16px]" /> Agregar vitamina
+              </button>
+            </SeccionClinica>
+
+            {/* ── 11. Pruebas complementarias ── */}
+            <SeccionClinica titulo="Pruebas Complementarias" icono="biotech">
+              {form.pruebasComplementarias.map((prueba, idx) => (
+                <div key={idx} className="p-3 rounded-xl space-y-2 relative bg-surface-container">
+                  <button type="button"
+                    onClick={() => setForm((f) => ({ ...f, pruebasComplementarias: f.pruebasComplementarias.filter((_, i) => i !== idx) }))}
+                    className="absolute top-2 right-2 p-1 text-outline hover:text-error rounded-lg transition-colors">
+                    <Icono nombre="close" clase="text-[14px]" />
+                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <CampoLabel etiqueta="Tipo de prueba *">
+                      <select value={prueba.tipo}
+                        onChange={(e) => setForm((f) => { const arr = [...f.pruebasComplementarias]; arr[idx].tipo = e.target.value; return { ...f, pruebasComplementarias: arr }; })}
+                        className="campo-entrada text-sm">
+                        {Object.entries(ETIQUETAS_TIPO_PRUEBA).map(([valor, etiqueta]) => (
+                          <option key={valor} value={valor}>{etiqueta}</option>
+                        ))}
+                      </select>
+                    </CampoLabel>
+                    <CampoLabel etiqueta="Fecha">
+                      <input type="date" value={prueba.fecha}
+                        onChange={(e) => setForm((f) => { const arr = [...f.pruebasComplementarias]; arr[idx].fecha = e.target.value; return { ...f, pruebasComplementarias: arr }; })}
+                        className="campo-entrada text-sm" />
+                    </CampoLabel>
+                  </div>
+                  <CampoLabel etiqueta="Resultado">
+                    <input type="text" value={prueba.resultado}
+                      onChange={(e) => setForm((f) => { const arr = [...f.pruebasComplementarias]; arr[idx].resultado = e.target.value; return { ...f, pruebasComplementarias: arr }; })}
+                      placeholder="Ej: Dentro de rango, hematocrito 35%..." className="campo-entrada text-sm" />
+                  </CampoLabel>
+                  <CampoLabel etiqueta="Observaciones">
+                    <input type="text" value={prueba.observaciones}
+                      onChange={(e) => setForm((f) => { const arr = [...f.pruebasComplementarias]; arr[idx].observaciones = e.target.value; return { ...f, pruebasComplementarias: arr }; })}
+                      className="campo-entrada text-sm" />
+                  </CampoLabel>
+                </div>
+              ))}
+              <button type="button" onClick={() => {
+                  setForm((f) => ({
+                    ...f,
+                    pruebasComplementarias: [...f.pruebasComplementarias, { tipo: 'HEMATOLOGIA', fecha: new Date().toISOString().split('T')[0], resultado: '', observaciones: '' }],
+                  }));
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-primary/40 rounded-xl text-sm text-primary hover:bg-primary/5 transition-colors">
+                <Icono nombre="add" clase="text-[16px]" /> Agregar prueba complementaria
+              </button>
             </SeccionClinica>
 
             {/* Botones fijos */}
