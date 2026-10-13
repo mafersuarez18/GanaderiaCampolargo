@@ -15,6 +15,7 @@ const PaginaFincas        = lazy(() => import('./paginas/fincas/PaginaFincas'));
 const PaginaLotes         = lazy(() => import('./paginas/lotes/PaginaLotes'));
 const PaginaHistorialMedico = lazy(() => import('./paginas/historialMedico/PaginaHistorialMedico'));
 const PaginaVacunacion    = lazy(() => import('./paginas/vacunacion/PaginaVacunacion'));
+const PaginaPlanSanitario = lazy(() => import('./paginas/planSanitario/PaginaPlanSanitario'));
 const PaginaReproduccion  = lazy(() => import('./paginas/reproduccion/PaginaReproduccion'));
 const PaginaInseminacion  = lazy(() => import('./paginas/inseminacion/PaginaInseminacion'));
 const PaginaMapa          = lazy(() => import('./paginas/geolocalizacion/PaginaMapa'));
@@ -64,6 +65,7 @@ export default function App() {
           {/* Módulo médico */}
           <Route path="/historial-medico" element={<PaginaHistorialMedico />} />
           <Route path="/vacunacion" element={<PaginaVacunacion />} />
+          <Route path="/plan-sanitario" element={<PaginaPlanSanitario />} />
 
           {/* Módulo reproductivo */}
           <Route path="/reproduccion" element={<PaginaReproduccion />} />
