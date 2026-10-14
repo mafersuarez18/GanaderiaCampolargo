@@ -311,6 +311,23 @@ a, button { transition: all var(--duracion-rapida) var(--ease-out); }
   @media (max-width: 640px) {
     .campo-entrada { font-size: 16px !important; }
   }
+
+  /* <input type="date"> en iOS Safari: su contenido interno (el shadow DOM
+     nativo que arma "oct 14, 2026") a veces no respeta min-width: 0 igual
+     que un input de texto normal, así que el campo se ve más ancho/grande
+     que sus hermanos aunque comparta la misma clase. max-width (a
+     diferencia de min-width) sí lo obliga a no pasarse del ancho de su
+     contenedor en todos los navegadores probados. También se le fija la
+     misma altura que un campo de texto, porque el control nativo de fecha
+     agrega su propio padding vertical por su cuenta. */
+  input[type="date"].campo-entrada,
+  input[type="time"].campo-entrada,
+  input[type="datetime-local"].campo-entrada {
+    max-width: 100%;
+    height: 42px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }
 
 /* ── Botones ──────────────────────────────────────────────── */
