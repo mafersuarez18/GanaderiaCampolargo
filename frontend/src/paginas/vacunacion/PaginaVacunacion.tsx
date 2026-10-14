@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { clienteHttp } from '../../servicios/clienteAxios';
 import Badge from '../../componentes/ui/Badge';
 import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
+import CampoFecha from '../../componentes/ui/CampoFecha';
 import Icono from '../../componentes/ui/Icono';
 import { ModalConfirmacion } from '../../componentes/ui/Modal';
 import { useAutenticacion } from '../../hooks/useAutenticacion';
@@ -1184,11 +1185,9 @@ function FormularioRegistro({
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                 Fecha de Aplicación <span className="text-error">*</span>
               </label>
-              <input
-                type="date"
+              <CampoFecha
                 value={form.fechaAplicacion}
-                onChange={(e) => setForm((f) => ({ ...f, fechaAplicacion: e.target.value }))}
-                className="campo-entrada"
+                onChange={(valor) => setForm((f) => ({ ...f, fechaAplicacion: valor }))}
               />
             </div>
 
@@ -1325,11 +1324,9 @@ function FormularioEditarRegistro({
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                 Fecha de Aplicación <span className="text-error">*</span>
               </label>
-              <input
-                type="date"
+              <CampoFecha
                 value={form.fechaAplicacion}
-                onChange={(e) => setForm((f) => ({ ...f, fechaAplicacion: e.target.value }))}
-                className="campo-entrada"
+                onChange={(valor) => setForm((f) => ({ ...f, fechaAplicacion: valor }))}
               />
             </div>
 

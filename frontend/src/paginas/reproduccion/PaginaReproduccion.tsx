@@ -7,6 +7,7 @@ import Badge from '../../componentes/ui/Badge';
 import Paginacion from '../../componentes/ui/Paginacion';
 import Icono from '../../componentes/ui/Icono';
 import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
+import CampoFecha from '../../componentes/ui/CampoFecha';
 
 // Ciclo reproductivo: partos próximos, eventos (celo, monta, diagnóstico
 // de gestación, parto...) y gestiones activas, incluyendo el cierre de una
@@ -758,11 +759,9 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                   Fecha <span className="text-error">*</span>
                 </label>
-                <input
-                  type="date"
+                <CampoFecha
                   value={form.fecha}
-                  onChange={(e) => handleFecha(e.target.value)}
-                  className="campo-entrada"
+                  onChange={(valor) => handleFecha(valor)}
                 />
               </div>
             </div>
@@ -776,22 +775,18 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
               >
                 <div>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Inicio Gestación</label>
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={form.fechaInicio}
-                    onChange={(e) => handleFechaInicio(e.target.value)}
-                    className="campo-entrada"
+                    onChange={(valor) => handleFechaInicio(valor)}
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                     Parto Esperado <span className="text-error">*</span>
                   </label>
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={form.fechaPartoEsperado}
-                    onChange={(e) => setForm((f) => ({ ...f, fechaPartoEsperado: e.target.value }))}
-                    className="campo-entrada"
+                    onChange={(valor) => setForm((f) => ({ ...f, fechaPartoEsperado: valor }))}
                   />
                 </div>
               </motion.div>
@@ -816,11 +811,9 @@ function FormularioEvento({ onCerrar, onExito }: { onCerrar: () => void; onExito
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
                     Parto Esperado <span className="text-error">*</span>
                   </label>
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={form.fechaPartoEsperado}
-                    onChange={(e) => setForm((f) => ({ ...f, fechaPartoEsperado: e.target.value }))}
-                    className="campo-entrada"
+                    onChange={(valor) => setForm((f) => ({ ...f, fechaPartoEsperado: valor }))}
                   />
                 </div>
 

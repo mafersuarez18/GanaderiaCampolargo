@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import Icono from '../../componentes/ui/Icono';
 import SelectorRaza from '../../componentes/ui/SelectorRaza';
+import CampoFecha from '../../componentes/ui/CampoFecha';
 import { clienteHttp } from '../../servicios/clienteAxios';
 import toast from 'react-hot-toast';
 
@@ -333,7 +334,9 @@ export default function PaginaFormAnimal() {
         <SeccionFormulario titulo="Datos físicos">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <CampoForm etiqueta="Fecha de nacimiento">
-              <input type="date" {...register('fechaNacimiento')} className="campo-entrada" />
+              <Controller name="fechaNacimiento" control={control} render={({ field }) => (
+                <CampoFecha value={field.value ?? ''} onChange={field.onChange} />
+              )} />
             </CampoForm>
             <CampoForm etiqueta="Peso (kg)">
               <input

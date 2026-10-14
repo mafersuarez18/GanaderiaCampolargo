@@ -9,6 +9,7 @@ import { ModalConfirmacion } from '../../componentes/ui/Modal';
 import useDebounce from '../../hooks/useDebounce';
 import Icono from '../../componentes/ui/Icono';
 import BuscadorAnimal from '../../componentes/ui/BuscadorAnimal';
+import CampoFecha from '../../componentes/ui/CampoFecha';
 
 // Consultas médicas: listado, formulario de nueva consulta (con
 // enfermedades/tratamientos/desparasitaciones anidados) y su selector de
@@ -326,28 +327,26 @@ export default function PaginaHistorialMedico() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div>
                   <label className="block text-xs font-medium text-on-surface-variant mb-1">Desde</label>
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={desdeFiltro ?? ''}
-                    onChange={(e) => {
+                    onChange={(valor) => {
                       const p = new URLSearchParams(searchParams);
-                      if (e.target.value) p.set('desde', e.target.value); else p.delete('desde');
+                      if (valor) p.set('desde', valor); else p.delete('desde');
                       setSearchParams(p); setPaginaActual(1);
                     }}
-                    className="campo-entrada text-sm"
+                    className="text-sm"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-on-surface-variant mb-1">Hasta</label>
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={hastaFiltro ?? ''}
-                    onChange={(e) => {
+                    onChange={(valor) => {
                       const p = new URLSearchParams(searchParams);
-                      if (e.target.value) p.set('hasta', e.target.value); else p.delete('hasta');
+                      if (valor) p.set('hasta', valor); else p.delete('hasta');
                       setSearchParams(p); setPaginaActual(1);
                     }}
-                    className="campo-entrada text-sm"
+                    className="text-sm"
                   />
                 </div>
               </div>
@@ -1299,8 +1298,7 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                     error={!form.animalId && error === 'Debe seleccionar un animal' ? error : undefined} />
                 </div>
                 <CampoLabel etiqueta="Fecha de consulta" req>
-                  <input type="date" value={form.fechaConsulta}
-                    onChange={(e) => set('fechaConsulta', e.target.value)} className="campo-entrada" />
+                  <CampoFecha value={form.fechaConsulta} onChange={(valor) => set('fechaConsulta', valor)} />
                 </CampoLabel>
               </div>
             </SeccionClinica>
@@ -1455,9 +1453,9 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                       </select>
                     </CampoLabel>
                     <CampoLabel etiqueta="Fecha de inicio">
-                      <input type="date" value={enf.fechaInicio}
-                        onChange={(e) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].fechaInicio = e.target.value; return { ...f, enfermedades: arr }; })}
-                        className="campo-entrada text-sm" />
+                      <CampoFecha value={enf.fechaInicio}
+                        onChange={(valor) => setForm((f) => { const arr = [...f.enfermedades]; arr[idx].fechaInicio = valor; return { ...f, enfermedades: arr }; })}
+                        className="text-sm" />
                     </CampoLabel>
                     <CampoLabel etiqueta="Descripción clínica">
                       <input type="text" value={enf.descripcionClinica}
@@ -1546,9 +1544,9 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                       </select>
                     </CampoLabel>
                     <CampoLabel etiqueta="Fecha de inicio">
-                      <input type="date" value={trat.fechaInicio}
-                        onChange={(e) => setForm((f) => { const arr = [...f.tratamientos]; arr[idx].fechaInicio = e.target.value; return { ...f, tratamientos: arr }; })}
-                        className="campo-entrada text-sm" />
+                      <CampoFecha value={trat.fechaInicio}
+                        onChange={(valor) => setForm((f) => { const arr = [...f.tratamientos]; arr[idx].fechaInicio = valor; return { ...f, tratamientos: arr }; })}
+                        className="text-sm" />
                     </CampoLabel>
                     <CampoLabel etiqueta="Dosis">
                       <input type="text" value={trat.dosis}
@@ -1655,9 +1653,9 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                       </select>
                     </CampoLabel>
                     <CampoLabel etiqueta="Fecha">
-                      <input type="date" value={desp.fecha}
-                        onChange={(e) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].fecha = e.target.value; return { ...f, desparasitaciones: arr }; })}
-                        className="campo-entrada text-sm" />
+                      <CampoFecha value={desp.fecha}
+                        onChange={(valor) => setForm((f) => { const arr = [...f.desparasitaciones]; arr[idx].fecha = valor; return { ...f, desparasitaciones: arr }; })}
+                        className="text-sm" />
                     </CampoLabel>
                     <CampoLabel etiqueta="Dosis">
                       <input type="text" value={desp.dosis}
@@ -1719,9 +1717,9 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                       </CampoLabel>
                     </div>
                     <CampoLabel etiqueta="Fecha">
-                      <input type="date" value={vit.fecha}
-                        onChange={(e) => setForm((f) => { const arr = [...f.vitaminas]; arr[idx].fecha = e.target.value; return { ...f, vitaminas: arr }; })}
-                        className="campo-entrada text-sm" />
+                      <CampoFecha value={vit.fecha}
+                        onChange={(valor) => setForm((f) => { const arr = [...f.vitaminas]; arr[idx].fecha = valor; return { ...f, vitaminas: arr }; })}
+                        className="text-sm" />
                     </CampoLabel>
                     <CampoLabel etiqueta="Dosis">
                       <input type="text" value={vit.dosis}
@@ -1767,9 +1765,9 @@ function FormularioConsulta({ onCerrar, onExito, animalIdPredeterminado }: Propi
                       </select>
                     </CampoLabel>
                     <CampoLabel etiqueta="Fecha">
-                      <input type="date" value={prueba.fecha}
-                        onChange={(e) => setForm((f) => { const arr = [...f.pruebasComplementarias]; arr[idx].fecha = e.target.value; return { ...f, pruebasComplementarias: arr }; })}
-                        className="campo-entrada text-sm" />
+                      <CampoFecha value={prueba.fecha}
+                        onChange={(valor) => setForm((f) => { const arr = [...f.pruebasComplementarias]; arr[idx].fecha = valor; return { ...f, pruebasComplementarias: arr }; })}
+                        className="text-sm" />
                     </CampoLabel>
                   </div>
                   <CampoLabel etiqueta="Resultado">

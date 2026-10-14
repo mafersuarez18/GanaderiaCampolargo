@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +11,7 @@ import Modal from '../../componentes/ui/Modal';
 import Icono from '../../componentes/ui/Icono';
 import Paginacion from '../../componentes/ui/Paginacion';
 import SelectorRaza from '../../componentes/ui/SelectorRaza';
+import CampoFecha from '../../componentes/ui/CampoFecha';
 import toast from 'react-hot-toast';
 
 // Laboratorio de inseminación artificial: catálogo de sementales,
@@ -671,7 +672,7 @@ function GrupoIA({ titulo, children }: { titulo: string; children: React.ReactNo
 }
 
 function FormularioInseminacion({ hembras, lotes, onSubmit }: PropsFormInseminacion) {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormInseminacion>({
+  const { register, control, handleSubmit, formState: { errors } } = useForm<FormInseminacion>({
     resolver: zodResolver(esquemaInseminacion),
     defaultValues: { numeroIntento: 1, fecha: new Date().toISOString().split('T')[0] },
   });
@@ -717,7 +718,9 @@ function FormularioInseminacion({ hembras, lotes, onSubmit }: PropsFormInseminac
       {/* Fecha e intento */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <CampoForm etiqueta="Fecha del procedimiento *" error={errors.fecha?.message}>
-          <input type="date" {...register('fecha')} className="campo-entrada" />
+          <Controller name="fecha" control={control} render={({ field }) => (
+            <CampoFecha value={field.value ?? ''} onChange={field.onChange} />
+          )} />
         </CampoForm>
         <CampoForm etiqueta="N° de intento" error={errors.numeroIntento?.message}>
           <select {...register('numeroIntento')} className="campo-entrada">
@@ -791,10 +794,9 @@ function FormularioInseminacion({ hembras, lotes, onSubmit }: PropsFormInseminac
 
 function CampoForm({ etiqueta, error, children }: { etiqueta: string; error?: string; children: React.ReactNode }) {
   return (
-    // min-w-0: sin esto, un <input type="date"> dentro de un grid puede
-    // forzar la columna (y el modal) a desbordarse — los items de grid no
-    // se achican por debajo del ancho intrínseco de su contenido por
-    // defecto.
+    // min-w-0: sin esto, un <select> dentro de un grid puede forzar la
+    // columna (y el modal) a desbordarse — los items de grid no se achican
+    // por debajo del ancho intrínseco de su contenido por defecto.
     <div className="min-w-0">
       <label className="block text-xs font-medium text-on-surface-variant mb-1.5">{etiqueta}</label>
       {children}
@@ -975,18 +977,16 @@ function ModalLoteSemen({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">F. Colección</label>
-                <input type="date"
+                <CampoFecha
                   value={form.fechaColeccion}
-                  onChange={(e) => setForm((f) => ({ ...f, fechaColeccion: e.target.value }))}
-                  className="campo-entrada"
+                  onChange={(valor) => setForm((f) => ({ ...f, fechaColeccion: valor }))}
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">F. Vencimiento</label>
-                <input type="date"
+                <CampoFecha
                   value={form.fechaVencimiento}
-                  onChange={(e) => setForm((f) => ({ ...f, fechaVencimiento: e.target.value }))}
-                  className="campo-entrada"
+                  onChange={(valor) => setForm((f) => ({ ...f, fechaVencimiento: valor }))}
                 />
               </div>
             </div>

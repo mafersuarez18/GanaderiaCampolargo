@@ -6,6 +6,7 @@ import Badge from '../../componentes/ui/Badge';
 import Paginacion from '../../componentes/ui/Paginacion';
 import useDebounce from '../../hooks/useDebounce';
 import Icono from '../../componentes/ui/Icono';
+import CampoFecha from '../../componentes/ui/CampoFecha';
 
 // Historial de acciones del sistema (quién hizo qué, cuándo y desde dónde),
 // solo lectura y accesible únicamente para administradores.
@@ -204,18 +205,16 @@ export default function PaginaAuditoria() {
             <div className="pt-4 mt-4 border-t border-outline-variant/20 grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Desde</label>
-                <input
-                  type="date" value={desdeFiltro}
-                  onChange={(e) => { setDesdeFiltro(e.target.value); setPaginaActual(1); }}
-                  className="campo-entrada"
+                <CampoFecha
+                  value={desdeFiltro}
+                  onChange={(valor) => { setDesdeFiltro(valor); setPaginaActual(1); }}
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Hasta</label>
-                <input
-                  type="date" value={hastaFiltro}
-                  onChange={(e) => { setHastaFiltro(e.target.value); setPaginaActual(1); }}
-                  className="campo-entrada"
+                <CampoFecha
+                  value={hastaFiltro}
+                  onChange={(valor) => { setHastaFiltro(valor); setPaginaActual(1); }}
                 />
               </div>
               <div>
