@@ -70,11 +70,16 @@ export default function PaginaPlanSanitario() {
   const { tienePrivilegio } = useAutenticacion();
   const puedeGestionar = tienePrivilegio('plan_sanitario.gestionar');
 
+  const hoy = new Date();
+  const anioActual = hoy.getFullYear();
+  const mesActual = hoy.getMonth() + 1;
+
   const [fincaId, setFincaId] = useState('');
-  const [anio, setAnio] = useState(new Date().getFullYear());
+  const [anio, setAnio] = useState(anioActual);
   const [modalActividad, setModalActividad] = useState<{ modo: 'crear' | 'editar'; actividad?: Actividad } | null>(null);
   const [form, setForm] = useState<FormActividad>(FORM_VACIO);
   const [actividadAEliminar, setActividadAEliminar] = useState<string | null>(null);
+  const [actividadDetalle, setActividadDetalle] = useState<Actividad | null>(null);
 
   const { data: fincas = [] } = useQuery<Finca[]>({
     queryKey: ['fincas-catalogo'],
@@ -225,11 +230,15 @@ export default function PaginaPlanSanitario() {
                 <span></span>
               </div>
               {plan.actividades.map((act) => (
-                <div key={act.id} className="grid grid-cols-[200px_repeat(12,32px)_auto] gap-1 items-center py-2 border-b border-outline-variant/10 last:border-0">
-                  <div className="min-w-0">
+                <div key={act.id} className="group grid grid-cols-[200px_repeat(12,32px)_auto] gap-1 items-center py-2 border-b border-outline-variant/10 last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => setActividadDetalle(act)}
+                    className="min-w-0 text-left rounded-lg px-1 -mx-1 hover:bg-surface-container-high transition-colors"
+                  >
                     <p className="text-sm font-medium text-on-surface truncate" title={act.nombreControl}>{act.nombreControl}</p>
                     <p className="text-[10px] text-on-surface-variant">{ETIQUETA_CATEGORIA[act.categoria] ?? act.categoria}</p>
-                  </div>
+                  </button>
                   {MESES.map((_, i) => {
                     const mes = i + 1;
                     const programado = act.mesesProgramados.includes(mes);
@@ -343,6 +352,72 @@ export default function PaginaPlanSanitario() {
         </div>
       </Modal>
 
+      {/* Modal de detalle (solo lectura) */}
+      <Modal
+        abierto={!!actividadDetalle}
+        alCerrar={() => setActividadDetalle(null)}
+        titulo={actividadDetalle?.nombreControl}
+        descripcion={actividadDetalle ? ETIQUETA_CATEGORIA[actividadDetalle.categoria] ?? actividadDetalle.categoria : undefined}
+        tamano="lg"
+        pie={
+          puedeGestionar && actividadDetalle ? (
+            <>
+              <button
+                onClick={() => { setActividadAEliminar(actividadDetalle.id); setActividadDetalle(null); }}
+                className="flex-1 boton boton-peligro"
+              >
+                Eliminar
+              </button>
+              <button
+                onClick={() => { abrirEditar(actividadDetalle); setActividadDetalle(null); }}
+                className="flex-1 boton boton-primario"
+              >
+                Editar
+              </button>
+            </>
+          ) : undefined
+        }
+      >
+        {actividadDetalle && (
+          <div className="space-y-3">
+            {actividadDetalle.unidadReferencia && (
+              <DetalleCampo etiqueta="Unidad de referencia" valor={actividadDetalle.unidadReferencia} />
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <DetalleCampo etiqueta="Prevención (producto/dosis)" valor={actividadDetalle.prevencion} />
+              <DetalleCampo etiqueta="Tratamiento si se enferma" valor={actividadDetalle.tratamiento} />
+            </div>
+            <DetalleCampo etiqueta="Vía" valor={actividadDetalle.via} />
+            <div>
+              <span className="block text-xs font-medium text-on-surface-variant mb-1.5">Meses programados / completados</span>
+              <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
+                {MESES.map((m, i) => {
+                  const mes = i + 1;
+                  const programado = actividadDetalle.mesesProgramados.includes(mes);
+                  const completado = actividadDetalle.mesesCompletados.includes(mes);
+                  const yaPaso = anio < anioActual || (anio === anioActual && mes <= mesActual);
+                  const clase = !programado
+                    ? 'border-outline-variant/30 text-outline-variant'
+                    : completado
+                      ? 'bg-primary border-primary text-on-primary'
+                      : yaPaso
+                        ? 'border-error text-error'
+                        : 'border-primary/40 text-primary';
+                  return (
+                    <div key={mes} className={`py-1.5 rounded-lg text-xs text-center border ${clase}`}>
+                      {m}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-on-surface-variant mt-1.5">
+                Verde = hecho · Rojo = atrasado · Azul = programado a futuro · Gris = no programado ese mes
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <ModalConfirmacion
         abierto={!!actividadAEliminar}
         titulo="Eliminar actividad"
@@ -362,5 +437,15 @@ function Campo({ etiqueta, children }: { etiqueta: string; children: React.React
       <span className="block text-xs font-medium text-on-surface-variant mb-1">{etiqueta}</span>
       {children}
     </label>
+  );
+}
+
+function DetalleCampo({ etiqueta, valor }: { etiqueta: string; valor?: string }) {
+  if (!valor) return null;
+  return (
+    <div>
+      <span className="block text-xs font-medium text-on-surface-variant mb-1">{etiqueta}</span>
+      <p className="text-sm text-on-surface bg-surface-container p-2.5 rounded-xl">{valor}</p>
+    </div>
   );
 }
