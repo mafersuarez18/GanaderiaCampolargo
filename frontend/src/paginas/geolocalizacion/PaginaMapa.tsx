@@ -962,7 +962,7 @@ export default function PaginaMapa() {
           </div>
 
           {cargandoMovilidad ? (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="h-20 rounded-2xl bg-surface-container animate-pulse" />
               ))}
@@ -970,7 +970,7 @@ export default function PaginaMapa() {
           ) : dispSeleccionado && movilidad && trackActivo.length > 0 ? (
             <>
               {/* KPIs del track */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   {
                     et: 'Distancia recorrida',
@@ -992,13 +992,13 @@ export default function PaginaMapa() {
                     ico: 'speed', col: 'text-tertiary', fondo: 'bg-tertiary/10',
                   },
                 ].map((kpi) => (
-                  <div key={kpi.et} className="tarjeta-vidrio rounded-2xl p-4 flex items-center gap-3">
+                  <div key={kpi.et} className="tarjeta-vidrio rounded-2xl p-4 flex items-center gap-3 min-w-0">
                     <div className={`p-2.5 ${kpi.fondo} rounded-xl flex-shrink-0`}>
                       <Icono nombre={kpi.ico} relleno clase={`text-[20px] ${kpi.col}`} />
                     </div>
-                    <div>
-                      <p className={`text-xl font-bold ${kpi.col}`}>{kpi.val}</p>
-                      <p className="text-xs text-on-surface-variant leading-tight">{kpi.et}</p>
+                    <div className="min-w-0">
+                      <p className={`text-xl font-bold ${kpi.col} truncate`}>{kpi.val}</p>
+                      <p className="text-xs text-on-surface-variant leading-tight truncate">{kpi.et}</p>
                     </div>
                   </div>
                 ))}
